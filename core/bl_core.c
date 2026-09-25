@@ -14,6 +14,7 @@ typedef enum { BL_STATE_WAIT_HOST, BL_STATE_UPGRADE_WAIT, BL_STATE_FAULT } core_
 
 static core_state_t s_state;
 static uint32_t     s_wait_start;
+static uint32_t     s_last_hb;
 static bl_meta_t    s_meta;
 
 /* ---- 工具 ---- */
@@ -276,6 +277,15 @@ void bl_core_run(void)
         }
         bl_protocol_poll(now);   /* 帧内 50ms 超时复位半帧 */
         bl_ui_tick(now);
+
+#if !BL_LOG_DISABLE
+        /* 空闲心跳（design.md ADR-009）：串口链路自检——协议活跃期自动静默 */
+        if (!bl_protocol_is_active(now) &&
+            (now - s_last_hb) >= BL_LOG_HEARTBEAT_MS) {
+            s_last_hb = now;
+            BL_LOGI("hb %u", now);
+        }
+#endif
 
         switch (s_state) {
         case BL_STATE_WAIT_HOST:

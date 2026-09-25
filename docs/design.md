@@ -89,7 +89,7 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 ### ADR-009 日志与协议复用 USART1
 
-日志默认与协议共用 USART1。规则：`protocol_active == 0` 时允许日志输出；收到 SOF 即静音，会话结束（跳转/复位/超 10 s 无帧）恢复；启动横幅仅在等待窗口输出。编译期控制：`BL_LOG_LEVEL`（ERROR/WARN/INFO/DEBUG，默认 INFO）、`BL_LOG_DISABLE=1` 全关。上位机解析不受影响：帧由 SOF/EOF 包裹并有 CRC 保护，混入的日志字节被解析器帧同步丢弃。
+日志默认与协议共用 USART1。规则：`protocol_active == 0` 时允许日志输出；收到 SOF 即静音，会话结束（跳转/复位/超 10 s 无帧）恢复；启动横幅仅在等待窗口输出。编译期控制：`BL_LOG_LEVEL`（ERROR/WARN/INFO/DEBUG，默认 INFO）、`BL_LOG_DISABLE=1` 全关。上位机解析不受影响：帧由 SOF/EOF 包裹并有 CRC 保护，混入的日志字节被解析器帧同步丢弃。另有**空闲心跳日志**（`BL_LOG_HEARTBEAT_MS`，默认 2000 ms，0 关闭）：协议空闲期周期输出 `I:hb <毫秒>`，用于无显示场景下的串口链路自检（干净文本=TX 与波特率正常；乱码=波特率/时钟异常；无输出=TX 路径或芯片被复位），协议活跃期同样静默。
 
 ### ADR-010 时钟与回退
 
@@ -138,3 +138,4 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 | `BL_PROTOCOL_ACTIVE_MS` | 10000 | 协议活跃判定窗口 |
 | `BL_UI_REFRESH_MS` | 200 | OLED 最低刷新间隔 |
 | `BL_LOG_LEVEL` / `BL_LOG_DISABLE` | INFO / 0 | 日志编译期控制 |
+| `BL_LOG_HEARTBEAT_MS` | 2000 | 空闲心跳日志间隔（0=关闭） |
