@@ -80,7 +80,7 @@ def crc16_modbus(data: bytes) -> int:
 | 0x09 | RESET | 空 | 0x89 | status(1) |
 | 0x10–0x1F | （预留）OTA 扩展 | — | — | 仅预留编号，本期不实现 |
 
-所有响应 DATA **首字节固定为状态码**：
+所有响应 DATA **首字节固定为状态码**；未知命令回 `CMD|0x80` + `STATE_ERROR`（SEQ 照常回显）。
 
 | 状态码 | 名称 | 含义 |
 |---:|---|---|

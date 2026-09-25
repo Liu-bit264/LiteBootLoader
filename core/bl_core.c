@@ -49,6 +49,8 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
     }
     uint8_t d[31];
     uint32_t k = 0;
+    bl_meta_t m;
+    bl_meta_load(&m);   /* 实时读取：VERIFY 持久化后 core 缓存副本已陈旧（Review F1） */
     d[k++] = (uint8_t)BL_STATUS_OK;
     d[k++] = BL_VERSION_MAJOR;
     d[k++] = BL_VERSION_MINOR;
@@ -61,18 +63,18 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
     uint32_t fk = bl_port_read_word(BL_FLSIZE_ADDR) & 0xFFFFu;
     d[k++] = (uint8_t)fk; d[k++] = (uint8_t)(fk >> 8);
     d[k++] = bl_boot_app_valid() ? 0x01u : 0x00u;
-    d[k++] = (uint8_t)s_meta.app_size;
-    d[k++] = (uint8_t)(s_meta.app_size >> 8);
-    d[k++] = (uint8_t)(s_meta.app_size >> 16);
-    d[k++] = (uint8_t)(s_meta.app_size >> 24);
-    d[k++] = (uint8_t)s_meta.app_crc32;
-    d[k++] = (uint8_t)(s_meta.app_crc32 >> 8);
-    d[k++] = (uint8_t)(s_meta.app_crc32 >> 16);
-    d[k++] = (uint8_t)(s_meta.app_crc32 >> 24);
-    d[k++] = (uint8_t)s_meta.seq;
-    d[k++] = (uint8_t)(s_meta.seq >> 8);
-    d[k++] = (uint8_t)(s_meta.seq >> 16);
-    d[k++] = (uint8_t)(s_meta.seq >> 24);
+    d[k++] = (uint8_t)m.app_size;
+    d[k++] = (uint8_t)(m.app_size >> 8);
+    d[k++] = (uint8_t)(m.app_size >> 16);
+    d[k++] = (uint8_t)(m.app_size >> 24);
+    d[k++] = (uint8_t)m.app_crc32;
+    d[k++] = (uint8_t)(m.app_crc32 >> 8);
+    d[k++] = (uint8_t)(m.app_crc32 >> 16);
+    d[k++] = (uint8_t)(m.app_crc32 >> 24);
+    d[k++] = (uint8_t)m.seq;
+    d[k++] = (uint8_t)(m.seq >> 8);
+    d[k++] = (uint8_t)(m.seq >> 16);
+    d[k++] = (uint8_t)(m.seq >> 24);
     bl_protocol_send((uint8_t)(BL_CMD_GET_INFO | 0x80u), seq, d, k);
 }
 
