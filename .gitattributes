@@ -1,0 +1,29 @@
+# 默认按文本处理并自动规范化换行
+* text=auto
+
+# 文本文件
+*.md text
+*.py text
+*.c text
+*.h text
+*.hex text
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# 换行敏感：链接脚本、分散加载与 Keil 工程文件不做自动转换（防止换行符混用）
+*.sct -text
+*.ld -text
+*.uvprojx -text
+*.uvproj -text
+
+# 二进制文件
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.axf binary
+*.bin binary
+*.elf binary
+*.o binary
+*.lib binary
+*.flm binary

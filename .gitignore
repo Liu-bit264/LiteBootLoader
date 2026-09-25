@@ -1,0 +1,42 @@
+# ---- Keil MDK 工程产物 ----
+*.uvguix.*
+Listings/
+Objects/
+DebugConfig/
+RTE/
+EventRecorderStub.scvd
+*.scvd
+JLinkLog.txt
+
+# ---- 构建产物 ----
+build/
+out/
+*.o
+*.d
+*.crf
+*.axf
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.htm
+*.lnp
+*.dep
+*.iex
+*.bak
+*.bak-*
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+
+# ---- 本地工具状态 ----
+.mimosa/
