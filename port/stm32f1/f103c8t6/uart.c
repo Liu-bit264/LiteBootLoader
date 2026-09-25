@@ -6,6 +6,7 @@
 static volatile uint8_t  s_ring[BL_RX_RING_SIZE];
 static volatile uint32_t s_head;   /* 写指针（IRQ） */
 static volatile uint32_t s_tail;   /* 读指针（主循环） */
+static volatile uint32_t s_rx_total;   /* 累计接收字节（含丢弃，接线诊断） */
 
 void bl_uart_port_init(void)
 {
@@ -51,9 +52,12 @@ uint32_t bl_uart_port_rx_pop(uint8_t *buf, uint32_t max)
     return n;
 }
 
+uint32_t bl_uart_port_rx_total(void) { return s_rx_total; }
+
 static void ring_push(uint8_t b)
 {
     uint32_t next = (s_head + 1u) % BL_RX_RING_SIZE;
+    s_rx_total++;
     if (next == s_tail) {
         return; /* 溢出丢字节：帧同步恢复兜底（protocol.md §4.2） */
     }

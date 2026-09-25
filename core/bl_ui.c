@@ -2,8 +2,10 @@
 #include "bl_port.h"
 #include "board_config.h"
 #include "bl_version.h"
+#include "bl_protocol.h"
 #include "ssd1306.h"
 #include "clock.h"
+#include "uart.h"
 
 static bl_ui_state_t s_state;
 static uint8_t  s_progress;
@@ -48,6 +50,25 @@ void bl_ui_set_progress(uint8_t percent) { s_progress = percent; }
 
 void bl_ui_set_crc_ok(bool ok) { s_crc_ok = ok; }
 
+/* 无符号十进制定宽（右对齐补零），返回写入长度 */
+static uint8_t fmt_dec(char *dst, uint32_t v, uint8_t width)
+{
+    char tmp[10];
+    uint8_t n = 0;
+    do {
+        tmp[n++] = (char)('0' + (v % 10u));
+        v /= 10u;
+    } while (v != 0u && n < width);
+    uint8_t out = 0;
+    for (uint8_t pad = n; pad < width; pad++) {
+        dst[out++] = '0';
+    }
+    while (n) {
+        dst[out++] = tmp[--n];
+    }
+    return out;
+}
+
 static void refresh_screen(void)
 {
     char line[24];
@@ -81,6 +102,18 @@ static void refresh_screen(void)
 
     ssd1306_puts(0, 4, s_crc_ok ? "CRC:OK " : "CRC:-- ");
     ssd1306_puts(8, 5, "WDG:ON ");
+
+    /* 接线诊断行：RX=累计收到字节，VF=已解析送达的有效帧（protocol.md §4.2） */
+    {
+        char diag[22];
+        uint8_t k = 0;
+        diag[k++] = 'R'; diag[k++] = 'X'; diag[k++] = ':';
+        k += fmt_dec(diag + k, bl_uart_port_rx_total(), 7u);
+        diag[k++] = ' '; diag[k++] = 'V'; diag[k++] = 'F'; diag[k++] = ':';
+        (void)fmt_dec(diag + k, bl_protocol_stat_delivered(), 7u);
+        diag[21] = '\0';
+        ssd1306_puts(0, 6, diag);
+    }
 }
 
 void bl_ui_tick(uint32_t now_ms)

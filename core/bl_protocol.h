@@ -34,4 +34,8 @@ bool bl_protocol_send(uint8_t resp_cmd, uint8_t seq,
                       const uint8_t *data, uint32_t len);       /* 组帧发送（resp_cmd 已含 0x80） */
 bool bl_protocol_is_active(uint32_t now_ms);                    /* BL_PROTOCOL_ACTIVE_MS 内有有效帧 */
 
+/* 诊断计数（OLED 诊断行用）：CRC 通过的帧 / 已送达 core 的帧 */
+uint32_t bl_protocol_stat_crc_ok(void);
+uint32_t bl_protocol_stat_delivered(void);
+
 #endif /* BL_PROTOCOL_H */

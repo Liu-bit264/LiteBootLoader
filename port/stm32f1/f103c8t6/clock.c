@@ -18,7 +18,7 @@ void SystemInit(void)
     FLASH->ACR = FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_2;
 
     RCC->CR |= RCC_CR_HSEON;
-    uint32_t timeout = 120000u; /* ~100ms @8MHz 粗估，无需精确（ADR-010） */
+    uint32_t timeout = 600000u; /* ~300ms@8MHz：插件晶振起振可能偏慢；IWDG 此时尚未开启 */
     while (!(RCC->CR & RCC_CR_HSERDY) && --timeout) {
     }
 

@@ -20,6 +20,8 @@ static uint16_t    s_crc_rx;
 static uint32_t    s_last_valid_ms;
 static uint32_t    s_last_byte_ms;
 static bool        s_has_valid_frame;
+static uint32_t    s_stat_crc_ok;
+static uint32_t    s_stat_delivered;
 
 void bl_protocol_init(void)
 {
@@ -38,6 +40,10 @@ bool bl_protocol_is_active(uint32_t now_ms)
     return (now_ms - s_last_valid_ms) < BL_PROTOCOL_ACTIVE_MS;
 }
 
+uint32_t bl_protocol_stat_crc_ok(void) { return s_stat_crc_ok; }
+
+uint32_t bl_protocol_stat_delivered(void) { return s_stat_delivered; }
+
 static void frame_complete(void)
 {
     s_state = PS_SOF1;
@@ -53,6 +59,7 @@ static void frame_complete(void)
     if (expect != s_crc_rx) {
         return; /* 静默丢弃（protocol.md §4.2：CMD 不可信，无法回帧） */
     }
+    s_stat_crc_ok++;
     s_last_valid_ms = bl_clock.tick_ms();
     s_has_valid_frame = true;
     if (s_ver != BL_PROTOCOL_VER) {
@@ -61,6 +68,7 @@ static void frame_complete(void)
     if (s_cmd & 0x80u) {
         return; /* 响应方向帧不来自主机，丢弃 */
     }
+    s_stat_delivered++;
     bl_core_frame_received(s_cmd, s_seq, s_data, s_len);
 }
 
