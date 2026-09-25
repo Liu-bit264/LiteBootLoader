@@ -25,7 +25,7 @@
 #define BL_FRAME_DATA_MAX      256u    /* protocol.md §4 */
 #define BL_FRAME_BYTE_TIMEOUT_MS 50u   /* 帧内字节间超时（protocol.md §4.2） */
 #define BL_VERIFY_CHUNK        1024u   /* VERIFY 分块（喂狗粒度） */
-#define BL_LOG_HEARTBEAT_MS    2000u   /* 空闲心跳日志间隔（0=关闭；协议活跃期静默） */
+#define BL_LOG_HEARTBEAT_MS    500u    /* 空闲心跳日志间隔（0=关闭；协议活跃期静默；接线探针模式） */
 
 /* ---- 引脚编号（gpio.c 内映射实际端口） ---- */
 #define BL_PIN_LED             0u      /* PC13，低电平点亮 */
