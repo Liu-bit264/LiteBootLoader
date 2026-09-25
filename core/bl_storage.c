@@ -7,9 +7,29 @@
 
 static uint8_t s_chunk[BL_VERIFY_CHUNK];   /* 1 KiB：VERIFY/擦除探测复用，静态分配 */
 
+/* 本会话内已确保处于擦除态的 APP 页位图（APP 相对页号 0..45）。
+   ERASE_APP 逐页置位；写路径只对未标记页做"扫描+按需擦除"。
+   背景（升级流程 selftest 实测教训）：旧实现每次写前无条件扫描，
+   同一页的第二次写入会触发整页擦除，把先前分块全部抹掉（两轮 verify
+   回读 CRC 同为 0xc71b794b = FF*504+最后 8B，实锤）。
+   复位后页状态未知，init 清零，由扫描兜底。 */
+#define BL_APP_PAGES  (BL_APP_SIZE / BL_PAGE_SIZE)
+static uint8_t s_erased_map[(BL_APP_PAGES + 7u) / 8u];
+
+static void erased_map_set(uint32_t rel_page)
+{
+    s_erased_map[rel_page >> 3] |= (uint8_t)(1u << (rel_page & 7u));
+}
+
+static bool erased_map_test(uint32_t rel_page)
+{
+    return (s_erased_map[rel_page >> 3] & (uint8_t)(1u << (rel_page & 7u))) != 0u;
+}
+
 bool bl_storage_init(void)
 {
     bl_flash.init();
+    memset(s_erased_map, 0, sizeof(s_erased_map));
     return bl_flash.page_size() == BL_PAGE_SIZE;
 }
 
@@ -38,6 +58,7 @@ bl_status_t bl_storage_erase_app(void)
         if (!bl_flash.erase_page(first + i)) {
             return BL_STATUS_FLASH_ERROR;
         }
+        erased_map_set(i);
     }
     return BL_STATUS_OK;
 }
@@ -52,18 +73,24 @@ bl_status_t bl_storage_write_chunk(uint32_t offset, const uint8_t *data, uint32_
         return BL_STATUS_RANGE_ERROR;
     }
 
-    /* 写前自动擦页（ADR-007）：受影响页有非 0xFF 字节则先擦，页间喂狗 */
+    /* 写前确保目标页为擦除态（ADR-007 修订）：位图已标记的页直接跳过，
+       未标记页扫描后按需擦除——同一页的后续写入不再整页擦除 */
     uint32_t addr = BL_APP_BASE + offset;
     uint32_t page_span = ((offset % BL_PAGE_SIZE) + len + BL_PAGE_SIZE - 1u) / BL_PAGE_SIZE;
-    uint32_t page_idx = (addr - BL_FLASH_BASE) / BL_PAGE_SIZE;
+    uint32_t rel = offset / BL_PAGE_SIZE;
     for (uint32_t p = 0; p < page_span; p++) {
-        uint32_t pa = BL_FLASH_BASE + (page_idx + p) * BL_PAGE_SIZE;
-        if (page_needs_erase(pa)) {
+        if (erased_map_test(rel + p)) {
+            continue;
+        }
+        bl_wdg.refresh();
+        if (page_needs_erase(BL_APP_BASE + (rel + p) * BL_PAGE_SIZE)) {
             bl_wdg.refresh();
-            if (!bl_flash.erase_page(page_idx + p)) {
+            if (!bl_flash.erase_page((BL_APP_BASE - BL_FLASH_BASE) / BL_PAGE_SIZE +
+                                     rel + p)) {
                 return BL_STATUS_FLASH_ERROR;
             }
         }
+        erased_map_set(rel + p);
     }
 
     bl_wdg.refresh();
