@@ -62,12 +62,13 @@ void bl_boot_jump(void)
     bl_port_clear_pending_irqs();
     /* 第 7 步：VTOR = APP 基址 */
     bl_port_set_vtor(BL_APP_BASE);
-    /* 第 8 步：MSP = APP 向量表首项 */
+    /* 第 8+9 步：读 APP 向量表首项与 Reset Handler，切 MSP 并立即跳转。
+       必须单块原子完成——阶段 2 实测教训：先经 C 函数 bl_port_set_msp 切 MSP，
+       该函数自身的 POP {r4,pc} 会从"新栈"弹出未初始化垃圾作为 PC，随机跳址
+       落入 HardFault（栈帧 PC=0 / LR=set_msp 的 POP 指令，fault 现场实锤）。 */
     uint32_t msp = bl_port_read_word(BL_APP_BASE);
-    bl_port_set_msp(msp);
-    /* 第 9 步：跳转 Reset Handler（IWDG 保持运行，跳转前已喂狗） */
     uint32_t reset = bl_port_read_word(BL_APP_BASE + 4u);
-    bl_port_jump(reset);
+    bl_port_switch_msp_and_jump(msp, reset);   /* 真汇编实现（bl_jump.s），不返回 */
     for (;;) {
     } /* 不可达 */
 }

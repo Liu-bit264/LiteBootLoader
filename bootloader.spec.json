@@ -22,7 +22,9 @@
         "create_executable": true,
         "create_hex_file": false
       },
-      "c_defines": ["STM32F10X_MD"],
+      "c_defines": [
+        "STM32F10X_MD"
+      ],
       "c_include_paths": [
         "core",
         "port",
@@ -36,47 +38,136 @@
         {
           "name": "Startup",
           "files": [
-            { "name": "startup_stm32f10x_md.s", "type": 2, "path": "port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s" }
+            {
+              "name": "startup_stm32f10x_md.s",
+              "type": 2,
+              "path": "port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s"
+            },
+            {
+              "name": "bl_jump.s",
+              "type": 2,
+              "path": "port\\stm32f1\\f103c8t6\\bl_jump.s"
+            }
           ]
         },
         {
           "name": "Core",
           "files": [
-            { "name": "bl_core.c", "type": 1, "path": "core\\bl_core.c" },
-            { "name": "bl_protocol.c", "type": 1, "path": "core\\bl_protocol.c" },
-            { "name": "bl_transport.c", "type": 1, "path": "core\\bl_transport.c" },
-            { "name": "bl_storage.c", "type": 1, "path": "core\\bl_storage.c" },
-            { "name": "bl_metadata.c", "type": 1, "path": "core\\bl_metadata.c" },
-            { "name": "bl_boot.c", "type": 1, "path": "core\\bl_boot.c" },
-            { "name": "bl_crc.c", "type": 1, "path": "core\\bl_crc.c" },
-            { "name": "bl_log.c", "type": 1, "path": "core\\bl_log.c" },
-            { "name": "bl_ui.c", "type": 1, "path": "core\\bl_ui.c" }
+            {
+              "name": "bl_core.c",
+              "type": 1,
+              "path": "core\\bl_core.c"
+            },
+            {
+              "name": "bl_protocol.c",
+              "type": 1,
+              "path": "core\\bl_protocol.c"
+            },
+            {
+              "name": "bl_transport.c",
+              "type": 1,
+              "path": "core\\bl_transport.c"
+            },
+            {
+              "name": "bl_storage.c",
+              "type": 1,
+              "path": "core\\bl_storage.c"
+            },
+            {
+              "name": "bl_metadata.c",
+              "type": 1,
+              "path": "core\\bl_metadata.c"
+            },
+            {
+              "name": "bl_boot.c",
+              "type": 1,
+              "path": "core\\bl_boot.c"
+            },
+            {
+              "name": "bl_crc.c",
+              "type": 1,
+              "path": "core\\bl_crc.c"
+            },
+            {
+              "name": "bl_log.c",
+              "type": 1,
+              "path": "core\\bl_log.c"
+            },
+            {
+              "name": "bl_ui.c",
+              "type": 1,
+              "path": "core\\bl_ui.c"
+            }
           ]
         },
         {
           "name": "CMSIS",
           "files": [
-            { "name": "core_cm3.c", "type": 1, "path": "third_party\\CMSIS\\core_cm3.c" }
+            {
+              "name": "core_cm3.c",
+              "type": 1,
+              "path": "third_party\\CMSIS\\core_cm3.c"
+            }
           ]
         },
         {
           "name": "Port",
           "files": [
-            { "name": "main.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\main.c" },
-            { "name": "clock.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\clock.c" },
-            { "name": "systick.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\systick.c" },
-            { "name": "uart.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\uart.c" },
-            { "name": "gpio.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\gpio.c" },
-            { "name": "wdg.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\wdg.c" },
-            { "name": "flash.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\flash.c" },
-            { "name": "i2c.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\i2c.c" }
+            {
+              "name": "main.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\main.c"
+            },
+            {
+              "name": "clock.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\clock.c"
+            },
+            {
+              "name": "systick.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\systick.c"
+            },
+            {
+              "name": "uart.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\uart.c"
+            },
+            {
+              "name": "gpio.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\gpio.c"
+            },
+            {
+              "name": "wdg.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\wdg.c"
+            },
+            {
+              "name": "flash.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\flash.c"
+            },
+            {
+              "name": "i2c.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\i2c.c"
+            }
           ]
         },
         {
           "name": "BSP",
           "files": [
-            { "name": "ssd1306.c", "type": 1, "path": "bsp\\oled_ssd1306\\ssd1306.c" },
-            { "name": "ssd1306_font.c", "type": 1, "path": "bsp\\oled_ssd1306\\ssd1306_font.c" }
+            {
+              "name": "ssd1306.c",
+              "type": 1,
+              "path": "bsp\\oled_ssd1306\\ssd1306.c"
+            },
+            {
+              "name": "ssd1306_font.c",
+              "type": 1,
+              "path": "bsp\\oled_ssd1306\\ssd1306_font.c"
+            }
           ]
         }
       ]

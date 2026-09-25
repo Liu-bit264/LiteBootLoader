@@ -60,7 +60,11 @@ void bl_port_i2c_release(void);            /* PB8/PB9 释放为模拟输入 */
 void bl_port_clear_pending_irqs(void);     /* NVIC ICPR 全清 */
 void bl_port_set_vtor(uint32_t addr);
 void bl_port_set_msp(uint32_t value);
+/* 注意：set_msp/jump 两个 C 辅助不得用于真实跳转路径——set_msp 切换 MSP 后
+   自身的函数尾声会从新栈弹 PC（阶段 2 fault 现场实锤）。真实跳转用下方
+   bl_port_switch_msp_and_jump（真汇编原子序列，bl_jump.s）。 */
 void bl_port_jump(uint32_t reset_handler);
+void bl_port_switch_msp_and_jump(uint32_t msp, uint32_t entry);  /* 不返回 */
 void bl_port_system_reset(void);
 uint32_t bl_port_read_word(uint32_t addr);
 
