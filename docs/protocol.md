@@ -226,19 +226,28 @@ AA 55 01 84 02 01 00 00 A1 AC 55 AA
 
 ## 9. 上位机工具与 VOFA+
 
-### 9.1 Python 升级工具（阶段 3 交付 `tools/python/bl_upgrade.py`，用法先行固化）
+### 9.1 Python 升级工具（阶段 3 已交付 `tools/python/bl_upgrade.py` v1.0.0）
 
 ```bash
 # 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §3）
-uv run --python 3.12 --with pyserial python tools/python/bl_upgrade.py \
-    --port COM3 --baud 115200 --app app.bin
+# 一键升级（从任意状态：对端是 BL 直接升；是 APP 则自动"请求回 BL"再升级）
+uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py \
+    upgrade app.bin --port COM4
+# 流程检验（15 步硬件在环 selftest）
+uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py \
+    selftest --port COM4
+# 单命令：ping / info / meta / erase / verify <size> <crc_hex> / jump / reset / ...
 ```
 
-工具行为：读入 `app.bin` → 0xFF 填充至 4 字节对齐 → PING 握手 → ERASE_APP → 逐 WRITE_CHUNK（每帧 ≤ 256 B DATA，窗口 1）→ VERIFY_APP（自动携带 size/CRC）→ 提示 JUMP_APP/RESET。串口枚举用 pyserial（Windows 形如 `COM3`）。
+工具行为：读入镜像 → 0xFF 填充至 4 字节对齐 → `ensure_bl` 探测（GET_INFO：OK=BL 直接升；
+RANGE_ERROR=APP 响应器，自动 SET_META bl_request=1 等复位；无响应等 2.2 s 重试 ×3）→
+ERASE_APP → 逐 WRITE_CHUNK（DATA 256 B，payload 252 B）→ VERIFY_APP（自动携带 size/CRC）
+→ 提示 JUMP_APP。所有命令带重试层（§6）：超时重发 ≤3 次，间隔 2.2 s（≥ BL 帧内 2000 ms
+超时复位窗口）。串口枚举用 pyserial（Windows 形如 `COM4`）。
 
 ### 9.2 VOFA+ RawData 手动发帧模板
 
-VOFA+ 仅用于**日志观察**与 **RawData 通道手动发 hex 帧**调试，不是正式升级器（定位说明见 [vofa_plus.md](vofa_plus.md)）。串口配置 115200 8N1。可直接粘贴的帧（CRC 为实测值，改任意字节需用 §4.1 参考实现重算）：
+VOFA+ 仅用于**日志观察**与 **RawData 通道手动发 hex 帧**调试，不是正式升级器（定位说明见 [vofa_plus.md](vofa_plus.md)，首跑配置与全命令帧速查表见 `tools/vofa+/README.md`、`tools/vofa+/rawdata_frames.md`）。串口配置 115200 8N1。可直接粘贴的帧（CRC 为实测值，改任意字节需用 §4.1 参考实现重算）：
 
 ```text
 PING 请求     : AA 55 01 01 01 00 00 49 FC 55 AA
