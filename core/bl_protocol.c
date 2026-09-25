@@ -22,6 +22,11 @@ static uint32_t    s_last_byte_ms;
 static bool        s_has_valid_frame;
 static uint32_t    s_stat_crc_ok;
 static uint32_t    s_stat_delivered;
+static uint32_t    s_stat_crc_fail;
+static uint32_t    s_stat_byte_timeout;
+static uint32_t    s_stat_timeout_pending;   /* 超时触发时环形缓冲仍有字节（主循环被阻塞的信号） */
+/* 最近一次帧内超时的现场快照（GET_INFO 遥测）：饥饿时长/缓冲待取/解析状态/已收字节 */
+static uint32_t    s_dbg_gap_ms, s_dbg_pending, s_dbg_state, s_dbg_got;
 
 void bl_protocol_init(void)
 {
@@ -44,6 +49,21 @@ uint32_t bl_protocol_stat_crc_ok(void) { return s_stat_crc_ok; }
 
 uint32_t bl_protocol_stat_delivered(void) { return s_stat_delivered; }
 
+uint32_t bl_protocol_stat_crc_fail(void) { return s_stat_crc_fail; }
+
+uint32_t bl_protocol_stat_byte_timeout(void) { return s_stat_byte_timeout; }
+
+uint32_t bl_protocol_stat_timeout_pending(void) { return s_stat_timeout_pending; }
+
+void bl_protocol_stat_timeout_detail(uint32_t out[4])
+{
+    /* 最近一次帧内超时现场：[饥饿时长ms, 缓冲待取, 解析状态, 已收字节数] */
+    out[0] = s_dbg_gap_ms;
+    out[1] = s_dbg_pending;
+    out[2] = s_dbg_state;
+    out[3] = s_got;
+}
+
 static void frame_complete(void)
 {
     s_state = PS_SOF1;
@@ -57,6 +77,7 @@ static void frame_complete(void)
     uint16_t expect = bl_crc16_update(BL_CRC16_INIT, hdr, sizeof(hdr));
     expect = bl_crc16_update(expect, s_data, s_len);
     if (expect != s_crc_rx) {
+        s_stat_crc_fail++;
         return; /* 静默丢弃（protocol.md §4.2：CMD 不可信，无法回帧） */
     }
     s_stat_crc_ok++;
@@ -133,8 +154,18 @@ void bl_protocol_feed(const uint8_t *data, uint32_t len)
 
 void bl_protocol_poll(uint32_t now_ms)
 {
+    (void)now_ms;
+    uint32_t now = bl_clock.tick_ms();   /* 现场重读，避免循环顶部旧值参与比较 */
     if (s_state != PS_SOF1 &&
-        (now_ms - s_last_byte_ms) >= BL_FRAME_BYTE_TIMEOUT_MS) {
+        (now - s_last_byte_ms) >= BL_FRAME_BYTE_TIMEOUT_MS) {
+        s_dbg_gap_ms = now - s_last_byte_ms;
+        s_dbg_pending = bl_transport_rx_pending();
+        s_dbg_state = (uint32_t)s_state;
+        s_dbg_got = s_got;
+        if (s_dbg_pending != 0u) {
+            s_stat_timeout_pending++;
+        }
+        s_stat_byte_timeout++;
         s_state = PS_SOF1;   /* 半帧丢弃（protocol.md §4.2 帧内超时） */
     }
 }

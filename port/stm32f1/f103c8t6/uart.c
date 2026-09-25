@@ -54,6 +54,11 @@ uint32_t bl_uart_port_rx_pop(uint8_t *buf, uint32_t max)
 
 uint32_t bl_uart_port_rx_total(void) { return s_rx_total; }
 
+uint32_t bl_uart_port_rx_pending(void)
+{
+    return (s_head + BL_RX_RING_SIZE - s_tail) % BL_RX_RING_SIZE;
+}
+
 static void ring_push(uint8_t b)
 {
     uint32_t next = (s_head + 1u) % BL_RX_RING_SIZE;

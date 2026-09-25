@@ -25,7 +25,10 @@
 #define BL_UI_REFRESH_MS       200u    /* OLED 最低刷新间隔 */
 #define BL_RX_RING_SIZE        512u    /* architecture.md §6 */
 #define BL_FRAME_DATA_MAX      256u    /* protocol.md §4 */
-#define BL_FRAME_BYTE_TIMEOUT_MS 50u   /* 帧内字节间超时（protocol.md §4.2） */
+#define BL_FRAME_BYTE_TIMEOUT_MS 2000u /* 帧内字节间超时（protocol.md §4.2）。2026-09-26 定版：
+                                          假触发根因是 poll 用循环顶旧时间戳做无符号减法、毫秒边界
+                                          跨越时回绕（selftest 遥测实锤），已改现场重读时刻；阈值
+                                          取 2s 容忍 USB/CDC 转发抖动，主机重试间隔需 ≥2s */
 #define BL_VERIFY_CHUNK        1024u   /* VERIFY 分块（喂狗粒度） */
 #define BL_LOG_HEARTBEAT_MS    500u    /* 空闲心跳日志间隔（0=关闭；协议活跃期静默；接线探针模式） */
 

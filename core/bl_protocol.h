@@ -37,5 +37,9 @@ bool bl_protocol_is_active(uint32_t now_ms);                    /* BL_PROTOCOL_A
 /* 诊断计数（OLED 诊断行用）：CRC 通过的帧 / 已送达 core 的帧 */
 uint32_t bl_protocol_stat_crc_ok(void);
 uint32_t bl_protocol_stat_delivered(void);
+uint32_t bl_protocol_stat_crc_fail(void);       /* CRC 不符被静默丢弃的帧 */
+uint32_t bl_protocol_stat_byte_timeout(void);   /* 帧内超时复位半帧的次数 */
+uint32_t bl_protocol_stat_timeout_pending(void);/* 超时时环形缓冲仍有字节的次数 */
+void bl_protocol_stat_timeout_detail(uint32_t out[4]); /* 最近超时现场 [gap,pending,state,got] */
 
 #endif /* BL_PROTOCOL_H */

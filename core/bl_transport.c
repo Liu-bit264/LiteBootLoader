@@ -17,3 +17,5 @@ uint32_t bl_transport_recv(uint8_t *buf, uint32_t max)
 }
 
 uint32_t bl_transport_rx_total(void) { return bl_uart_port_rx_total(); }
+
+uint32_t bl_transport_rx_pending(void) { return bl_uart_port_rx_pending(); }

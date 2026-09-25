@@ -48,7 +48,7 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
         resp_status(BL_CMD_GET_INFO, seq, BL_STATUS_RANGE_ERROR);
         return;
     }
-    uint8_t d[39];
+    uint8_t d[67];
     uint32_t k = 0;
     bl_meta_t m;
     bl_meta_load(&m);   /* 实时读取：VERIFY 持久化后 core 缓存副本已陈旧（Review F1） */
@@ -83,6 +83,23 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
     uint32_t vfn = bl_protocol_stat_delivered();
     d[k++] = (uint8_t)vfn; d[k++] = (uint8_t)(vfn >> 8);
     d[k++] = (uint8_t)(vfn >> 16); d[k++] = (uint8_t)(vfn >> 24);
+    /* 帧丢失诊断：CRC 不符丢弃数 / 帧内超时复位数 */
+    uint32_t cfc = bl_protocol_stat_crc_fail();
+    d[k++] = (uint8_t)cfc; d[k++] = (uint8_t)(cfc >> 8);
+    d[k++] = (uint8_t)(cfc >> 16); d[k++] = (uint8_t)(cfc >> 24);
+    uint32_t bto = bl_protocol_stat_byte_timeout();
+    d[k++] = (uint8_t)bto; d[k++] = (uint8_t)(bto >> 8);
+    d[k++] = (uint8_t)(bto >> 16); d[k++] = (uint8_t)(bto >> 24);
+    uint32_t tpd = bl_protocol_stat_timeout_pending();
+    d[k++] = (uint8_t)tpd; d[k++] = (uint8_t)(tpd >> 8);
+    d[k++] = (uint8_t)(tpd >> 16); d[k++] = (uint8_t)(tpd >> 24);
+    /* 最近一次帧内超时现场快照（诊断帧饥饿） */
+    uint32_t det[4];
+    bl_protocol_stat_timeout_detail(det);
+    for (uint32_t w = 0; w < 4u; w++) {
+        d[k++] = (uint8_t)det[w]; d[k++] = (uint8_t)(det[w] >> 8);
+        d[k++] = (uint8_t)(det[w] >> 16); d[k++] = (uint8_t)(det[w] >> 24);
+    }
     bl_protocol_send((uint8_t)(BL_CMD_GET_INFO | 0x80u), seq, d, k);
 }
 

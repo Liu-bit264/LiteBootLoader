@@ -52,7 +52,7 @@ def st_name(st: int) -> str:
 
 
 class BootLoader:
-    def __init__(self, port: str, baud: int = 115200):
+    def __init__(self, port: str, baud: int = 115200, pace_ms: int = 0):
         try:
             self.s = serial.Serial(port, baud, timeout=0.05, write_timeout=2.0)
         except serial.SerialException as e:
@@ -60,6 +60,9 @@ class BootLoader:
         self.buf = b""
         self.seq = 0
         self.noise = b""          # 无法成帧的字节（日志/心跳/重启横幅）
+        self.sent_bytes = 0       # 本次连接累计发送字节（含坏帧）
+        self.expected_delivered = 0  # 本次连接预期送达的有效帧数
+        self.pace = pace_ms       # 命令间延时（ms），用于时序假设验证
 
     def _noise(self, b: bytes):
         if b:
@@ -71,8 +74,13 @@ class BootLoader:
     def cmd(self, name: str, data: bytes = b"", timeout: float = 1.0):
         """发送命令并等待响应；返回 {'cmd','seq','data'} 或 None（超时）。"""
         self.seq = (self.seq + 1) & 0xFF
-        self.s.write(build_frame(CMD[name], self.seq, data))
+        f = build_frame(CMD[name], self.seq, data)
+        self.sent_bytes += len(f)
+        self.expected_delivered += 1
+        self.s.write(f)
         self.s.flush()
+        if self.pace:
+            time.sleep(self.pace / 1000.0)
         r = self.recv_frame(timeout)
         if r is not None:
             if r["cmd"] != (CMD[name] | 0x80):
@@ -82,6 +90,7 @@ class BootLoader:
         return r
 
     def send_raw(self, frame: bytes):
+        self.sent_bytes += len(frame)
         self.s.write(frame)
         self.s.flush()
 
@@ -134,6 +143,15 @@ def parse_info(d: bytes) -> str:
     if len(d) >= 39:
         rx, vf = struct.unpack_from("<II", d, 31)
         extra = f" rx={rx} vf={vf}"
+    if len(d) >= 47:
+        cfc, bto = struct.unpack_from("<II", d, 39)
+        extra += f" crcfail={cfc} bytetimeout={bto}"
+    if len(d) >= 51:
+        (tpd,) = struct.unpack_from("<I", d, 47)
+        extra += f" pend={tpd}"
+    if len(d) >= 67:
+        gap, tpend, tstate, tgot = struct.unpack_from("<IIII", d, 51)
+        extra += (f" | 超时现场: 饥饿{gap}ms 缓冲{tpend}B 状态{tstate} 已收{tgot}")
     return (f"BL v{ma}.{mi}.{pa} flash={flsz}KB app_valid={valid} "
             f"app_size={size} app_crc={crc:#010x} seq={seq} "
             f"uid={uid.hex().upper()}{extra}")
@@ -164,6 +182,22 @@ def verify_probe(bl: BootLoader, size: int, want_crc: int):
     return st, calc, csize
 
 
+def info_counters(bl: BootLoader):
+    """读 GET_INFO 遥测计数器，返回 (rx, vf, crcfail, bytetimeout, pending) 或 None。"""
+    r = bl.cmd("info")
+    if r is not None and r["data"][0] == 0 and len(r["data"]) >= 51:
+        return struct.unpack_from("<IIIII", r["data"], 31)
+    return None
+
+
+def timeout_detail(bl: BootLoader):
+    """读最近一次帧内超时现场 [gap_ms, pending, state, got]，异常返回 None。"""
+    r = bl.cmd("info")
+    if r is not None and r["data"][0] == 0 and len(r["data"]) >= 67:
+        return struct.unpack_from("<IIII", r["data"], 51)
+    return None
+
+
 # ---- selftest：升级流程硬件在环检验（二分定位版） ----
 
 def selftest(bl: BootLoader) -> int:
@@ -173,6 +207,11 @@ def selftest(bl: BootLoader) -> int:
     def step(name, ok, evidence):
         results.append(ok)
         print(f"[{'PASS' if ok else 'FAIL'}] {name}: {evidence}")
+
+    # 运行起始快照：本次运行内做 rx/vf 差值，开机累计历史不影响判读
+    c0 = info_counters(bl)
+    bl.sent_bytes = 0
+    bl.expected_delivered = 0
 
     # 1. PING
     r = bl.cmd("ping", timeout=1.0)
@@ -237,9 +276,20 @@ def selftest(bl: BootLoader) -> int:
             verdict = "无响应（5s）"
             verdict += "；检测到启动横幅 → 芯片发生复位（IWDG？）" if bl.saw_reboot_banner() else "；未见启动横幅"
             step(f"WRITE {len(payload)}B @{off}", False, verdict)
-            r3 = bl.cmd("info")     # 遥测：rx=设备实收字节（含丢失前），vf=送达帧数
-            print("    遥测:", parse_info(r3["data"]) if r3 is not None and r3["data"][0] == 0
-                  else "GET_INFO 无响应")
+            c1 = info_counters(bl)   # 本次运行内的差值遥测
+            if c1 and c0:
+                drx, dvf = c1[0] - c0[0], c1[1] - c0[1]
+                dcfc, dbto, dtpd = c1[2] - c0[2], c1[3] - c0[3], c1[4] - c0[4]
+                lost = bl.sent_bytes - drx
+                where = ("全部到达" if lost <= 0 else f"UART/中断层丢失 {lost}B")
+                print(f"    遥测: 发 {bl.sent_bytes}B / 实收 {drx}B（{where}），"
+                      f"送达 {dvf}/{bl.expected_delivered} 帧，"
+                      f"crcfail+{dcfc}，bytetimeout+{dbto}，超时时缓冲有字节+{dtpd}")
+            else:
+                print("    遥测: GET_INFO 无响应，无法判读")
+            det = timeout_detail(bl)
+            if det:
+                print(f"    超时现场: 饥饿 {det[0]}ms，缓冲待取 {det[1]}B，解析状态 {det[2]}，帧内已收 {det[3]}B")
         else:
             step(f"WRITE {len(payload)}B @{off}", st == 0,
                  f"status={st_name(st)} 耗时={time.time() - t0:.2f}s")
@@ -342,12 +392,14 @@ def main():
     ap.add_argument("arg2", nargs="?", help="verify: crc32 十六进制")
     ap.add_argument("--port", default="COM4")
     ap.add_argument("--baud", type=int, default=115200)
+    ap.add_argument("--pace", type=int, default=0,
+                    help="命令间插入延时（ms），用于时序假设验证")
     a = ap.parse_args()
 
     if a.command == "selftest":
-        sys.exit(selftest(BootLoader(a.port, a.baud)))
+        sys.exit(selftest(BootLoader(a.port, a.baud, a.pace)))
 
-    bl = BootLoader(a.port, a.baud)
+    bl = BootLoader(a.port, a.baud, a.pace)
     if a.command == "ping":
         r = bl.cmd("ping")
         print("无响应" if r is None else

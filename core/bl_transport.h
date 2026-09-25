@@ -8,5 +8,6 @@ void bl_transport_init(void);
 bool bl_transport_send(const uint8_t *buf, uint32_t len);
 uint32_t bl_transport_recv(uint8_t *buf, uint32_t max);   /* 非阻塞，返回实际字节数 */
 uint32_t bl_transport_rx_total(void);                     /* 诊断：设备侧累计接收字节 */
+uint32_t bl_transport_rx_pending(void);                   /* 诊断：环形缓冲待取字节数 */
 
 #endif /* BL_TRANSPORT_H */
