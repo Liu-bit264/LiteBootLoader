@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""bl_upgrade.py — LiteBootLoader 上位机（最小检验版，阶段 3 将在此基础上完善）
+"""bl_upgrade.py — LiteBootLoader 上位机 v1.0.0（阶段 3 正式工具）
 
 协议见 docs/protocol.md：
   SOF(AA 55) | VER(01) | CMD | SEQ | LEN(LE16) | DATA(0..256B) | CRC16(LE16,MODBUS) | EOF(55 AA)
 CRC 覆盖 VER..DATA；响应 CMD = 请求 CMD|0x80，DATA[0] = 状态码。
+
+主机侧重试约定（protocol.md §7）：单命令响应超时 1000 ms（ERASE/VERIFY 5000 ms），
+超时后重发至多 3 次，重试间隔 ≥2.1 s（等待 BL 帧内 2000 ms 超时复位解析器）。
+upgrade 会自动识别对端：若 APP 正在运行，先走"请求回 BL"流程（SET_META bl_request）
+再升级——从任意状态一条命令完成升级。
 
 依赖隔离（AGENTS.md §3 环境约定，勿直接 pip install）：
   uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py selftest --port COM4
@@ -30,6 +35,11 @@ STATUS = {0x00: "OK", 0x01: "CRC_ERROR", 0x02: "FLASH_ERROR",
           0x03: "RANGE_ERROR", 0x04: "STATE_ERROR", 0x05: "TIMEOUT"}
 APP_SIZE = 0xB800          # 46 KiB（board_config.h BL_APP_SIZE）
 CHUNK_PAYLOAD = 252        # DATA ≤ 256B，WRITE_CHUNK 头占 4B
+
+# 主机侧重试约定（protocol.md §7）：超时重发 ≤3 次，间隔 ≥2.1s 等 BL 解析器复位
+RETRY_ATTEMPTS = 3
+RETRY_DELAY = 2.2
+T_DEFAULT, T_ERASE, T_VERIFY = 1.0, 5.0, 5.0
 
 
 def crc16_modbus(data: bytes) -> int:
@@ -88,6 +98,19 @@ class BootLoader:
             if r["seq"] != self.seq:
                 print(f"    [!] SEQ 错位：请求 {self.seq}，响应 {r['seq']}（疑似迟到/丢失响应）")
         return r
+
+    def cmd_retry(self, name: str, data: bytes = b"", timeout: float = 1.0,
+                  attempts: int = RETRY_ATTEMPTS):
+        """带重试的命令：超时后等 ≥2.1s（BL 帧内超时复位半帧）再重发。
+        收到状态响应（含错误码）不重试——那是真实答复。"""
+        for i in range(attempts):
+            r = self.cmd(name, data, timeout=timeout)
+            if r is not None:
+                return r
+            if i < attempts - 1:
+                print(f"    [!] {name} 超时，{RETRY_DELAY:.1f}s 后重发（{i + 2}/{attempts}）")
+                time.sleep(RETRY_DELAY)
+        return None
 
     def send_raw(self, frame: bytes):
         self.sent_bytes += len(frame)
@@ -350,7 +373,35 @@ def selftest(bl: BootLoader) -> int:
 
 # ---- 单命令 ----
 
-def cmd_upgrade(bl: BootLoader, path: str):
+def ensure_bl(bl: BootLoader) -> bool:
+    """确认对端处于 BL；APP 在跑则自动走'请求回 BL'流程（external_interface.md §5）。"""
+    print("探测对端…")
+    for attempt in range(RETRY_ATTEMPTS):
+        r = bl.cmd("info", timeout=T_DEFAULT)
+        if r is not None:
+            st = r["data"][0]
+            if st == 0x00:
+                print("对端 = BL ✓")
+                return True
+            if st == 0x03:      # APP 响应器只认 PING/SET_META，其余回 RANGE_ERROR
+                print("对端 = APP，发送 bl_request 请求回 BL…")
+                r2 = bl.cmd("set_meta", bytes([0x01, 0x01]), timeout=T_DEFAULT)
+                print("APP 已确认请求" if (r2 is not None and r2["data"][0] == 0)
+                      else "APP 未按预期确认（继续等待复位）")
+                print("等待复位进入 BL（1.6s）…")
+                time.sleep(1.6)
+                continue        # 重新探测
+            print(f"[X] 对端响应异常 status={st_name(st)}")
+            return False
+        if attempt < RETRY_ATTEMPTS - 1:
+            # 无响应可能是 BL 解析器卡在半帧，等帧内超时复位后再试
+            print(f"    [!] 探测无响应，{RETRY_DELAY:.1f}s 后重试（{attempt + 2}/{RETRY_ATTEMPTS}）")
+            time.sleep(RETRY_DELAY)
+    print("[X] 无法确认对端为 BL")
+    return False
+
+
+def cmd_upgrade(bl: BootLoader, path: str) -> int:
     img = open(path, "rb").read()
     if len(img) == 0 or len(img) > APP_SIZE:
         sys.exit(f"[X] 镜像大小 {len(img)} 超出 1B~{APP_SIZE}B")
@@ -358,24 +409,30 @@ def cmd_upgrade(bl: BootLoader, path: str):
         img += b"\xFF" * (4 - len(img) % 4)     # VERIFY 要求 4 字节对齐
     crc = zlib.crc32(img) & 0xFFFFFFFF
     print(f"镜像 {len(img)}B crc32={crc:#010x}")
-    r = bl.cmd("erase", timeout=8.0)
-    print("erase:", st_name(r["data"][0]) if r else "无响应")
+
+    if not ensure_bl(bl):
+        return 1
+
+    r = bl.cmd_retry("erase", timeout=T_ERASE)
+    print("erase:", st_name(r["data"][0]) if r else "无响应（重试耗尽）")
     if not r or r["data"][0]:
         return 1
     for off in range(0, len(img), CHUNK_PAYLOAD):
-        r = bl.cmd("write", struct.pack("<I", off) + img[off:off + CHUNK_PAYLOAD],
-                   timeout=5.0)
+        r = bl.cmd_retry("write", struct.pack("<I", off) + img[off:off + CHUNK_PAYLOAD],
+                         timeout=2.0)
         if not r or r["data"][0]:
-            print(f"write @{off} 失败: {st_name(r['data'][0]) if r else '无响应'}")
+            print(f"\nwrite @{off} 失败: "
+                  f"{st_name(r['data'][0]) if r else '无响应（重试耗尽）'}")
             return 1
-        print(f"\rwrite {off + CHUNK_PAYLOAD}/{len(img)}", end="", flush=True)
+        print(f"\rwrite {min(off + CHUNK_PAYLOAD, len(img))}/{len(img)}",
+              end="", flush=True)
     print()
-    r = bl.cmd("verify", struct.pack("<II", len(img), crc), timeout=3.0)
+    r = bl.cmd_retry("verify", struct.pack("<II", len(img), crc), timeout=T_VERIFY)
     if r and r["data"][0] == 0:
         calc, csize = struct.unpack_from("<II", r["data"], 1)
         print(f"verify: OK crc={calc:#010x} size={csize} —— APP 就绪，可 jump")
         return 0
-    print("verify 失败:", st_name(r["data"][0]) if r else "无响应")
+    print("verify 失败:", st_name(r["data"][0]) if r else "无响应（重试耗尽）")
     return 1
 
 
@@ -384,7 +441,7 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
-    ap = argparse.ArgumentParser(description="LiteBootLoader 上位机（最小检验版）")
+    ap = argparse.ArgumentParser(description="LiteBootLoader 上位机 v1.0.0（阶段 3 正式工具）")
     ap.add_argument("command",
                     choices=["ping", "info", "meta", "erase", "write", "verify",
                              "upgrade", "jump", "reset", "selftest",
