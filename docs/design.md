@@ -93,7 +93,7 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 ### ADR-010 时钟与回退
 
-**默认 HSE 8MHz→PLL 72MHz**（`BL_USE_HSE=1`，2026-09-25 二次修订）：此前"默认 HSI 直驱"的依据（晶振未验证、"尝试 HSE 会破坏 UART"）已被排障推翻——真正根因是 SystemInit 在 `__main` scatter 清零前写静态 `s_hse_ok`，被初值覆盖后系统按 8M 配置 BRR/SysTick/I2C 延时，而芯片实跑 72M（对照证据：ST 标准工程在本板实测可进 72M，晶振与硬件无任何问题）。修复后 `bl_clock_port_init()` 改读硬件 SWS 位判定真实时钟源，SystemInit 兑现"只写寄存器"约束。`BL_USE_HSE=0` 保留为晶振异常时的调试回退（HSI 8MHz，UART 误差 0.64%）。HSE 起振等待 300ms，任一环节失败自动回退 HSI；回退事件经日志（非升级会话期）上报，并在 OLED 状态区显示时钟源。USART 波特率、软件 I2C 延时、SysTick 均按 `bl_clock_get_hz()` 实际值派生。
+**默认 HSE 8MHz→PLL 72MHz**（`BL_USE_HSE=1`，2026-09-25 二次修订）：此前"默认 HSI 直驱"的依据（晶振未验证、"尝试 HSE 会破坏 UART"）已被排障推翻——真正根因是 SystemInit 在 `__main` scatter 清零前写静态 `s_hse_ok`，被初值覆盖后系统按 8M 配置 BRR/SysTick/I2C 延时，而芯片实跑 72M（对照证据：ST 标准工程在本板实测可进 72M，晶振与硬件无任何问题）。修复后 `bl_clock_port_init()` 改读硬件 SWS 位判定真实时钟源，SystemInit 兑现"只写寄存器"约束。`BL_USE_HSE=0` 保留为晶振异常时的调试回退（HSI 8MHz，UART 误差 0.64%）。HSE 起振等待 300ms，任一环节失败自动回退 HSI；回退事件经日志（非升级会话期）上报，并在 OLED 状态区显示时钟源。USART 波特率、软件 I2C 延时、SysTick 均按 `bl_clock_get_hz()` 实际值派生。2026-09-25 23:15 硬件复验：BL@72M 串口链路全通（心跳干净、PING 响应与 45cc2b4 黄金帧逐字节一致），OLED 显示 CLK:72M。
 
 ### ADR-011 IWDG 策略
 

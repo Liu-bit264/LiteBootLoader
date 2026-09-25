@@ -4,7 +4,7 @@
 （Cortex-M3，64 KiB Flash / 20 KiB RAM），通过 core/port 分层支持后续迁移到 F4 / G0 / H7。
 
 - 项目规则与分阶段计划：见根目录 [AGENTS.md](AGENTS.md)
-- 当前状态：**阶段 1 —— BL 主体已实现**（AC5 0 警告 0 错误；硬件实测：OLED 点亮、LED 状态正常、串口与升级流程待验证；代码 Review 已过一轮）
+- 当前状态：**阶段 1 —— BL 硬件验收通过**（AC5 0 警告 0 错误；OLED/LED/串口链路/PING@72M 均实测通过；升级流程待阶段 3 上位机联测）
 
 ## 目录结构（阶段 0 骨架）
 
@@ -48,7 +48,7 @@ python tools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx
 # Keil 命令行构建（退出码：0=无警告无错误，1=有警告，≥2=有错误）
 "/e/Hardware/Keil/Keil_v5/UV4/UV4.exe" -r bootloader.uvprojx -j0 -o keil_build.log
 
-# 生成 bin（AC5 fromelf；当前 11 596 B，SHA-256 见交付记录）
+# 生成 bin（AC5 fromelf；当前 12 024 B @72MHz（HSE 8M→PLL×9，ADR-010），SHA-256 见交付记录）
 "/e/Hardware/Keil/Keil_v5/ARM/ARMCC/bin/fromelf.exe" --bin --output=bootloader.bin Objects/bootloader.axf
 ```
 
