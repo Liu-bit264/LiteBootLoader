@@ -48,7 +48,7 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
         resp_status(BL_CMD_GET_INFO, seq, BL_STATUS_RANGE_ERROR);
         return;
     }
-    uint8_t d[31];
+    uint8_t d[39];
     uint32_t k = 0;
     bl_meta_t m;
     bl_meta_load(&m);   /* 实时读取：VERIFY 持久化后 core 缓存副本已陈旧（Review F1） */
@@ -76,6 +76,13 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
     d[k++] = (uint8_t)(m.seq >> 8);
     d[k++] = (uint8_t)(m.seq >> 16);
     d[k++] = (uint8_t)(m.seq >> 24);
+    /* 诊断遥测（升级流程检验新增）：设备侧累计接收字节 / 已送达有效帧 */
+    uint32_t rxn = bl_transport_rx_total();
+    d[k++] = (uint8_t)rxn; d[k++] = (uint8_t)(rxn >> 8);
+    d[k++] = (uint8_t)(rxn >> 16); d[k++] = (uint8_t)(rxn >> 24);
+    uint32_t vfn = bl_protocol_stat_delivered();
+    d[k++] = (uint8_t)vfn; d[k++] = (uint8_t)(vfn >> 8);
+    d[k++] = (uint8_t)(vfn >> 16); d[k++] = (uint8_t)(vfn >> 24);
     bl_protocol_send((uint8_t)(BL_CMD_GET_INFO | 0x80u), seq, d, k);
 }
 

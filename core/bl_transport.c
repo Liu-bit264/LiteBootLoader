@@ -1,5 +1,6 @@
 #include "bl_transport.h"
 #include "bl_port.h"
+#include "uart.h"
 
 void bl_transport_init(void) { bl_uart.init(); }
 
@@ -14,3 +15,5 @@ uint32_t bl_transport_recv(uint8_t *buf, uint32_t max)
     bl_uart.read(buf, max, &n);
     return n;
 }
+
+uint32_t bl_transport_rx_total(void) { return bl_uart_port_rx_total(); }
