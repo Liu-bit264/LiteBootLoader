@@ -86,5 +86,5 @@ python tools/ico/test_ico.py
 | [docs/external_interface.md](docs/external_interface.md) | 外部接口清单（引脚、协议摘要、抽象接口、OTA 接入点） |
 | [docs/versioning.md](docs/versioning.md) | SemVer 与 Conventional Commits 细则 |
 | [docs/vofa_plus.md](docs/vofa_plus.md) | VOFA+ 定位与可行性说明 |
-
-后续阶段产出：`porting_guide.md`（阶段 1）、`test_plan.md`（阶段 4）。
+| [docs/porting_guide.md](docs/porting_guide.md) | 移植指南：ops 实现要求、时钟双路径、跳转原子性、移植陷阱 |
+| [docs/test_plan.md](docs/test_plan.md) | 测试计划：四级测试、selftest 清单、§13 验收对照表、实测教训索引 |
