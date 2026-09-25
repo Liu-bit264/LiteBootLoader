@@ -1,0 +1,85 @@
+{
+  "schema_version": "2.1",
+  "targets": [
+    {
+      "name": "bootloader",
+      "toolset": {
+        "number": "0x4",
+        "name": "ARM-ADS",
+        "uac6": false,
+        "pcc_used": "5060960::V5.06 update 7 (build 960)::.\\ARMCC"
+      },
+      "use_microlib": true,
+      "device": {
+        "name": "STM32F103C8",
+        "vendor": "STMicroelectronics",
+        "pack_id": "Keil.STM32F1xx_DFP.2.4.1",
+        "cpu": "IRAM(0x20000000,0x5000) IROM(0x08000000,0x10000) CPUTYPE(\"Cortex-M3\") CLOCK(12000000) ELITTLE"
+      },
+      "output": {
+        "directory": ".\\Objects\\",
+        "name": "bootloader",
+        "create_executable": true,
+        "create_hex_file": false
+      },
+      "c_defines": ["STM32F10X_MD"],
+      "c_include_paths": [
+        "core",
+        "port",
+        "port\\stm32f1\\f103c8t6",
+        "bsp\\oled_ssd1306",
+        "third_party\\CMSIS"
+      ],
+      "c_misc_controls": "-Ospace",
+      "scatter_file": "linker\\bootloader.sct",
+      "groups": [
+        {
+          "name": "Startup",
+          "files": [
+            { "name": "startup_stm32f10x_md.s", "type": 2, "path": "port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s" }
+          ]
+        },
+        {
+          "name": "Core",
+          "files": [
+            { "name": "bl_core.c", "type": 1, "path": "core\\bl_core.c" },
+            { "name": "bl_protocol.c", "type": 1, "path": "core\\bl_protocol.c" },
+            { "name": "bl_transport.c", "type": 1, "path": "core\\bl_transport.c" },
+            { "name": "bl_storage.c", "type": 1, "path": "core\\bl_storage.c" },
+            { "name": "bl_metadata.c", "type": 1, "path": "core\\bl_metadata.c" },
+            { "name": "bl_boot.c", "type": 1, "path": "core\\bl_boot.c" },
+            { "name": "bl_crc.c", "type": 1, "path": "core\\bl_crc.c" },
+            { "name": "bl_log.c", "type": 1, "path": "core\\bl_log.c" },
+            { "name": "bl_ui.c", "type": 1, "path": "core\\bl_ui.c" }
+          ]
+        },
+        {
+          "name": "CMSIS",
+          "files": [
+            { "name": "core_cm3.c", "type": 1, "path": "third_party\\CMSIS\\core_cm3.c" }
+          ]
+        },
+        {
+          "name": "Port",
+          "files": [
+            { "name": "main.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\main.c" },
+            { "name": "clock.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\clock.c" },
+            { "name": "systick.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\systick.c" },
+            { "name": "uart.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\uart.c" },
+            { "name": "gpio.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\gpio.c" },
+            { "name": "wdg.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\wdg.c" },
+            { "name": "flash.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\flash.c" },
+            { "name": "i2c.c", "type": 1, "path": "port\\stm32f1\\f103c8t6\\i2c.c" }
+          ]
+        },
+        {
+          "name": "BSP",
+          "files": [
+            { "name": "ssd1306.c", "type": 1, "path": "bsp\\oled_ssd1306\\ssd1306.c" },
+            { "name": "ssd1306_font.c", "type": 1, "path": "bsp\\oled_ssd1306\\ssd1306_font.c" }
+          ]
+        }
+      ]
+    }
+  ]
+}
