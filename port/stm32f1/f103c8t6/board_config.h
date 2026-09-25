@@ -16,6 +16,8 @@
 #define BL_SRAM_SIZE           0x00005000u   /* 20 KiB */
 
 /* ---- 行为常量 ---- */
+#define BL_USE_HSE             0       /* 0=HSI 8MHz 直驱（默认：手焊板晶振频率/电路未验证，ADR-010）；
+                                          1=HSE 8M->PLL 72M（仅在确认晶振为 8MHz 且起振后启用） */
 #define BL_BOOT_WAIT_MS        3000u   /* 启动等待窗口（ADR-004） */
 #define BL_IWDG_TIMEOUT_MS     2000u   /* ADR-011 */
 #define BL_UART_BAUD           115200u

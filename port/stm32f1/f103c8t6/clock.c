@@ -11,9 +11,12 @@ static bool s_hse_ok = false;
 uint32_t SystemCoreClock = 8000000u;
 
 /* SystemInit：由启动文件在散布初始化前调用。只操作寄存器，不写静态变量
-   （scatter 清零发生在 __main，会覆盖此阶段的全局写）。 */
+   （scatter 清零发生在 __main，会覆盖此阶段的全局写）。
+   时钟源由 BL_USE_HSE 决定（ADR-010）：0=HSI 8MHz 直驱（频率由厂商保证，
+   不依赖晶振——手焊板晶振频率未验证时的安全默认）；1=HSE 8M->PLL 72M。 */
 void SystemInit(void)
 {
+#if BL_USE_HSE
     /* FLASH 等待周期：72MHz 需 2WS，预取开启 */
     FLASH->ACR = FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_2;
 
@@ -41,6 +44,13 @@ void SystemInit(void)
         RCC->CR &= ~RCC_CR_HSEON;
         s_hse_ok = false;
     }
+#else
+    /* HSI 8MHz 直驱：0 等待周期，关掉 HSE/PLL 保证 SYSCLK 确为 HSI */
+    FLASH->ACR = FLASH_ACR_PRFTBE;
+    RCC->CR &= ~(RCC_CR_HSEON | RCC_CR_PLLON);
+    RCC->CFGR &= ~(RCC_CFGR_SW | RCC_CFGR_PLLMULL | RCC_CFGR_PLLSRC);
+    s_hse_ok = false;
+#endif
     /* 总线分频：AHB /1，APB1 /2（36MHz 上限），APB2 /1 */
     RCC->CFGR = (RCC->CFGR & ~(RCC_CFGR_HPRE | RCC_CFGR_PPRE1 | RCC_CFGR_PPRE2)) |
                 RCC_CFGR_PPRE1_DIV2;
