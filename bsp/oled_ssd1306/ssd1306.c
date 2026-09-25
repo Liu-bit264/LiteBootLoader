@@ -26,18 +26,14 @@ void ssd1306_init(void)
     /* 上电稳定等待：SSD1306 需 VDD 稳定后 ~100ms 才接受命令（经典全黑根因） */
     bl_wdg.refresh();
     bl_clock.delay_ms(120u);
-    /* ACK 探测重试：覆盖模块间上电差异；无应答则放弃初始化（不阻塞系统） */
-    bool present = false;
+    /* ACK 探测重试：兼作上电差异等待；无论结果如何都继续初始化——
+       若 ACK 被误判而跳过序列，才是必然全黑（write-only 设备漏发命令无补救机会） */
     for (uint32_t t = 0; t < 40u; t++) {
         if (bl_i2c_probe(SSD1306_ADDR)) {
-            present = true;
             break;
         }
         bl_wdg.refresh();
         bl_clock.delay_ms(5u);
-    }
-    if (!present) {
-        return;
     }
     /* 标准初始化序列（数据手册） */
     cmd(0xAEu);                    /* display off */
