@@ -1,0 +1,11 @@
+; LiteBootLoader APP 示例散布加载文件 —— APP 区 46 KiB + SRAM 20 KiB（partition.md §1）
+LR_IROM1 0x08004000 0x0000B800  {
+  ER_IROM1 0x08004000 0x0000B800  {
+    *.o (RESET, +First)
+    *(InRoot$$Sections)
+    .ANY (+RO)
+  }
+  RW_IRAM1 0x20000000 0x00005000  {
+    .ANY (+RW +ZI)
+  }
+}

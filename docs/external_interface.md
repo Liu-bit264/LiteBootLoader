@@ -75,12 +75,12 @@ void bl_ui_user_custom_page(void);          /* 弱符号，用户自检页面扩
 
 | 项 | 约定 |
 |---|---|
-| 触发 | APP 经升级口发送 `SET_META(field=0x01, value=1)`，随后 `NVIC_SystemReset` |
+| 触发 | 主机向**运行中的 APP** 发 `SET_META(field=0x01, value=1)`（帧协议与 BL 相同）；APP 掉电安全落盘后回 `OK`，约 100 ms 后 `NVIC_SystemReset` |
 | 持久性 | 置位即掉电安全落盘（参数区双副本）；清除前的任何复位/掉电均保留请求 |
 | 清除时机 | BL 启动读取到 `bl_request=1` → 进入升级模式前消费并清除（partition.md §8） |
 | 升级模式 | 停留等待，无自动超时（design.md ADR-003） |
 
-APP 侧配套要求（阶段 2）：链接至 `0x08004000`、启动设 `SCB->VTOR`、接管 IWDG 喂狗。
+APP 侧约定（阶段 2 示例已实现）：链接至 `0x08004000`、启动设 `SCB->VTOR`、重新 `__enable_irq`（跳转第 4 步关中断）、接管 IWDG 喂狗。APP 升级口响应器（`app_request.c`）只实现 `PING(0x01)` 与 `SET_META(0x06, field=0x01)`，其余命令回 `RANGE_ERROR`；APP 串口提示统一用 `A:` 前缀（BL 日志用 `I:`），banner 形如 `A:APP v0.1.0 running, breathing`。
 
 ## 6. 后续 OTA 接入点（只定义，不实现）
 
