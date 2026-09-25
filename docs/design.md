@@ -93,7 +93,7 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 ### ADR-010 时钟与回退
 
-**默认 HSI 8MHz 直驱**（`BL_USE_HSE=0`，2026-09-25 修订）：手焊板晶振频率/负载电容未验证前，HSE 不可信——某板曾用非 8MHz 晶振起振导致 PLL 输出偏离假设、UART 波特率整体错位（现象：心跳周期缩短、收发全乱码）。HSI 频率由厂商保证（±1%），8MHz 下 UART 误差 0.64%，完全可用。晶振确认为 8MHz 且能起振后，置 `BL_USE_HSE=1` 走 HSE→PLL×9=72MHz；HSE 起振等待 300ms，任一环节失败自动回退 HSI。回退/降级事件经日志（非升级会话期）上报，并在 OLED 状态区显示时钟源。USART 波特率始终按 `bl_clock_get_hz()` 实际值计算。
+**默认 HSE 8MHz→PLL 72MHz**（`BL_USE_HSE=1`，2026-09-25 二次修订）：此前"默认 HSI 直驱"的依据（晶振未验证、"尝试 HSE 会破坏 UART"）已被排障推翻——真正根因是 SystemInit 在 `__main` scatter 清零前写静态 `s_hse_ok`，被初值覆盖后系统按 8M 配置 BRR/SysTick/I2C 延时，而芯片实跑 72M（对照证据：ST 标准工程在本板实测可进 72M，晶振与硬件无任何问题）。修复后 `bl_clock_port_init()` 改读硬件 SWS 位判定真实时钟源，SystemInit 兑现"只写寄存器"约束。`BL_USE_HSE=0` 保留为晶振异常时的调试回退（HSI 8MHz，UART 误差 0.64%）。HSE 起振等待 300ms，任一环节失败自动回退 HSI；回退事件经日志（非升级会话期）上报，并在 OLED 状态区显示时钟源。USART 波特率、软件 I2C 延时、SysTick 均按 `bl_clock_get_hz()` 实际值派生。
 
 ### ADR-011 IWDG 策略
 
@@ -130,6 +130,7 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 
 | 常量 | 默认值 | 说明 |
 |---|---|---|
+| `BL_USE_HSE` | 1 | 时钟源：1=HSE 8M→PLL 72M（默认）/ 0=HSI 8MHz 回退（ADR-010） |
 | `BL_BOOT_WAIT_MS` | 3000 | 启动等待窗口 |
 | `BL_IWDG_TIMEOUT_MS` | 2000 | IWDG 超时 |
 | `BL_UART_BAUD` | 115200 | 升级串口波特率 |
