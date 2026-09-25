@@ -387,7 +387,8 @@ def main():
     ap = argparse.ArgumentParser(description="LiteBootLoader 上位机（最小检验版）")
     ap.add_argument("command",
                     choices=["ping", "info", "meta", "erase", "write", "verify",
-                             "upgrade", "jump", "reset", "selftest"])
+                             "upgrade", "jump", "reset", "selftest",
+                             "listen", "raw", "setmeta"])
     ap.add_argument("arg", nargs="?", help="write/upgrade: 镜像文件；verify: size")
     ap.add_argument("arg2", nargs="?", help="verify: crc32 十六进制")
     ap.add_argument("--port", default="COM4")
@@ -426,9 +427,58 @@ def main():
                    timeout=3.0)
         print("无响应" if r is None else
               f"verify: {st_name(r['data'][0])}")
+    elif a.command == "listen":
+        secs = float(a.arg) if a.arg else 3.0
+        t0 = time.time()
+        buf = bytearray()
+        while time.time() - t0 < secs:
+            chunk = bl.s.read(256)
+            if chunk:
+                buf += chunk
+        text = buf.decode("utf-8", "replace")
+        if text.strip():
+            print(text, end="")
+        print(f"({secs:.0f}s 监听结束)")
+    elif a.command == "raw":
+        if not a.arg:
+            sys.exit("用法：raw <hex 字节，如 42>")
+        data = bytes.fromhex(a.arg.replace(" ", ""))
+        bl.send_raw(data)
+        print(f"已发送 {len(data)}B 原始字节")
+    elif a.command == "setmeta":
+        if not a.arg or not a.arg2:
+            sys.exit("用法：setmeta <field_hex> <value_hex>")
+        r = bl.cmd("set_meta", bytes([int(a.arg, 16), int(a.arg2, 16)]))
+        print("无响应" if r is None else
+              f"set_meta({a.arg},{a.arg2}): {st_name(r['data'][0])}")
+        t0 = time.time()
+        buf = bytearray()
+        while time.time() - t0 < 3.0:
+            chunk = bl.s.read(256)
+            if chunk:
+                buf += chunk
+        text = buf.decode("utf-8", "replace")
+        if text.strip():
+            print("--- 后续串口输出 ---\n" + text, end="")
     elif a.command in ("jump", "reset"):
-        r = bl.cmd(a.command)
-        print("无响应" if r is None else f"{a.command}: {st_name(r['data'][0])}")
+        follow = 6.0 if a.command == "reset" else 2.5
+        r = bl.cmd(a.command, timeout=2.0)
+        if r is None:
+            print(f"{a.command}: 无响应")
+            return
+        print(f"{a.command}: {st_name(r['data'][0])}"
+              + ("（APP 无效被拒绝）" if r["data"][0] == 0x04 else ""))
+        if r["data"][0] != 0x00:
+            return
+        t0 = time.time()
+        buf = bytearray()
+        while time.time() - t0 < follow:
+            chunk = bl.s.read(256)
+            if chunk:
+                buf += chunk
+        text = buf.decode("utf-8", "replace")
+        if text.strip():
+            print("--- 串口输出 ---\n" + text, end="")
 
 
 if __name__ == "__main__":

@@ -61,7 +61,7 @@ void bl_protocol_stat_timeout_detail(uint32_t out[4])
     out[0] = s_dbg_gap_ms;
     out[1] = s_dbg_pending;
     out[2] = s_dbg_state;
-    out[3] = s_got;
+    out[3] = s_dbg_got;
 }
 
 static void frame_complete(void)
