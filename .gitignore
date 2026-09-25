@@ -40,3 +40,7 @@ Desktop.ini
 
 # ---- 本地工具状态 ----
 .mimosa/
+
+# ---- 会话/本地状态（不入库） ----
+.zcode/
+*.uvoptx

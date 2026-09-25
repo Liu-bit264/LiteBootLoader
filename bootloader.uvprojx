@@ -379,6 +379,11 @@
               <FileType>2</FileType>
               <FilePath>port\stm32f1\f103c8t6\startup_stm32f10x_md.s</FilePath>
             </File>
+            <File>
+              <FileName>bl_jump.s</FileName>
+              <FileType>2</FileType>
+              <FilePath>port\stm32f1\f103c8t6\bl_jump.s</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
