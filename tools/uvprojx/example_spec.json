@@ -1,0 +1,46 @@
+{
+  "schema_version": "2.1",
+  "targets": [
+    {
+      "name": "bootloader",
+      "toolset": {
+        "number": "0x4",
+        "name": "ARM-ADS",
+        "uac6": true
+      },
+      "device": {
+        "name": "STM32F103C8",
+        "vendor": "STMicroelectronics",
+        "pack_id": "Keil.STM32F1xx_DFP.2.3.0",
+        "cpu": "IRAM(0x20000000,0x5000) IROM(0x08000000,0x10000) CPUTYPE(\"Cortex-M3\") CLOCK(12000000) ELITTLE"
+      },
+      "output": {
+        "directory": ".\\Objects\\",
+        "name": "bootloader",
+        "create_executable": true,
+        "create_hex_file": false
+      },
+      "c_defines": ["STM32F10X_MD", "USE_STDPERIPH_DRIVER"],
+      "c_include_paths": [
+        "..\\core",
+        "..\\port\\stm32f1\\f103c8t6",
+        "..\\bsp\\oled_ssd1306"
+      ],
+      "scatter_file": "..\\linker\\bootloader.sct",
+      "groups": [
+        {
+          "name": "Core",
+          "files": [
+            { "name": "bl_core.c", "type": 1, "path": "..\\core\\bl_core.c" }
+          ]
+        },
+        {
+          "name": "Startup",
+          "files": [
+            { "name": "startup_stm32f10x_md.s", "type": 2, "path": "..\\port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s" }
+          ]
+        }
+      ]
+    }
+  ]
+}
