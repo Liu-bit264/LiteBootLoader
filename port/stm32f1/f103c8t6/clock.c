@@ -20,7 +20,17 @@ uint32_t SystemCoreClock = 8000000u;
    工程在本板实测 72M 可用）；0=HSI 8MHz 直驱（晶振异常时的调试回退）。 */
 void SystemInit(void)
 {
-    /* HSI 8MHz 安全起点：0 等待周期（等待周期只在切 72M 前提升，失败必须归零） */
+    /* 已运行在 PLL（BL 九步跳转进入 APP 的场景）：时钟已就绪，只需确保 2WS 与
+       总线分频一致后直接返回。严禁落到 0WS——72MHz 下 0WS 取指损坏（阶段 2
+       APP 跳转实测：跳转后立刻静默硬fault）。 */
+    if ((RCC->CFGR & RCC_CFGR_SWS) == RCC_CFGR_SWS_PLL) {
+        FLASH->ACR = FLASH_ACR_PRFTBE | FLASH_ACR_LATENCY_2;
+        RCC->CFGR = (RCC->CFGR & ~(RCC_CFGR_HPRE | RCC_CFGR_PPRE1 | RCC_CFGR_PPRE2)) |
+                    RCC_CFGR_PPRE1_DIV2;
+        return;
+    }
+
+    /* 复位路径：HSI 8MHz 安全起点（0 等待周期；等待周期只在切 72M 前提升，失败必须归零） */
     FLASH->ACR = FLASH_ACR_PRFTBE;
 #if BL_USE_HSE
     RCC->CR |= RCC_CR_HSEON;
