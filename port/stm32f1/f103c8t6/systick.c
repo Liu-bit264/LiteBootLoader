@@ -21,7 +21,13 @@ void bl_systick_stop(void)
 
 uint32_t bl_systick_get_ms(void) { return s_ms; }
 
-void SysTick_Handler(void) { s_ms++; }
+__weak void bl_systick_user_hook(void) { /* 默认空：用户侧强符号覆盖 */ }
+
+void SysTick_Handler(void)
+{
+    s_ms++;
+    bl_systick_user_hook();
+}
 
 /* ---- bl_port 跳转辅助（architecture.md §3） ---- */
 void bl_port_stop_systick(void) { bl_systick_stop(); }
