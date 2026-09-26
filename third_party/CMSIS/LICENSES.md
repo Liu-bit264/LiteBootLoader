@@ -11,3 +11,14 @@
 - **本项目固定使用 AC5（ARMCC V5.06 update 7）**（design.md ADR-013，用户决定：兼容性优先）。
 - CMSIS 6（pack 6.1.0）已移除 AC5 支持（无 cmsis_armcc.h，compiler 头仅认 AC6），因此内核头改用 V1.30 自包含版——与本机 AC5 组合已在该工程实际编译验证。
 - 此组合下无需 m-profile/cmsis_compiler 等拆分头；如未来迁移 AC6，需换回 CMSIS 6 头并同步更新本说明。
+
+## 原样性核验（2026-09-27）
+
+上表 4 个文件已与源工程 `E:\hw-tools\projects\git\embedded\STM32F103\1_LIghtUp\Start\` 中的副本逐字节比对（`diff` 无差异，`diff -q` 判定 IDENTICAL），确认**原样拷贝、未做任何修改**。文件 SHA-256：
+
+| 文件 | SHA-256 |
+|---|---|
+| `core_cm3.c` | `e93a7e36349e7810f328276a3fed56701e10536779f7527a8ccd140618a556b0` |
+| `core_cm3.h` | `de4668aa9d314d05769dfb29f028e205b50577c6b2150fc6bccb34bd34179bbb` |
+| `stm32f10x.h` | `4ee722d262c1e7d7505d7dc7eeb8ccaaf67158b51ee4bc177397cd64e74e1b3a` |
+| `system_stm32f10x.h` | `919dc1f5c6bbba74cb712e8ec7cf73f1988eafa9438c706526fb401a2ab4672d` |

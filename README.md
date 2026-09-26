@@ -4,7 +4,7 @@
 （Cortex-M3，64 KiB Flash / 20 KiB RAM），通过 core/port 分层支持后续迁移到 F4 / G0 / H7。
 
 - 项目规则与分阶段计划：见根目录 [AGENTS.md](AGENTS.md)
-- 当前状态：**阶段 3 —— 上位机工具已交付并全链路实测**（v1.0.0 一键升级含自动"请求回 BL"、重试层、15/15 selftest、升级中断恢复演练，均在硬件通过）
+- 当前状态：**阶段 4 —— 14/14 验收项通过（对照表见 docs/test_plan.md），BL 12 972 B；上位机工具已迁至独立仓 LiteBootUpgrader（v1.1.2：自动"请求回 BL"、重试层、15/15 selftest、升级中断恢复演练，均在硬件通过）
 - **用户手册（怎么用看这里）**：[docs/user_manual.md](docs/user_manual.md)
 
 ## 目录结构（阶段 0 骨架）
@@ -90,3 +90,9 @@ python tools/ico/test_ico.py
 | [docs/vofa_plus.md](docs/vofa_plus.md) | VOFA+ 定位与可行性说明 |
 | [docs/porting_guide.md](docs/porting_guide.md) | 移植指南：ops 实现要求、时钟双路径、跳转原子性、移植陷阱 |
 | [docs/test_plan.md](docs/test_plan.md) | 测试计划：四级测试、selftest 清单、§13 验收对照表、实测教训索引 |
+
+## 许可
+
+本项目原创代码（`core/`、`port/`、`services/`、`bsp/`、`app/`、`linker/`、`tools/`、`scripts/`、`docs/`）以 [MIT](LICENSE) 许可证发布（© 2026 Qingc）。
+
+`third_party/` 下捆绑的第三方文件为**原样拷贝**（未做任何修改），保留其原始许可与版权声明；来源、许可条款与逐字节核验记录见 [third_party/CMSIS/LICENSES.md](third_party/CMSIS/LICENSES.md)。
