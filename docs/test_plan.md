@@ -72,7 +72,7 @@
 | 8 | APP 主动请求进 BL，生命周期有文档与测试 | ✅ 通过 | external_interface.md §5 + L3 场景 4 |
 | 9 | 参数区双副本断电恢复 | ✅ 通过 | 复位注入钻具 10/10 轮（2026-09-26）：SET_META 写入风暴中每轮在在途写入中间注入复位，R1~R4 恢复不变量全过、seq 单调、副本交替正常、修复写入成功、APP 区 VERIFY 未受牵连；工具 `../LiteBootUpgrader/bl_powerloss_drill.py`（独立上位机仓）。真实拔电（人工）补充步骤：升级期或 `bl_powerloss_drill.py` 运行中拔掉 USB → 重新上电 → `info` 应报出有效元数据 → `upgrade` 重升应成功 |
 | 10 | BL→APP IWDG 接管无误复位 | ✅ 通过 | 跳转后 APP 持续运行（呼吸灯），跳转前喂狗 |
-| 11 | VOFA+ 观察 + Python 工具完成升级 | ✅ 通过 | Python 工具 ✅（v1.0.0 全链路）；VOFA+ 实机首跑 PING 往返逐字节正确（2026-09-26，响应 CRC E8 69 与 CRC16/MODBUS 计算一致） |
+| 11 | VOFA+ 观察 + Python 工具完成升级 | ✅ 通过 | Python 工具 ✅（v1.1.1，独立仓 LiteBootUpgrader，CLI+GUI 全链路）；VOFA+ 实机首跑 PING 往返逐字节正确（2026-09-26，响应 CRC E8 69 与 CRC16/MODBUS 计算一致） |
 | 12 | external_interface.md 与 porting_guide.md 完整 | ✅ 通过 | 两文档已交付（2026-09-26） |
 | 13 | uvprojx 与 ICO 工具可运行测试 | ✅ 通过 | L1 自测 + uvprojx 生成器全程实战（BL/APP 两工程） |
 | 14 | 版本与提交符合 SemVer/Conventional Commits | ✅ 通过 | 提交历史 feat/fix/chore + scope 规范 |

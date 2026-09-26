@@ -1,6 +1,6 @@
 # Flash 分区与元数据设计（partition）
 
-> 版本 0.1.0 · 2026-09-25 · 状态：阶段 0 交付，待评审确认
+> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
 > 关联：[design.md](design.md)（ADR-001/005/007） · [architecture.md](architecture.md)（bl_metadata/bl_storage 职责） · [protocol.md](protocol.md)（命令与 DATA 布局）
 
 ## 1. 分区布局

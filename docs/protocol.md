@@ -1,6 +1,6 @@
 # 通信协议规范（protocol）
 
-> 版本 0.1.0 · 2026-09-25 · 状态：阶段 0 交付，待评审确认
+> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
 > 关联：[design.md](design.md)（ADR-001/002/003/007） · [partition.md](partition.md)（元数据与命令副作用） · [external_interface.md](external_interface.md)
 > 协议版本：`VER = 0x01`（独立于 BL 软件版本，演进规则见 [versioning.md](versioning.md) §4）
 
@@ -226,7 +226,7 @@ AA 55 01 84 02 01 00 00 A1 AC 55 AA
 
 ## 9. 上位机工具与 VOFA+
 
-### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.1.0 含 tkinter GUI）
+### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.1.1 含 tkinter GUI）
 
 ```bash
 # 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §3）

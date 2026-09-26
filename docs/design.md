@@ -1,6 +1,6 @@
 # LiteBootLoader 总体设计（design）
 
-> 版本 0.1.0 · 2026-09-25 · 状态：阶段 0 交付，待评审确认
+> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
 > 关联文档：[architecture.md](architecture.md) · [partition.md](partition.md) · [protocol.md](protocol.md) · [external_interface.md](external_interface.md) · [versioning.md](versioning.md) · [vofa_plus.md](vofa_plus.md)
 > 上位规则：本文件为 AGENTS.md（项目指令）阶段 0 交付物；与 AGENTS.md 冲突时以 AGENTS.md 为准。
 
