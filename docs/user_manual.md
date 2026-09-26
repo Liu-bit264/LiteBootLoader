@@ -31,15 +31,19 @@ Flash 分区：
 
 BL 本体用调试器烧一次即可，之后升级 APP 全走串口。当前交付二进制：
 
-- `bootloader.bin`：12,972 B，SHA-256 `f08f6d46…363ca`（服务化 + 审查修复版；完整值以交付记录为准）
-- APP 示例 `app/examples/f103c8t6_app/app.bin`：5,540 B，SHA-256 `b3f5b681…1102c7c74`
+- `bootloader.bin`：13,540 B，SHA-256 `e864fe22…f4e8cec`（ADR-015 擦除单元抽象 + IWDG 放宽版；完整值以交付记录为准）
+- APP 示例 `app/examples/f103c8t6_app/app.bin`：8,064 B，SHA-256 `a7a8a647…4ee51ff`
 
 ```bash
-# pyocd 烧录 BL（注意：务必带 -c "reset"，否则芯片停在暂停态看似"没反应"）
+# pyocd 烧录 BL：flash 与 reset 必须分开调用（pyocd 的 reset 是独立子命令，
+# flash 命令不接受 -c "reset"；烧完不复位芯片会停在暂停态看似"没反应"）
 uv run --python 3.12 --with pyocd pyocd flash \
     --target stm32f103c8 \
     --pack "E:/Hardware/Keil/Arm/Packs/Keil/STM32F1xx_DFP/2.4.1" \
-    --base-address 0x08000000 bootloader.bin -c "reset"
+    --base-address 0x08000000 bootloader.bin
+uv run --python 3.12 --with pyocd pyocd reset \
+    --target stm32f103c8 \
+    --pack "E:/Hardware/Keil/Arm/Packs/Keil/STM32F1xx_DFP/2.4.1"
 ```
 
 验证：打开串口（COM4，115200），按一下复位键，应看到启动横幅

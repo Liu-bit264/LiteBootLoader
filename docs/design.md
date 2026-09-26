@@ -126,6 +126,38 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
   `BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
 - 备选实现（LED-only 显示、RTT 日志）换 services 目录即可，core 不动。
 
+### ADR-015 多芯片支持：CSP + manifest 驱动（用户决定，2026-09-27）
+
+目标：让"加一颗芯片"变得便捷（建目录 + chip.json + 实现 ops，构建零手工）。结构方案
+2026-09-26 定稿：**芯片支持包（CSP）+ manifest 驱动，单一主线**；否决每芯片一个分支
+（主线分裂、公共修复需 N 处 cherry-pick）。分支仅保留两个用途：芯片 bring-up 临时分支、
+按板发布 tag（如 `f103c8t6-v0.1.0`）。阶段 A（本次）只做基础设施，F103 全程回归锚定：
+
+- **chip.json 清单**（`chips/<id>.json`，构建侧事实源）：device（含 DFP flash_driver/
+  register_file/sfd_file/cputype）、build（defines/include/文件清单）、memory、partitions
+  （含参数双副本单元）、erase_units（F1 均匀页紧凑描述；F4 非均匀表式扩展位）、clock、
+  pins、iwdg（normal_ms + **upgrade_relaxed_ms**）、sysmem。与 C 侧唯一出处
+  `board_config.h` 的四类常量一致性由 `tools/uvprojx/test_chip.py` 强制。
+- **模板化生成**：`tools/uvprojx/chipfill.py`（占位符 `{{chip.x}}` / `{"$chip": ...}`）
+  + `tools/uvprojx/templates/*.spec.template.json` + `linker/templates/*.sct.template`
+  → per-chip `.spec.json` 与 `.sct`（生成产物入库）。generator.py 移除全部设备名硬编码
+  （FlashDriverDll/RegisterFile/SFDFile/AdsCpuType/-pCM3/LDads 地址均来自规格 device 字段）。
+  金标准：渲染 spec 与原手写 spec 语义等价；改造后 F103 BL bin 与基线**逐字节一致**
+  （12 972 B，`f08f6d46…`）。`build_keil.sh` 参数化 `CHIP=<id>` 并补齐 app 目标。
+- **擦除单元抽象**（core 唯一计划内变更）：`bl_flash_ops` 的 `erase_page/page_size/
+  erase_range` 升级为 `unit_count/unit_addr/unit_size/erase_unit`（`erase_range` 无调用方，
+  移除）；F1 = 64×1K 均匀页，F4 = 非均匀扇区表。bl_storage/bl_metadata 全部按单元迭代；
+  bl_metadata 新增**双副本必须落在两个独立擦除单元**的加载期校验（掉电安全前提）。
+- **IWDG 升级期放宽**：`bl_wdg_ops` 增 `set_timeout_ms`；core 在 ERASE_APP 前放大到
+  `BL_IWDG_UPGRADE_TIMEOUT_MS`，VERIFY 完成或跳转前恢复。F1 取同值 2000 ms（行为等价，
+  路径固化）；**F4 建议 8000 ms**——128K 扇区典型擦除 ~875 ms 且单 bank 擦除期间 CPU
+  停顿无法喂狗（F4 移植验收项）。
+- **CMSIS 目录偏差**：原计划迁 `third_party/CMSIS/f1/`，因工具链安全钩禁止经 shell 移动
+  原样拷贝的第三方源文件（字节一致性优先），维持平铺——F1/F4 文件名不冲突
+  （core_cm3 vs core_cm4、stm32f10x vs stm32f4xx），家族边界由 chip.json 的文件清单与
+  include 路径表达。
+- 迁移顺序：F411CEU6 先行（验证 CSP 流程，硬件在位）→ F407ZGT6 复用 f4 家族层。
+
 ## 4. 默认假设确认表（AGENTS.md §15）
 
 | # | 假设 | 状态 | 固化位置 |

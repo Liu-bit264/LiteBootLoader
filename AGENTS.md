@@ -199,6 +199,8 @@ core/
 services/
   display_oled/（OLED+LED 显示服务实现）
   debug_uart/（USART1 日志服务实现）
+chips/
+  <id>.json（CSP 芯片清单，ADR-015：构建侧事实源，chipfill 消费）
 port/
   stm32f1/f103c8t6/
     flash.* uart.* i2c.* gpio.* wdg.* clock.* systick.*
@@ -212,12 +214,16 @@ app/
 linker/
   bootloader.ld
   app.ld
-  bootloader.sct
+  bootloader.sct（chipfill 生成产物）
+  templates/（per-chip sct 模板）
 tools/
   vofa+/
   （上位机已迁出独立仓：../LiteBootUpgrader —— bl_upgrade.py / GUI / 钻具）
   uvprojx/parser.py
   uvprojx/generator.py
+  uvprojx/chipfill.py（chip.json+模板 → spec/sct，ADR-015）
+  uvprojx/templates/（per-chip spec 模板）
+  uvprojx/test_chip.py（模板往返 + chip.json↔board_config 一致性）
   ico/parser.py
   ico/generator.py
 docs/

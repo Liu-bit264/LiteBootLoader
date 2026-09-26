@@ -68,9 +68,11 @@ typedef struct {
     void    (*init)(void);
     bool    (*read)(uint32_t addr, uint8_t *buf, uint32_t len);       /* 任意对齐读 */
     bool    (*write)(uint32_t addr, const uint8_t *data, uint32_t len); /* 半字对齐，自动补 0xFF */
-    bool    (*erase_page)(uint32_t page_index);
-    bool    (*erase_range)(uint32_t addr, uint32_t len);              /* 页对齐区间 */
-    uint32_t (*page_size)(void);
+    /* 擦除单元（ADR-015，替代旧"页"抽象）：F1 均匀 1K 页；F4 非均匀扇区按表查询 */
+    uint32_t (*unit_count)(void);                                     /* 全 Flash 擦除单元数 */
+    uint32_t (*unit_addr)(uint32_t unit_index);                       /* 单元起始地址（越界返回 0） */
+    uint32_t (*unit_size)(uint32_t unit_index);                       /* 单元大小（越界返回 0） */
+    bool    (*erase_unit)(uint32_t unit_index);                       /* 擦除一个擦除单元 */
     bool    (*is_range_valid)(uint32_t addr, uint32_t len);           /* 分区边界检查 */
 } bl_flash_ops;
 
@@ -89,6 +91,7 @@ typedef struct {
 
 typedef struct {
     void    (*init)(uint32_t timeout_ms);
+    bool    (*set_timeout_ms)(uint32_t timeout_ms);   /* 运行时重配（ADR-015 升级期放宽） */
     void    (*refresh)(void);
 } bl_wdg_ops;
 
@@ -100,7 +103,7 @@ typedef struct {
 } bl_clock_ops;
 ```
 
-约定：所有 ops 返回 `bool` 表示成败；`bl_flash_ops.write/erase_*` 由 `bl_storage` 层先做地址合法性检查（[partition.md](partition.md) §2 矩阵），ops 内部再做二次防御检查（物理边界 64 KiB 与页对齐）。
+约定：所有 ops 返回 `bool` 表示成败；`bl_flash_ops.write/erase_unit` 由 `bl_storage` 层先做地址合法性检查（[partition.md](partition.md) §2 矩阵），ops 内部再做二次防御检查（物理边界由 board_config 定界）。core 不假设擦除单元等大（ADR-015）。
 
 除 ops 结构外，`bl_port.h` 另提供跳转序列与系统级辅助函数（供 `bl_boot` 九步跳转使用，见 §5）：
 
@@ -187,5 +190,5 @@ while (1) {
 | RAM：栈 | 1 KiB | 启动文件 Stack_Size |
 | RAM：ZI 合计实测 | 3 888 B（含上列） | 20 KiB 上限的 19% |
 | Flash：CRC32 常量表 | ≈ 1 KiB | ADR-001（在 RO-data 内） |
-| Flash：实测 Code=10 908 + RO=1 936 + RW=128 | **12 972 B ≈ 12.7 KiB** | **≤ 16 KiB 验收线 ✓**（bin SHA `f08f6d46…`；AC6 -Oz 时为 8 824 B，供参考） |
-| APP .bin | **7 856 B，≤ 46 KiB（验收线）✓** | 阶段 2，呼吸灯修复版 |
+| Flash：实测 Code=11 460 + RO=1 944 + RW=136 | **13 540 B ≈ 13.2 KiB** | **≤ 16 KiB 验收线 ✓**（ADR-015 擦除单元抽象 + IWDG 放宽后；bin SHA `e864fe22…`；AC6 -Oz 时为 8 824 B，供参考） |
+| APP .bin | **8 064 B，≤ 46 KiB（验收线）✓** | 阶段 2，CSP A 同步重建（SHA `a7a8a647…`） |

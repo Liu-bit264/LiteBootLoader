@@ -4,7 +4,7 @@
 （Cortex-M3，64 KiB Flash / 20 KiB RAM），通过 core/port 分层支持后续迁移到 F4 / G0 / H7。
 
 - 项目规则与分阶段计划：见根目录 [AGENTS.md](AGENTS.md)
-- 当前状态：**阶段 4 —— 14/14 验收项通过（对照表见 docs/test_plan.md），BL 12 972 B；上位机工具已迁至独立仓 LiteBootUpgrader（v1.1.2：自动"请求回 BL"、重试层、15/15 selftest、升级中断恢复演练，均在硬件通过）
+- 当前状态：**阶段 4 —— 14/14 验收项通过（对照表见 docs/test_plan.md）；CSP 多芯片基础设施已落地（ADR-015），BL 13 540 B**；上位机工具已迁至独立仓 LiteBootUpgrader（v1.1.2：自动"请求回 BL"、重试层、15/15 selftest、升级中断恢复演练，均在硬件通过）
 - **用户手册（怎么用看这里）**：[docs/user_manual.md](docs/user_manual.md)
 
 ## 目录结构（阶段 0 骨架）
@@ -37,25 +37,24 @@ python tools/ico/parser.py <文件.ico>
 python tools/ico/generator.py --sizes 16,32,48,256 -o icon.ico icon.png
 ```
 
-## 构建（BL，阶段 1）
+## 构建（CSP，ADR-015）
 
 ```bash
-# 一键构建（重新生成工程 -> UV4 -r 全量重建 -> 退出码判定 -> 生成 bin）
-bash scripts/build_keil.sh
+# 一键构建（chip.json+模板 -> spec/sct -> 生成工程 -> UV4 -r 全量重建 -> 退出码判定 -> 生成 bin）
+# CHIP 指定芯片清单（默认 f103c8t6）；TARGETS 默认 "bootloader app"
+CHIP=f103c8t6 bash scripts/build_keil.sh
 
-# 修改 bootloader.spec.json 后重新生成 Keil 工程（自动备份旧文件）
-python tools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx
-
-# Keil 命令行构建（退出码：0=无警告无错误，1=有警告，≥2=有错误）
+# 手工等价流程：
+python tools/uvprojx/chipfill.py --chip chips/f103c8t6.json --target bootloader \
+    --spec-out bootloader.spec.json --sct-out linker/bootloader.sct   # 芯片清单 -> spec 与 scatter
+python tools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx  # spec -> 工程
 "/e/Hardware/Keil/Keil_v5/UV4/UV4.exe" -r bootloader.uvprojx -j0 -o keil_build.log
-
-# 生成 bin（AC5 fromelf；当前 12 748 B @72MHz（HSE 8M→PLL×9，ADR-010），SHA-256 见交付记录）
+# 退出码：0=无警告无错误，1=有警告，≥2=有错误
 "/e/Hardware/Keil/Keil_v5/ARM/ARMCC/bin/fromelf.exe" --bin --output=bootloader.bin Objects/bootloader.axf
+# BL 当前 13 540 B @72MHz（ADR-015 擦除单元抽象 + IWDG 放宽后），产物 SHA-256 见交付记录
 
-# APP 示例工程（阶段 2，链接 0x08004000）
-python tools/uvprojx/generator.py app.spec.json -o app.uvprojx
-"/e/Hardware/Keil/Keil_v5/UV4/UV4.exe" -r app.uvprojx -j0 -o app_build.log
-"/e/Hardware/Keil/Keil_v5/ARM/ARMCC/bin/fromelf.exe" --bin --output=app/examples/f103c8t6_app/app.bin Objects/app.axf
+# 改了 chips/<id>.json 或模板后：重新生成全部产物（test_chip.py 会强制往返一致）
+python tools/uvprojx/test_chip.py
 
 # 经 BL 协议升级 APP 并跳转（上位机在独立仓 ../LiteBootUpgrader，用法见 docs/protocol.md；依赖隔离见下）
 uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py upgrade app/examples/f103c8t6_app/app.bin --port COM4
