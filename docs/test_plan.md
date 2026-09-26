@@ -12,7 +12,7 @@
 | 串口 | COM4，115200 8N1（DAPLink CDC）；测试期间必须关闭 UartAssist 等占用者 |
 | 构建 | `bash scripts/build_keil.sh`（UV4 退出码判定：0=无警告无错误） |
 | 烧录 BL | `pyocd flash --target stm32f103c8 --pack <DFP> --base-address 0x08000000 bootloader.bin`，**会话结束必须 `-c "reset"` 恢复运行**（否则内核停在调试停机态，串口全静默） |
-| 上位机 | `uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py <子命令> --port COM4`（依赖隔离，勿 pip 直装） |
+| 上位机 | `uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py <子命令> --port COM4`（独立上位机仓，依赖隔离，勿 pip 直装） |
 
 ## 2. L1 主机侧工具自测（无需硬件）
 
@@ -23,7 +23,7 @@
 
 ## 3. L2 硬件在环自动化（selftest，15 步）
 
-命令：`uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py selftest --port COM4`
+命令：`uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py selftest --port COM4`
 
 | # | 步骤 | 覆盖点 |
 |---|---|---|
@@ -70,7 +70,7 @@
 | 6 | APP CRC 错误拒绝跳转进升级模式 | ✅ 通过 | 图案数据期 app_valid=0 + 校验关卡逐级拒绝 |
 | 7 | 升级中断/复位后可重升，不误写 BL 与参数区 | ✅ 通过 | 已擦页位图 + is_range_valid 防御 + 多次重升实测；写入中途复位注入实测（2026-09-26，VERIFY 正确检出损坏后重升恢复）；真实拔电步骤见 §5 #9 |
 | 8 | APP 主动请求进 BL，生命周期有文档与测试 | ✅ 通过 | external_interface.md §5 + L3 场景 4 |
-| 9 | 参数区双副本断电恢复 | ✅ 通过 | 复位注入钻具 10/10 轮（2026-09-26）：SET_META 写入风暴中每轮在在途写入中间注入复位，R1~R4 恢复不变量全过、seq 单调、副本交替正常、修复写入成功、APP 区 VERIFY 未受牵连；工具 `tools/python/bl_powerloss_drill.py`。真实拔电（人工）补充步骤：升级期或 `bl_powerloss_drill.py` 运行中拔掉 USB → 重新上电 → `info` 应报出有效元数据 → `upgrade` 重升应成功 |
+| 9 | 参数区双副本断电恢复 | ✅ 通过 | 复位注入钻具 10/10 轮（2026-09-26）：SET_META 写入风暴中每轮在在途写入中间注入复位，R1~R4 恢复不变量全过、seq 单调、副本交替正常、修复写入成功、APP 区 VERIFY 未受牵连；工具 `../LiteBootUpgrader/bl_powerloss_drill.py`（独立上位机仓）。真实拔电（人工）补充步骤：升级期或 `bl_powerloss_drill.py` 运行中拔掉 USB → 重新上电 → `info` 应报出有效元数据 → `upgrade` 重升应成功 |
 | 10 | BL→APP IWDG 接管无误复位 | ✅ 通过 | 跳转后 APP 持续运行（呼吸灯），跳转前喂狗 |
 | 11 | VOFA+ 观察 + Python 工具完成升级 | ✅ 通过 | Python 工具 ✅（v1.0.0 全链路）；VOFA+ 实机首跑 PING 往返逐字节正确（2026-09-26，响应 CRC E8 69 与 CRC16/MODBUS 计算一致） |
 | 12 | external_interface.md 与 porting_guide.md 完整 | ✅ 通过 | 两文档已交付（2026-09-26） |

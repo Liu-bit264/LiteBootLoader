@@ -226,15 +226,15 @@ AA 55 01 84 02 01 00 00 A1 AC 55 AA
 
 ## 9. 上位机工具与 VOFA+
 
-### 9.1 Python 升级工具（阶段 3 已交付 `tools/python/bl_upgrade.py` v1.0.0）
+### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.1.0 含 tkinter GUI）
 
 ```bash
 # 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §3）
 # 一键升级（从任意状态：对端是 BL 直接升；是 APP 则自动"请求回 BL"再升级）
-uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py \
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     upgrade app.bin --port COM4
 # 流程检验（15 步硬件在环 selftest）
-uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py \
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     selftest --port COM4
 # 单命令：ping / info / meta / erase / verify <size> <crc_hex> / jump / reset / ...
 ```

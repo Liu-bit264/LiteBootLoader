@@ -13,7 +13,7 @@ VOFA+ 在本项目中的定位是**日志观察 + RawData 手动发帧的调试�
 | 手动发送单条命令（PING / ERASE / JUMP 等） | 自动校验 VERIFY（需预知镜像 size + CRC32） |
 | 直观验证帧格式与响应 | 原子化"请求回 BL → 擦 → 写 → 校验 → 跳转"全流程 |
 
-正式升级请使用 `tools/python/bl_upgrade.py`（见 [docs/protocol.md](../../docs/protocol.md)）。
+正式升级请使用独立上位机仓 `../../LiteBootUpgrader/bl_upgrade.py`（见 [docs/protocol.md](../../docs/protocol.md)）。
 两者共用同一 USART1（COM 口互斥：VOFA+ 打开串口期间 Python 工具无法使用，反之亦然）。
 
 ## 本机安装位置

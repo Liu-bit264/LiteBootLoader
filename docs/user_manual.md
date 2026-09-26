@@ -103,10 +103,10 @@ B[##################--] ← 呼吸亮度条（4 秒一个呼吸周期）
 
 ## 6. 日常操作：升级 APP
 
-一条命令，从任意状态（BL 或 APP）直接升级：
+一条命令，从任意状态（BL 或 APP）直接升级（命令在主仓根目录运行；工具位于独立上位机仓）：
 
 ```bash
-uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py \
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     upgrade 你的APP.bin --port COM4
 ```
 
@@ -114,9 +114,13 @@ uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py \
 （每块 252 B）→ VERIFY 校验（zlib CRC32）→ 报告"APP 就绪"。之后：
 
 ```bash
-uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py jump --port COM4   # 跳转
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COM4   # 跳转
 # 或 reset —— 复位后 BL 校验 APP 有效也会自动跳转
 ```
+
+> **图形界面**：双击 `../LiteBootUpgrader/bl_upgrade_gui.bat`（或
+> `uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade_gui.py`）——
+> 一键升级（进度条）/ 跳转 / 复位 / PING，操作日志实时滚动，功能与 CLI 等价。
 
 **成功判据**：`verify: OK crc=… size=…`；跳转后串口出现 APP 横幅、LED 呈 APP 行为。
 

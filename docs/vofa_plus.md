@@ -5,7 +5,7 @@
 
 ## 1. 定位声明（防混淆）
 
-**VOFA+ 不是本项目的正式升级工具**。正式升级工具为 `tools/python/bl_upgrade.py`（阶段 3，pyserial 实现）。VOFA+ 的角色严格限定为：
+**VOFA+ 不是本项目的正式升级工具**。正式升级工具为独立仓库 `LiteBootUpgrader` 的 `bl_upgrade.py`（v1.1.0，pyserial 实现，含 tkinter GUI）。VOFA+ 的角色严格限定为：
 
 1. **日志观察**：USART1（115200 8N1）文本流查看 BL 运行日志；
 2. **RawData 手动发帧**：十六进制手工发送协议帧，用于调试与联调演示。

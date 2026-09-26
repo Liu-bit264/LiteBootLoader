@@ -24,7 +24,7 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 | IWDG（§8.4） | 端口 `wdg.c` + 各耗时操作的喂狗点 | architecture.md §7 |
 | 日志（§8.3） | `core/bl_log.c`（编译期开关） | design.md ADR-009 |
 | 版本（§11） | `core/bl_version.h` | versioning.md |
-| 上位机工具（§9.4） | `tools/python/bl_upgrade.py`（阶段 3） | protocol.md §9 |
+| 上位机工具（§9.4） | 独立仓 `LiteBootUpgrader`（`../LiteBootUpgrader/`，v1.1.0 含 GUI） | protocol.md §9 |
 
 ## 3. 固化决策记录（ADR）
 

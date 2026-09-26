@@ -26,7 +26,7 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 5. 实现 `clock.c` 的 `SystemInit`（§4，**必须包含跳转进入路径**）与 `bl_clock_ops`。
 6. 实现 `bl_jump.s`（§6，逐字照搬，只换汇编器语法）。
 7. 更新 `*.spec.json`（uvprojx 生成器输入）→ 生成工程 → 全量构建 0 错 0 警。
-8. 烧录 BL → 用 `tools/python/bl_upgrade.py selftest` 跑 15 步硬件在环检验。
+8. 烧录 BL → 用独立上位机仓跑 15 步硬件在环检验：`uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py selftest --port COM4`（在主仓根目录运行）。
 9. 用 `upgrade` 子命令写入一份真 APP → `jump` 验证九步跳转。
 10. 按 test_plan.md 验收对照表逐条复核。
 

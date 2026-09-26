@@ -16,7 +16,7 @@
 | `bsp/` | 板级器件驱动（`oled_ssd1306` 等） |
 | `app/examples/` | APP 示例工程（链接到 `0x08004000`） |
 | `linker/` | 链接脚本 / 分散加载文件（bootloader、app） |
-| `tools/` | 上位机与工程工具：`python/` 升级器、`uvprojx/` 工程解析/生成、`ico/` 图标解析/生成、`vofa+/` 调试配置 |
+| `tools/` | 工程工具：`uvprojx/` 工程解析/生成、`ico/` 图标解析/生成、`vofa+/` 调试帧模板（上位机已迁出：独立仓 `../LiteBootUpgrader`） |
 | `docs/` | 设计文档：design / architecture / protocol / partition / external_interface / versioning / vofa_plus |
 | `scripts/` | 工具链检查与构建脚本 |
 | `third_party/` | CMSIS / HAL 依赖 |
@@ -57,9 +57,9 @@ python tools/uvprojx/generator.py app.spec.json -o app.uvprojx
 "/e/Hardware/Keil/Keil_v5/UV4/UV4.exe" -r app.uvprojx -j0 -o app_build.log
 "/e/Hardware/Keil/Keil_v5/ARM/ARMCC/bin/fromelf.exe" --bin --output=app/examples/f103c8t6_app/app.bin Objects/app.axf
 
-# 经 BL 协议升级 APP 并跳转（上位机用法见 docs/protocol.md；依赖隔离见下）
-uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py upgrade app/examples/f103c8t6_app/app.bin --port COM4
-uv run --python 3.12 --with pyserial tools/python/bl_upgrade.py jump --port COM4
+# 经 BL 协议升级 APP 并跳转（上位机在独立仓 ../LiteBootUpgrader，用法见 docs/protocol.md；依赖隔离见下）
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py upgrade app/examples/f103c8t6_app/app.bin --port COM4
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COM4
 ```
 
 > 编译器固定为 **AC5**（V5.06u7，ADR-013）；CMSIS 内核头为 V1.30（详见 `third_party/CMSIS/LICENSES.md`）。

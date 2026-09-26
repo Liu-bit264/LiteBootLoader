@@ -211,8 +211,8 @@ linker/
   app.ld
   bootloader.sct
 tools/
-  python/bl_upgrade.py
   vofa+/
+  （上位机已迁出独立仓：../LiteBootUpgrader —— bl_upgrade.py / GUI / 钻具）
   uvprojx/parser.py
   uvprojx/generator.py
   ico/parser.py
@@ -347,7 +347,7 @@ PC13 低电平点亮。为至少以下状态定义互不歧义的非阻塞模式
 ### 9.4 升级工具
 
 - VOFA+ 仅用于日志观察与 RawData 手动发帧，不视为完整升级器
-- 正式升级工具为 `tools/python/bl_upgrade.py`（Windows 下基于 pyserial，端口形如 `COM3`）
+- 正式升级工具为独立仓库 `LiteBootUpgrader`（`../LiteBootUpgrader/bl_upgrade.py`，v1.1.0，含 tkinter GUI；Windows 下基于 pyserial，端口形如 `COM4`）
 - `docs/protocol.md` 必须提供：
   - Python 工具用法
   - VOFA+ RawData 十六进制命令模板
