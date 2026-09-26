@@ -1,13 +1,16 @@
 # Keil 命令行构建说明（build_keil）
 
-## 一键构建（推荐）
+## 一键构建（推荐，ADR-015 CSP）
 
 ```bash
-bash scripts/build_keil.sh
+CHIP=f103c8t6 bash scripts/build_keil.sh              # TARGETS 默认 "bootloader app"
+CHIP=f103c8t6 TARGETS=bootloader bash scripts/build_keil.sh   # 只构建 BL
 ```
 
-脚本动作：按 `bootloader.spec.json` 重新生成 `bootloader.uvprojx` → `UV4 -r` 全量重建 →
-按退出码判定结果 → `fromelf` 生成 `bootloader.bin` → 输出大小与 SHA-256。
+脚本动作（每个目标）：`chipfill.py` 由 `chips/<id>.json` + 模板生成 `<目标>.spec.json` 与
+`linker/<目标>.sct` → `generator.py` 生成 `<目标>.uvprojx` → `UV4 -r` 全量重建 →
+按退出码判定结果 → `fromelf` 生成 bin（BL 在仓库根，APP 在 `app/examples/<chip>_app/`）→
+输出大小与 SHA-256。
 
 ## 工具链（AC5，本项目固定）
 
@@ -28,6 +31,8 @@ bash scripts/build_keil.sh
 ## 手工等价命令
 
 ```bash
+python tools/uvprojx/chipfill.py --chip chips/f103c8t6.json --target bootloader \
+    --spec-out bootloader.spec.json --sct-out linker/bootloader.sct
 python tools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx
 UV4 -r bootloader.uvprojx -j0 -o keil_build.log     # -r 全量重建，避免增量旧产物干扰
 fromelf --bin --output=bootloader.bin Objects/bootloader.axf
@@ -39,5 +44,8 @@ fromelf --bin --output=bootloader.bin Objects/bootloader.axf
   `C4056E: bad option`，19 个 C 文件全灭）；AC5 尺寸优化用 `-Ospace`。
 - third_party/CMSIS 为 CMSIS V1.30 自包含内核头（CMSIS 6 已不支持 AC5），勿与
   CMSIS 6 头混用；细节见 `third_party/CMSIS/LICENSES.md` 与 `docs/design.md` ADR-013。
-- 若在 Keil GUI 中调整过工程设置，请把变更同步回 `bootloader.spec.json`
-  （GUI 保存会覆盖生成文件；下次运行脚本会按 spec 重新生成）。
+- **改配置改源头**：`<目标>.spec.json` 与 `linker/*.sct` 是 chipfill 的**生成产物**
+  （已入库可复现），不要手改。芯片相关变更改 `chips/<id>.json`（或模板），改完跑
+  `python tools/uvprojx/test_chip.py` 确认往返一致后重新构建。若在 Keil GUI 中调整过
+  工程设置，用 `tools/uvprojx/parser.py` 解析 GUI 保存的工程，把 device 相关字段回填
+  到 `chips/<id>.json`——下次构建会按清单重新生成全部产物。

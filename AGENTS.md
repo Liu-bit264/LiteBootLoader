@@ -238,7 +238,7 @@ docs/
 scripts/
   check_toolchain.sh
   check_toolchain.bat
-  build_gcc.sh
+  build_gcc.sh（GCC 兼容构建——AGENTS §9.1 兼容目标，计划中未交付）
   build_keil.md
 third_party/
   CMSIS/
