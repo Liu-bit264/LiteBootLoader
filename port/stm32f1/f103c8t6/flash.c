@@ -3,8 +3,6 @@
 #include "bl_port.h"
 #include "stm32f10x.h"
 
-uint32_t bl_flash_page_count(void) { return BL_FLASH_SIZE / BL_PAGE_SIZE; }
-
 void bl_flash_lock(void)
 {
     FLASH->CR &= ~FLASH_CR_PG;
@@ -90,9 +88,25 @@ static bool ops_write(uint32_t addr, const uint8_t *data, uint32_t len)
     return ok;
 }
 
-static bool ops_erase_page(uint32_t page_index)
+/* 擦除单元（ADR-015）：F1 为均匀 1K 页，几何由 board_config BL_ERASE_UNIT_* 描述 */
+static uint32_t ops_unit_count(void) { return BL_ERASE_UNIT_COUNT; }
+
+static uint32_t ops_unit_addr(uint32_t unit_index)
 {
-    if (page_index >= bl_flash_page_count()) {
+    return (unit_index < BL_ERASE_UNIT_COUNT)
+               ? BL_ERASE_UNIT_BASE + unit_index * BL_ERASE_UNIT_SIZE
+               : 0u;
+}
+
+static uint32_t ops_unit_size(uint32_t unit_index)
+{
+    (void)unit_index;   /* F1 均匀单元，等大 */
+    return (unit_index < BL_ERASE_UNIT_COUNT) ? BL_ERASE_UNIT_SIZE : 0u;
+}
+
+static bool ops_erase_unit(uint32_t unit_index)
+{
+    if (unit_index >= BL_ERASE_UNIT_COUNT) {
         return false;
     }
     if (!unlock()) {
@@ -101,7 +115,7 @@ static bool ops_erase_page(uint32_t page_index)
     bool ok = false;
     if (wait_done()) {
         FLASH->CR |= FLASH_CR_PER;
-        FLASH->AR = BL_FLASH_BASE + page_index * BL_PAGE_SIZE;
+        FLASH->AR = BL_ERASE_UNIT_BASE + unit_index * BL_ERASE_UNIT_SIZE;
         FLASH->CR |= FLASH_CR_STRT;
         ok = wait_done();
         FLASH->CR &= ~FLASH_CR_PER;
@@ -109,24 +123,6 @@ static bool ops_erase_page(uint32_t page_index)
     bl_flash_lock();
     return ok;
 }
-
-static bool ops_erase_range(uint32_t addr, uint32_t len)
-{
-    if ((addr % BL_PAGE_SIZE) != 0u || (len % BL_PAGE_SIZE) != 0u ||
-        !bl_flash.is_range_valid(addr, len)) {
-        return false;
-    }
-    uint32_t first = (addr - BL_FLASH_BASE) / BL_PAGE_SIZE;
-    uint32_t count = len / BL_PAGE_SIZE;
-    for (uint32_t i = 0; i < count; i++) {
-        if (!bl_flash.erase_page(first + i)) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static uint32_t ops_page_size(void) { return BL_PAGE_SIZE; }
 
 static bool ops_range_valid(uint32_t addr, uint32_t len)
 {
@@ -138,8 +134,9 @@ const bl_flash_ops bl_flash = {
     .init = ops_init,
     .read = ops_read,
     .write = ops_write,
-    .erase_page = ops_erase_page,
-    .erase_range = ops_erase_range,
-    .page_size = ops_page_size,
+    .unit_count = ops_unit_count,
+    .unit_addr = ops_unit_addr,
+    .unit_size = ops_unit_size,
+    .erase_unit = ops_erase_unit,
     .is_range_valid = ops_range_valid,
 };

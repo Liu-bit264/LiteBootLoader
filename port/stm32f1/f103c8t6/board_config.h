@@ -11,6 +11,15 @@
 #define BL_PARAM_BASE          0x0800F800u   /* 页 62 = 副本 A */
 #define BL_PARAM_SIZE          0x00000800u   /* 2 KiB，页 62-63 */
 
+/* ---- 擦除单元（ADR-015：升级自"页"抽象；F1 均匀 1K 页，F4 为非均匀扇区表） ----
+   core 只经 bl_flash_ops 的 unit_* 接口访问单元几何，不假设单元等大。 */
+#define BL_ERASE_UNITS_UNIFORM  1u    /* 1=均匀单元 BASE+SIZE*i；0=显式表（F4 移植时在此定义扇区表） */
+#define BL_ERASE_UNIT_BASE      BL_FLASH_BASE
+#define BL_ERASE_UNIT_SIZE      BL_PAGE_SIZE
+#define BL_ERASE_UNIT_COUNT     (BL_FLASH_SIZE / BL_PAGE_SIZE)   /* 64 */
+#define BL_APP_UNITS_MAX        (BL_APP_SIZE / BL_PAGE_SIZE)     /* APP 覆盖单元数上界（位图容量） */
+#define BL_PARAM_COPY_SIZE      0x00000400u   /* 参数副本间隔 = 1 页（F4 为一个 16K 扇区） */
+
 /* ---- SRAM（跳转校验范围） ---- */
 #define BL_SRAM_BASE           0x20000000u
 #define BL_SRAM_SIZE           0x00005000u   /* 20 KiB */
@@ -20,6 +29,9 @@
                                           0=HSI 8MHz 直驱（晶振异常时的调试回退，UART 115200 仍可用） */
 #define BL_BOOT_WAIT_MS        3000u   /* 启动等待窗口（ADR-004） */
 #define BL_IWDG_TIMEOUT_MS     2000u   /* ADR-011 */
+#define BL_IWDG_UPGRADE_TIMEOUT_MS 2000u  /* 升级擦写期放宽（ADR-015）：ERASE 前生效，VERIFY 完成或跳转前恢复。
+                                              F1 取同值（页擦 ~4ms 无风险）；F4 建议 8000——128K 扇区擦除
+                                              ~875ms 且单 bank 擦除期间 CPU 停顿无法喂狗 */
 #define BL_UART_BAUD           115200u
 #define BL_PROTOCOL_ACTIVE_MS  10000u  /* 协议活跃判定（ADR-008/009） */
 #define BL_UI_REFRESH_MS       200u    /* OLED 最低刷新间隔 */

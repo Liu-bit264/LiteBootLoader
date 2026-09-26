@@ -14,10 +14,13 @@ typedef struct {
     void (*init)(void);
     bool (*read)(uint32_t addr, uint8_t *buf, uint32_t len);
     bool (*write)(uint32_t addr, const uint8_t *data, uint32_t len);  /* 半字对齐，尾部自动补 0xFF */
-    bool (*erase_page)(uint32_t page_index);
-    bool (*erase_range)(uint32_t addr, uint32_t len);                 /* 页对齐区间 */
-    uint32_t (*page_size)(void);
-    bool (*is_range_valid)(uint32_t addr, uint32_t len);              /* 物理边界防御（64 KiB） */
+    /* 擦除单元（ADR-015，替代旧"页"抽象）：F1 为均匀 1K 页；F4 为非均匀扇区，
+       unit_addr/unit_size 按单元序号查表，core 不假设单元等大 */
+    uint32_t (*unit_count)(void);                                     /* 全 Flash 擦除单元数 */
+    uint32_t (*unit_addr)(uint32_t unit_index);                       /* 单元起始地址（越界返回 0） */
+    uint32_t (*unit_size)(uint32_t unit_index);                       /* 单元大小（越界返回 0） */
+    bool (*erase_unit)(uint32_t unit_index);                          /* 擦除一个擦除单元 */
+    bool (*is_range_valid)(uint32_t addr, uint32_t len);              /* 物理边界防御（board_config 定界） */
 } bl_flash_ops;
 
 typedef struct {
@@ -35,6 +38,7 @@ typedef struct {
 
 typedef struct {
     void (*init)(uint32_t timeout_ms);
+    bool (*set_timeout_ms)(uint32_t timeout_ms);  /* 运行时重配（ADR-015 升级期放宽）；false=不支持或超硬件上限 */
     void (*refresh)(void);
 } bl_wdg_ops;
 

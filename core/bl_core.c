@@ -18,6 +18,25 @@ static uint32_t     s_last_hb;
 static bl_meta_t    s_meta;
 static bool         s_app_valid;        /* APP 有效性缓存（review P2） */
 static bool         s_app_valid_dirty;  /* true=擦/写后失效，下次读取重算 */
+static bool         s_wdg_widened;      /* IWDG 处于升级期放宽窗口（ADR-015） */
+
+/* IWDG 升级期放宽（ADR-015）：ERASE 前放大，VERIFY 完成或跳转前恢复。
+   背景：F4 单 bank 大扇区擦除期间 CPU 停顿无法喂狗，2s 窗口会误复位；
+   F1 页擦 ~4ms 无风险，放宽取同值（行为等价），路径先行固化。 */
+static void wdg_widen_for_upgrade(void)
+{
+    if (!s_wdg_widened && bl_wdg.set_timeout_ms(BL_IWDG_UPGRADE_TIMEOUT_MS)) {
+        s_wdg_widened = true;
+    }
+}
+
+static void wdg_restore_normal(void)
+{
+    if (s_wdg_widened) {
+        (void)bl_wdg.set_timeout_ms(BL_IWDG_TIMEOUT_MS);
+        s_wdg_widened = false;
+    }
+}
 
 /* APP 有效性缓存（review P2）：升级等待态空闲期不再每轮对整片镜像做 CRC32。
  * 语义不变——擦/写置脏、VERIFY 通过即为有效，读取时才重算。 */
@@ -125,6 +144,7 @@ static void handle_erase(uint8_t seq, const uint8_t *data, uint32_t len)
     }
     set_upgrade_ui();
     bl_display.set_progress(0u);
+    wdg_widen_for_upgrade();    /* ADR-015：擦除前放宽 IWDG */
     s_app_valid_dirty = true;   /* 整片擦除后有效性必然变化 */
     resp_status(BL_CMD_ERASE_APP, seq, bl_storage_erase_app());
 }
@@ -176,6 +196,7 @@ static void handle_verify(uint8_t seq, const uint8_t *data, uint32_t len)
     d[3] = (uint8_t)(calc_crc >> 16); d[4] = (uint8_t)(calc_crc >> 24);
     d[5] = (uint8_t)calc_size; d[6] = (uint8_t)(calc_size >> 8);
     d[7] = (uint8_t)(calc_size >> 16); d[8] = (uint8_t)(calc_size >> 24);
+    wdg_restore_normal();   /* ADR-015：VERIFY 完成即退出放宽窗口（无论结果） */
     bl_protocol_send((uint8_t)(BL_CMD_VERIFY_APP | 0x80u), seq, d, sizeof(d));
 }
 
@@ -243,6 +264,7 @@ static void handle_jump(uint8_t seq, const uint8_t *data, uint32_t len)
         return;
     }
     resp_status(BL_CMD_JUMP_APP, seq, BL_STATUS_OK);
+    wdg_restore_normal();      /* ADR-015：跳转前恢复常规超时，APP 接管后窗口一致 */
     bl_clock.delay_ms(50u);   /* 保证主机收到响应（ADR-007） */
     bl_wdg.refresh();          /* 喂狗点：跳转前（architecture.md §7） */
     bl_display.set_state(BL_DISPLAY_JUMPING);

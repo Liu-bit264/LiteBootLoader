@@ -66,11 +66,43 @@ static bool eval_copy(uint32_t page_addr, bl_meta_t *out)
     return true;
 }
 
+/* 在擦除单元表中定位包含 addr 的单元序号（ADR-015）；找不到返回 false */
+static bool find_unit_containing(uint32_t addr, uint32_t *unit_index)
+{
+    uint32_t n = bl_flash.unit_count();
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t ua = bl_flash.unit_addr(i);
+        uint32_t us = bl_flash.unit_size(i);
+        if (us != 0u && ua <= addr && (addr - ua) < us) {
+            *unit_index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool s_units_checked;
+
+/* 双副本必须落在两个独立擦除单元（partition.md §6 掉电安全前提；F4 两个扇区） */
+static bool check_copy_units_independent(void)
+{
+    uint32_t ia, ib;
+    return find_unit_containing(BL_PARAM_BASE, &ia) &&
+           find_unit_containing(BL_PARAM_BASE + BL_PARAM_COPY_SIZE, &ib) &&
+           ia != ib;
+}
+
 bool bl_meta_load(bl_meta_t *out)
 {
+    if (!s_units_checked) {
+        s_units_checked = true;
+        if (!check_copy_units_independent()) {
+            return false;   /* 副本几何非法：拒绝加载，防止误写 */
+        }
+    }
     bl_meta_t a, b;
-    bool a_ok = eval_copy(BL_PARAM_BASE, &a);                  /* 页 62 = 副本 A */
-    bool b_ok = eval_copy(BL_PARAM_BASE + BL_PAGE_SIZE, &b);   /* 页 63 = 副本 B */
+    bool a_ok = eval_copy(BL_PARAM_BASE, &a);                                 /* 副本 A */
+    bool b_ok = eval_copy(BL_PARAM_BASE + BL_PARAM_COPY_SIZE, &b);            /* 副本 B */
 
     if (a_ok && b_ok) {
         s_active = (a.seq >= b.seq) ? 0u : 1u;   /* 双有效取 seq 大（§6.1） */
@@ -118,30 +150,31 @@ static void build_image(uint8_t *img, uint32_t seq, uint32_t size, uint32_t crc,
     le32(&img[META_HDR_SIZE], bl_crc32_iso_hdlc(img, META_HDR_SIZE));
 }
 
-/* 掉电安全写（partition.md §6.2）：擦目标页 -> 写 0x24B -> 回读校验 */
+/* 掉电安全写（partition.md §6.2）：擦目标副本所在单元 -> 写 0x24B -> 回读校验 */
 static bool write_copy(uint8_t copy_idx, uint32_t seq, uint32_t size, uint32_t crc,
                        uint32_t flags, uint16_t ma, uint16_t mi, uint16_t pa)
 {
-    uint32_t page_addr = BL_PARAM_BASE + (uint32_t)copy_idx * BL_PAGE_SIZE;
-    uint32_t page_idx = (page_addr - BL_FLASH_BASE) / BL_PAGE_SIZE;
+    uint32_t copy_addr = BL_PARAM_BASE + (uint32_t)copy_idx * BL_PARAM_COPY_SIZE;
+    uint32_t unit_idx;
     uint8_t img[META_IMG_SIZE];
     uint8_t back[META_IMG_SIZE];
 
     bl_wdg.refresh();
-    if (!bl_flash.erase_page(page_idx)) {
+    if (!find_unit_containing(copy_addr, &unit_idx) ||
+        !bl_flash.erase_unit(unit_idx)) {
         return false;
     }
     build_image(img, seq, size, crc, flags, ma, mi, pa);
     bl_wdg.refresh();
-    if (!bl_flash.write(page_addr, img, META_IMG_SIZE)) {
+    if (!bl_flash.write(copy_addr, img, META_IMG_SIZE)) {
         return false;
     }
     bl_wdg.refresh();
-    if (!bl_flash.read(page_addr, back, META_IMG_SIZE)) {
+    if (!bl_flash.read(copy_addr, back, META_IMG_SIZE)) {
         return false;
     }
     bl_meta_t chk;
-    if (!eval_copy(page_addr, &chk) || chk.seq != seq) {
+    if (!eval_copy(copy_addr, &chk) || chk.seq != seq) {
         return false;   /* 回读失败：副本保持 INVALID，旧副本语义不变 */
     }
     s_meta = chk;
@@ -157,11 +190,12 @@ static bool commit(uint32_t size, uint32_t crc, uint32_t flags,
     if (s_active == 0xFFu) {
         seq = 1u;                       /* 出厂态：首写页 A */
     } else if (s_meta.seq == 0xFFFFFFFFu) {
-        /* 回绕（§6.2）：双页重擦，从 1 重新开始 */
-        uint32_t page_a = (BL_PARAM_BASE - BL_FLASH_BASE) / BL_PAGE_SIZE;
+        /* 回绕（§6.2）：双副本所在单元重擦，从 1 重新开始 */
+        uint32_t unit_a, unit_b;
         bl_wdg.refresh();
-        if (!bl_flash.erase_page(page_a) ||
-            !bl_flash.erase_page(page_a + 1u)) {
+        if (!find_unit_containing(BL_PARAM_BASE, &unit_a) ||
+            !find_unit_containing(BL_PARAM_BASE + BL_PARAM_COPY_SIZE, &unit_b) ||
+            !bl_flash.erase_unit(unit_a) || !bl_flash.erase_unit(unit_b)) {
             return false;
         }
         s_active = 0xFFu;

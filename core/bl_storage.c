@@ -5,42 +5,90 @@
 #include "board_config.h"
 #include <string.h>
 
-static uint8_t s_chunk[BL_VERIFY_CHUNK];   /* 1 KiB：VERIFY/擦除探测复用，静态分配 */
+static uint8_t s_chunk[BL_VERIFY_CHUNK];   /* 1 KiB：VERIFY 分块缓冲，静态分配 */
 
-/* 本会话内已确保处于擦除态的 APP 页位图（APP 相对页号 0..45）。
-   ERASE_APP 逐页置位；写路径只对未标记页做"扫描+按需擦除"。
+/* APP 相对擦除单元位图（ADR-015：页→擦除单元；下标为 APP 内第 r 个覆盖单元）。
+   ERASE_APP 逐单元置位；写路径只对未标记单元做"扫描+按需擦除"。
    背景（升级流程 selftest 实测教训）：旧实现每次写前无条件扫描，
    同一页的第二次写入会触发整页擦除，把先前分块全部抹掉（两轮 verify
    回读 CRC 同为 0xc71b794b = FF*504+最后 8B，实锤）。
-   复位后页状态未知，init 清零，由扫描兜底。 */
-#define BL_APP_PAGES  (BL_APP_SIZE / BL_PAGE_SIZE)
-static uint8_t s_erased_map[(BL_APP_PAGES + 7u) / 8u];
+   复位后单元状态未知，init 清零，由扫描兜底。 */
+static uint8_t s_erased_map[(BL_APP_UNITS_MAX + 7u) / 8u];
 
-static void erased_map_set(uint32_t rel_page)
+static uint16_t s_app_first_unit;   /* 第一个覆盖 APP 区的全局单元号 */
+static uint16_t s_app_unit_total;   /* 覆盖 APP 区的单元数（现实分区下全局序号连续） */
+
+static void erased_map_set(uint32_t rel_unit)
 {
-    s_erased_map[rel_page >> 3] |= (uint8_t)(1u << (rel_page & 7u));
+    s_erased_map[rel_unit >> 3] |= (uint8_t)(1u << (rel_unit & 7u));
 }
 
-static bool erased_map_test(uint32_t rel_page)
+static bool erased_map_test(uint32_t rel_unit)
 {
-    return (s_erased_map[rel_page >> 3] & (uint8_t)(1u << (rel_page & 7u))) != 0u;
+    return (s_erased_map[rel_unit >> 3] & (uint8_t)(1u << (rel_unit & 7u))) != 0u;
 }
 
 bool bl_storage_init(void)
 {
     bl_flash.init();
     memset(s_erased_map, 0, sizeof(s_erased_map));
-    return bl_flash.page_size() == BL_PAGE_SIZE;
+
+    /* 校验单元表几何完整（各单元等大且拼满 Flash 由端口层保证的正确性入口），
+       并定位覆盖 APP 区的单元区间（F1 均匀页退化为 16..61 连续区间） */
+    uint32_t count = bl_flash.unit_count();
+    uint32_t covered = 0u;
+    uint32_t end_addr = BL_APP_BASE + BL_APP_SIZE;
+    s_app_first_unit = 0u;
+    s_app_unit_total = 0u;
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t ua = bl_flash.unit_addr(i);
+        uint32_t us = bl_flash.unit_size(i);
+        if (us == 0u) {
+            return false;   /* 单元表残缺：端口几何声明与实现不一致 */
+        }
+        covered += us;
+        if (ua + us > BL_APP_BASE && ua < end_addr) {
+            if (s_app_unit_total == 0u) {
+                s_app_first_unit = (uint16_t)i;
+            }
+            s_app_unit_total++;
+        }
+    }
+    return covered == BL_FLASH_SIZE && s_app_unit_total > 0u &&
+           s_app_unit_total <= BL_APP_UNITS_MAX;
 }
 
-static bool page_needs_erase(uint32_t addr)
+/* APP 内第 rel 个覆盖单元的几何（依赖覆盖单元全局序号连续，现实分区恒成立） */
+static bool app_unit_geom(uint32_t rel, uint32_t *addr, uint32_t *size)
+{
+    if (rel >= s_app_unit_total) {
+        return false;
+    }
+    uint32_t gi = s_app_first_unit + rel;
+    uint32_t ua = bl_flash.unit_addr(gi);
+    uint32_t us = bl_flash.unit_size(gi);
+    if (us == 0u || ua < BL_APP_BASE) {
+        return false;
+    }
+    *addr = ua;
+    *size = us;
+    return true;
+}
+
+/* 单元内容是否非擦除态；读失败按无需擦处理（F1 读仅范围校验可失败，
+   合法单元内不可达，与既有页扫描行为一致） */
+static bool unit_needs_erase(uint32_t addr, uint32_t size)
 {
     uint8_t tmp[64];
-    for (uint32_t off = 0; off < BL_PAGE_SIZE; off += sizeof(tmp)) {
-        if (!bl_flash.read(addr + off, tmp, sizeof(tmp))) {
-            return false; /* 读失败按需要擦处理（保守） */
+    for (uint32_t off = 0; off < size; off += sizeof(tmp)) {
+        uint32_t n = size - off;
+        if (n > sizeof(tmp)) {
+            n = sizeof(tmp);
         }
-        for (uint32_t i = 0; i < sizeof(tmp); i++) {
+        if (!bl_flash.read(addr + off, tmp, n)) {
+            return false;
+        }
+        for (uint32_t i = 0; i < n; i++) {
             if (tmp[i] != 0xFFu) {
                 return true;
             }
@@ -51,14 +99,12 @@ static bool page_needs_erase(uint32_t addr)
 
 bl_status_t bl_storage_erase_app(void)
 {
-    uint32_t pages = BL_APP_SIZE / BL_PAGE_SIZE;
-    uint32_t first = (BL_APP_BASE - BL_FLASH_BASE) / BL_PAGE_SIZE;
-    for (uint32_t i = 0; i < pages; i++) {
-        bl_wdg.refresh();   /* 喂狗点：每页之间（architecture.md §7） */
-        if (!bl_flash.erase_page(first + i)) {
+    for (uint32_t r = 0; r < s_app_unit_total; r++) {
+        bl_wdg.refresh();   /* 喂狗点：每擦除单元之间（architecture.md §7） */
+        if (!bl_flash.erase_unit(s_app_first_unit + r)) {
             return BL_STATUS_FLASH_ERROR;
         }
-        erased_map_set(i);
+        erased_map_set(r);
     }
     return BL_STATUS_OK;
 }
@@ -73,28 +119,36 @@ bl_status_t bl_storage_write_chunk(uint32_t offset, const uint8_t *data, uint32_
         return BL_STATUS_RANGE_ERROR;
     }
 
-    /* 写前确保目标页为擦除态（ADR-007 修订）：位图已标记的页直接跳过，
-       未标记页扫描后按需擦除——同一页的后续写入不再整页擦除 */
-    uint32_t addr = BL_APP_BASE + offset;
-    uint32_t page_span = ((offset % BL_PAGE_SIZE) + len + BL_PAGE_SIZE - 1u) / BL_PAGE_SIZE;
-    uint32_t rel = offset / BL_PAGE_SIZE;
-    for (uint32_t p = 0; p < page_span; p++) {
-        if (erased_map_test(rel + p)) {
-            continue;
+    /* 写前确保目标单元为擦除态（ADR-007 修订）：位图已标记的直接跳过，
+       未标记单元扫描后按需擦除——同一单元的后续写入不再整单元擦除。
+       F4 语义：块落到大扇区中段时擦的是整个扇区，位图保证该扇区只擦一次 */
+    uint32_t end = offset + len;
+    for (uint32_t rel = 0; rel < s_app_unit_total; rel++) {
+        uint32_t ua, us;
+        if (!app_unit_geom(rel, &ua, &us)) {
+            return BL_STATUS_FLASH_ERROR;
         }
-        bl_wdg.refresh();
-        if (page_needs_erase(BL_APP_BASE + (rel + p) * BL_PAGE_SIZE)) {
+        uint32_t rel_off = ua - BL_APP_BASE;    /* 单元在 APP 内的起始偏移 */
+        if (rel_off >= end) {
+            break;                              /* 后续单元更靠后 */
+        }
+        if (rel_off + us <= offset) {
+            continue;                           /* 单元整体在本块之前 */
+        }
+        if (!erased_map_test(rel)) {
             bl_wdg.refresh();
-            if (!bl_flash.erase_page((BL_APP_BASE - BL_FLASH_BASE) / BL_PAGE_SIZE +
-                                     rel + p)) {
-                return BL_STATUS_FLASH_ERROR;
+            if (unit_needs_erase(ua, us)) {
+                bl_wdg.refresh();
+                if (!bl_flash.erase_unit(s_app_first_unit + rel)) {
+                    return BL_STATUS_FLASH_ERROR;
+                }
             }
+            erased_map_set(rel);
         }
-        erased_map_set(rel + p);
     }
 
     bl_wdg.refresh();
-    if (!bl_flash.write(addr, data, len)) {
+    if (!bl_flash.write(BL_APP_BASE + offset, data, len)) {
         return BL_STATUS_FLASH_ERROR;
     }
     return BL_STATUS_OK;
