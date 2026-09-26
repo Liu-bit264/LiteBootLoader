@@ -29,6 +29,7 @@
         "core",
         "port",
         "port\\stm32f1\\f103c8t6",
+        "bsp\\oled_ssd1306",
         "third_party\\CMSIS",
         "app\\examples\\f103c8t6_app"
       ],
@@ -109,6 +110,11 @@
               "path": "port\\stm32f1\\f103c8t6\\gpio.c"
             },
             {
+              "name": "i2c.c",
+              "type": 1,
+              "path": "port\\stm32f1\\f103c8t6\\i2c.c"
+            },
+            {
               "name": "wdg.c",
               "type": 1,
               "path": "port\\stm32f1\\f103c8t6\\wdg.c"
@@ -117,6 +123,21 @@
               "name": "flash.c",
               "type": 1,
               "path": "port\\stm32f1\\f103c8t6\\flash.c"
+            }
+          ]
+        },
+        {
+          "name": "BSP",
+          "files": [
+            {
+              "name": "ssd1306.c",
+              "type": 1,
+              "path": "bsp\\oled_ssd1306\\ssd1306.c"
+            },
+            {
+              "name": "ssd1306_font.c",
+              "type": 1,
+              "path": "bsp\\oled_ssd1306\\ssd1306_font.c"
             }
           ]
         }

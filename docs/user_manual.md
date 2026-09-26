@@ -75,6 +75,8 @@ uv run --python 3.12 --with pyocd pyocd flash \
 
 ### OLED（如有）
 
+BL 模式（上电 3 秒窗口 / 升级等待期）：
+
 ```text
 LiteBL 0.1.0          ← BL 版本
 F103C8  CLK:72M       ← 芯片与时钟（HSE 失败时显示 CLK:8M(HSI)）
@@ -82,6 +84,16 @@ MODE:WAIT/HOST        ← 当前状态；升级中显示 UPG:xx%
 CRC:OK / CRC:--       ← 最近一次 APP CRC 校验结果
 WDG:ON                ← IWDG 状态
 …rx/vf 计数           ← 串口诊断遥测
+```
+
+跳转后由 APP 接管（示例 APP）：
+
+```text
+A:APP v0.1.0          ← A: 前缀即 APP 在跑
+F103C8 CLK:72M
+RUN:breathing
+WDG:ON
+B[##################--] ← 呼吸亮度条（4 秒一个呼吸周期）
 ```
 
 ### 串口日志
