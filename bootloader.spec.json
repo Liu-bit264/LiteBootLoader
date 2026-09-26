@@ -87,16 +87,21 @@
               "name": "bl_crc.c",
               "type": 1,
               "path": "core\\bl_crc.c"
+            }
+          ]
+        },
+        {
+          "name": "Services",
+          "files": [
+            {
+              "name": "bl_display_oled.c",
+              "type": 1,
+              "path": "services\\display_oled\\bl_display_oled.c"
             },
             {
-              "name": "bl_log.c",
+              "name": "bl_debug_uart.c",
               "type": 1,
-              "path": "core\\bl_log.c"
-            },
-            {
-              "name": "bl_ui.c",
-              "type": 1,
-              "path": "core\\bl_ui.c"
+              "path": "services\\debug_uart\\bl_debug_uart.c"
             }
           ]
         },

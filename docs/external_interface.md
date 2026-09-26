@@ -55,15 +55,32 @@ typedef struct {
 
 方法签名见 [architecture.md](architecture.md) §3。对外保证：升级路径只可达 APP 区；参数区仅 `bl_metadata` 内部可达。
 
-### 3.3 ui 抽象（`core/bl_ui.h`）
+### 3.3 显示/调试服务抽象（ADR-014：`core/bl_display.h` + `core/bl_debug.h`）
 
 ```c
-void bl_ui_init(const bl_ui_ops *ops);      /* ops 注入 LED/GPIO、i2c 与显示配置 */
-void bl_ui_tick(uint32_t now_ms);           /* 每次主循环调用，内部限频 */
-void bl_ui_set_state(bl_state_t state);     /* 驱动 LED 模式与 OLED 摘要区 */
-void bl_ui_set_progress(uint8_t percent);   /* 升级进度 */
-void bl_ui_user_custom_page(void);          /* 弱符号，用户自检页面扩展点 */
+/* 显示服务（实现：services/display_oled，OLED+LED 状态指示） */
+typedef struct {
+    void (*init)(void);
+    void (*set_state)(bl_display_state_t state);  /* WAITING/UPGRADING/APP_INVALID/JUMPING/FAULT */
+    void (*set_progress)(uint8_t percent);        /* 升级进度 0-100 */
+    void (*set_crc_ok)(bool ok);                  /* VERIFY 结果展示 */
+    void (*tick)(uint32_t now_ms);                /* 每次主循环调用，内部限频，非阻塞 */
+} bl_display_ops;
+extern const bl_display_ops bl_display;           /* 链接期绑定，风格同 port ops */
+void bl_display_user_page(void);                  /* 弱符号：用户自检页扩展点（AGENTS §8.1） */
+
+/* 调试服务（实现：services/debug_uart，USART1，协议活跃期静音） */
+typedef struct {
+    void (*init)(void);
+    void (*set_level)(bl_debug_level_t level);
+    bl_debug_level_t (*get_level)(void);
+    void (*log)(bl_debug_level_t level, const char *fmt, ...);  /* 最小子集格式化 */
+} bl_debug_ops;
+extern const bl_debug_ops bl_debug;
+#define BL_LOGE(...) bl_debug.log(BL_DEBUG_ERROR, __VA_ARGS__)   /* 兼容宏，调用点零改动 */
 ```
+
+换显示/调试实现只替换 services/ 下模块并重接 ops 对象，core 不动。
 
 `bl_state_t`：WAITING / UPGRADING / APP_INVALID / JUMPING / FAULT（对应 design.md ADR-008 五种 LED 模式）。
 

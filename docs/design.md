@@ -20,9 +20,9 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 | USART1 升级协议（§6） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | protocol.md |
 | Flash 读写/擦除与地址防护（§5） | `core/bl_storage.c` + F103 端口 `flash.c` | partition.md §2 |
 | 参数区双副本（§5） | `core/bl_metadata.c` | partition.md §4–§8 |
-| OLED/LED 状态显示（§8） | `core/bl_ui.c` + `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | architecture.md §8 |
+| OLED/LED 状态显示（§8） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | architecture.md §8 |
 | IWDG（§8.4） | 端口 `wdg.c` + 各耗时操作的喂狗点 | architecture.md §7 |
-| 日志（§8.3） | `core/bl_log.c`（编译期开关） | design.md ADR-009 |
+| 日志（§8.3） | 服务 `services/debug_uart/`（ADR-014，编译期开关） | design.md ADR-009 |
 | 版本（§11） | `core/bl_version.h` | versioning.md |
 | 上位机工具（§9.4） | 独立仓 `LiteBootUpgrader`（`../LiteBootUpgrader/`，v1.1.0 含 GUI） | protocol.md §9 |
 
@@ -111,6 +111,20 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 - 尺寸优化用 `-Ospace`（AC5 选项；**禁止** `-Oz` 等 AC6 专属选项进 Misc Controls）。
 - CMSIS 6 已移除 AC5 支持，third_party/CMSIS 改用 V1.30 自包含内核头（`core_cm3.h`+`core_cm3.c`+器件头，来源与许可见 third_party/CMSIS/LICENSES.md）。
 - 备选 AC6（曾在阶段 1 编译通过，bin 8 824 B）作为迁移路径保留；切换时需同步更换 third_party 头并更新本 ADR。
+
+### ADR-014 显示/调试服务化解耦（用户决定，2026-09-26）
+
+将显示（OLED+LED）与调试（日志）从 core 解耦为**独立服务模块**，core 只依赖统一 API：
+
+- 接口头 `core/bl_display.h`（`bl_display_ops`：init/set_state/set_progress/set_crc_ok/tick）
+  与 `core/bl_debug.h`（`bl_debug_ops`：init/set_level/get_level/log + `BL_LOGx` 兼容宏），
+  绑定风格与 port ops 一致（链接期单实现）。
+- 实现：`services/display_oled/`（OLED 页渲染 + LED 模式表，语义沿用 ADR-008）与
+  `services/debug_uart/`（USART1 日志，ADR-009 静音策略在实现内）。
+- 依赖方向：services → core/port/bsp 允许；core 禁止 include services/bsp。
+- 用户自检页扩展点落地为 `bl_display_user_page()` 弱符号（AGENTS §8.1），
+  `BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
+- 备选实现（LED-only 显示、RTT 日志）换 services 目录即可，core 不动。
 
 ## 4. 默认假设确认表（AGENTS.md §15）
 

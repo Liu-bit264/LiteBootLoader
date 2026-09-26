@@ -193,9 +193,12 @@ core/
   bl_boot.*
   bl_crc.*
   bl_metadata.*
-  bl_ui.*
-  bl_log.*
+  bl_display.h（显示服务统一 API，ADR-014）
+  bl_debug.h（调试服务统一 API，ADR-014）
   bl_version.*
+services/
+  display_oled/（OLED+LED 显示服务实现）
+  debug_uart/（USART1 日志服务实现）
 port/
   stm32f1/f103c8t6/
     flash.* uart.* i2c.* gpio.* wdg.* clock.* systick.*
@@ -245,7 +248,7 @@ third_party/
 - **protocol**：流式解析、组帧、命令分发、CRC、超时、重试与错误响应
 - **storage**：Flash 读写、APP 擦除、APP CRC32、元数据双副本
 - **boot**：启动决策、APP 合法性校验、跳转
-- **ui**：OLED、LED、日志；所有周期任务必须非阻塞
+- **ui（服务化，ADR-014）**：显示与调试为独立服务模块（`services/display_oled`、`services/debug_uart`），向 core 提供统一 API（`core/bl_display.h`/`core/bl_debug.h`）；所有周期任务必须非阻塞
 - **port**：芯片与工具链相关实现，包括 Flash、UART、I2C、GPIO、IWDG、时钟和 SysTick
 - **bsp**：板级器件驱动及其配置
 
@@ -277,7 +280,7 @@ third_party/
 
 - 非阻塞、限频刷新
 - Flash 擦写和升级接收期间不得因整屏刷新造成不可接受延迟
-- 提供空的弱符号或回调 `bl_ui_user_custom_page()`，供用户扩展自检页面
+- 提供空的弱符号或回调 `bl_display_user_page()`（ADR-014），供用户扩展自检页面
 
 ### 8.2 LED
 

@@ -19,7 +19,11 @@
 │   bl_metadata 参数区双副本（状态机见 partition.md）           │
 │   bl_boot    启动决策 / APP 校验 / 九步跳转                   │
 │   bl_transport init/send/recv 抽象（首实现 UART）            │
-│   bl_ui / bl_log / bl_crc / bl_version                      │
+│   bl_ui / bl_log 已服务化迁出（ADR-014）                      │
+│   bl_crc / bl_version + core/bl_display.h · bl_debug.h 接口  │
+├──────────────── services/（可替换服务实现，ADR-014）─────────┤
+│   display_oled  OLED+LED 状态指示（实现 bl_display_ops）      │
+│   debug_uart    USART1 日志（实现 bl_debug_ops）             │
 ├──────────────── ops 结构（§3）──────────────────────────────┤
 │  port/stm32f1/f103c8t6/（芯片相关，可替换）                   │
 │   flash.c uart.c i2c.c gpio.c wdg.c clock.c systick.c       │
@@ -121,7 +125,7 @@ uint32_t bl_port_read_word(uint32_t addr);
 /* main 循环骨架（阶段 1 实现，此处为结构示意） */
 while (1) {
     bl_wdg_ops.refresh();                 /* 喂狗点 1：主循环顶 */
-    bl_ui_tick(bl_clock_ops.tick_ms());   /* LED 模式 + OLED 限频分片刷新，非阻塞 */
+    bl_display.tick(bl_clock_ops.tick_ms());  /* LED 模式 + OLED 限频分片刷新，非阻塞 */
     n = bl_uart_ops.read(rx_chunk, ...);  /* 非阻塞取 RX 环形缓冲 */
     bl_protocol_feed(rx_chunk, n);        /* 帧解析 → 完整帧交 bl_core 分发 */
     bl_core_poll();                       /* 状态机推进（等待窗口计时等） */
@@ -164,12 +168,14 @@ while (1) {
 
 禁止在以外的位置随意加喂狗掩盖长阻塞；新增耗时操作必须先在此清单登记喂狗点。
 
-## 8. UI 非阻塞模型
+## 8. 显示/调试服务模型（ADR-014）
 
-- `bl_ui_tick(now_ms)` 每次主循环调用，内部按 `BL_UI_REFRESH_MS`（默认 200 ms）限频。
+- `bl_display.tick(now_ms)` 每次主循环调用，内部按 `BL_UI_REFRESH_MS`（默认 200 ms）限频。
+- 显示服务实现于 `services/display_oled/`（`bl_display_ops`，OLED+LED 状态指示），语义状态由 core 注入（`set_state/set_progress/set_crc_ok`）。
 - LED：由 BL 状态 + 协议活跃标志查 ADR-008 模式表驱动，无阻塞延时。
 - OLED：显示 BL 版本、芯片型号、APP 状态（有效/无效/大小/CRC）、升级进度（ERASE/WRITE/VERIFY 百分比）、CRC 状态、IWDG 状态（运行中时钟源）；刷新按竖向条带分片（如 8 列/片）经 `bl_i2c_ops` 发送，分片间返回。
-- 预留 `bl_ui_user_custom_page()` **弱符号**（空实现），用户可覆盖自检页面；BL 在等待窗口/升级模式按配置切换调用。
+- 用户自检页面：`bl_display_user_page()` **弱符号**（空实现，`bl_display.h` 声明），`BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
+- 调试服务实现于 `services/debug_uart/`（`bl_debug_ops`，USART1，协议活跃期静音）；core 侧仅用 `BL_LOGx` 宏，换通道只换实现。
 
 ## 9. 内存预算（2026-09-25 AC5 实测回填，ARMCC V5.06u7 `-Ospace`）
 

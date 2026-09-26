@@ -4,8 +4,8 @@
 #include "bl_storage.h"
 #include "bl_metadata.h"
 #include "bl_boot.h"
-#include "bl_ui.h"
-#include "bl_log.h"
+#include "bl_display.h"
+#include "bl_debug.h"
 #include "bl_version.h"
 #include "bl_port.h"
 #include "board_config.h"
@@ -26,7 +26,7 @@ static void resp_status(uint8_t cmd, uint8_t seq, bl_status_t st)
 
 static void set_upgrade_ui(void)
 {
-    bl_ui_set_state(BL_UI_UPGRADING);
+    bl_display.set_state(BL_DISPLAY_UPGRADING);
 }
 
 /* ---- 命令处理（protocol.md §5） ---- */
@@ -111,7 +111,7 @@ static void handle_erase(uint8_t seq, const uint8_t *data, uint32_t len)
         return;
     }
     set_upgrade_ui();
-    bl_ui_set_progress(0u);
+    bl_display.set_progress(0u);
     resp_status(BL_CMD_ERASE_APP, seq, bl_storage_erase_app());
 }
 
@@ -124,7 +124,7 @@ static void handle_write(uint8_t seq, const uint8_t *data, uint32_t len)
     uint32_t offset = (uint32_t)data[0] | ((uint32_t)data[1] << 8) |
                       ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24);
     set_upgrade_ui();
-    bl_ui_set_progress((uint8_t)((offset * 100u) / BL_APP_SIZE));
+    bl_display.set_progress((uint8_t)((offset * 100u) / BL_APP_SIZE));
     resp_status(BL_CMD_WRITE_CHUNK, seq,
                 bl_storage_write_chunk(offset, data + 4u, len - 4u));
 }
@@ -142,7 +142,7 @@ static void handle_verify(uint8_t seq, const uint8_t *data, uint32_t len)
     set_upgrade_ui();
     uint32_t calc_crc = 0u, calc_size = 0u;
     bl_status_t st = bl_storage_verify_app(size, crc, &calc_crc, &calc_size);
-    bl_ui_set_crc_ok(st == BL_STATUS_OK);
+    bl_display.set_crc_ok(st == BL_STATUS_OK);
     uint8_t d[9];
     d[0] = (uint8_t)st;
     d[1] = (uint8_t)calc_crc; d[2] = (uint8_t)(calc_crc >> 8);
@@ -218,7 +218,7 @@ static void handle_jump(uint8_t seq, const uint8_t *data, uint32_t len)
     resp_status(BL_CMD_JUMP_APP, seq, BL_STATUS_OK);
     bl_clock.delay_ms(50u);   /* 保证主机收到响应（ADR-007） */
     bl_wdg.refresh();          /* 喂狗点：跳转前（architecture.md §7） */
-    bl_ui_set_state(BL_UI_JUMPING);
+    bl_display.set_state(BL_DISPLAY_JUMPING);
     bl_boot_jump();            /* 不返回 */
 }
 
@@ -260,9 +260,9 @@ void bl_core_init(void)
 {
     bl_transport_init();
     bl_storage_init();
-    bl_log_init();
+    bl_debug.init();
     bl_protocol_init();
-    bl_ui_init();
+    bl_display.init();
 
     bl_meta_load(&s_meta);
 
@@ -272,7 +272,7 @@ void bl_core_init(void)
         s_meta.flags &= ~BL_META_FLAG_BL_REQUEST;
         BL_LOGI("BL request -> upgrade mode");
         s_state = BL_STATE_UPGRADE_WAIT;
-        bl_ui_set_state(BL_UI_WAITING);
+        bl_display.set_state(BL_DISPLAY_WAITING);
         return;
     }
 
@@ -280,11 +280,11 @@ void bl_core_init(void)
         BL_LOGI("APP valid, wait %ums", (uint32_t)BL_BOOT_WAIT_MS);
         s_state = BL_STATE_WAIT_HOST;
         s_wait_start = bl_clock.tick_ms();
-        bl_ui_set_state(BL_UI_WAITING);
+        bl_display.set_state(BL_DISPLAY_WAITING);
     } else {
         BL_LOGI("APP invalid -> upgrade mode");
         s_state = BL_STATE_UPGRADE_WAIT;
-        bl_ui_set_state(BL_UI_APP_INVALID);
+        bl_display.set_state(BL_DISPLAY_APP_INVALID);
     }
 }
 
@@ -300,7 +300,7 @@ void bl_core_run(void)
             bl_protocol_feed(rx, n);
         }
         bl_protocol_poll(now);   /* 帧内 50ms 超时复位半帧 */
-        bl_ui_tick(now);
+        bl_display.tick(now);
 
 #if !BL_LOG_DISABLE
         /* 空闲心跳（design.md ADR-009）：串口链路自检——协议活跃期自动静默 */
@@ -316,18 +316,18 @@ void bl_core_run(void)
             if ((now - s_wait_start) >= BL_BOOT_WAIT_MS) {
                 /* 窗口结束：校验在 init 已通过，此处直接九步跳转 */
                 bl_wdg.refresh();
-                bl_ui_set_state(BL_UI_JUMPING);
+                bl_display.set_state(BL_DISPLAY_JUMPING);
                 bl_boot_jump();   /* 不返回 */
             }
             break;
         case BL_STATE_UPGRADE_WAIT:
             /* LED：协议活跃=快闪，否则按 APP 有效性慢闪/双闪（ADR-008） */
-            bl_ui_set_state(bl_protocol_is_active(now) ? BL_UI_UPGRADING
-                            : (bl_boot_app_valid() ? BL_UI_WAITING : BL_UI_APP_INVALID));
+            bl_display.set_state(bl_protocol_is_active(now) ? BL_DISPLAY_UPGRADING
+                            : (bl_boot_app_valid() ? BL_DISPLAY_WAITING : BL_DISPLAY_APP_INVALID));
             break;
         case BL_STATE_FAULT:
         default:
-            bl_ui_set_state(BL_UI_FAULT);
+            bl_display.set_state(BL_DISPLAY_FAULT);
             break;
         }
     }

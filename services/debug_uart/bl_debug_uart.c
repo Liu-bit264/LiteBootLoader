@@ -1,19 +1,24 @@
-#include "bl_log.h"
+/* 调试服务实现：USART1 文本日志（ADR-009/ADR-014）。
+ * 实现 core/bl_debug.h 的统一 API；受编译期开关（BL_LOG_DISABLE）、
+ * 运行时级别与协议活跃状态（共用 USART1，ADR-009）三重门控。
+ * 格式化器为最小子集（%s %d %u %x %c %%），不引入 libc printf。 */
+#include "bl_debug.h"
 #include "bl_port.h"
 #include "bl_protocol.h"
+#include "clock.h"
 #include <stdarg.h>
 
 #if !BL_LOG_DISABLE
 
-static bl_log_level_t s_level = BL_LOG_LEVEL_DEFAULT;
+static bl_debug_level_t s_level = BL_LOG_LEVEL_DEFAULT;
 
 static const char k_tag[4][3] = { "E:", "W:", "I:", "D:" };
 
-void bl_log_init(void) { s_level = BL_LOG_LEVEL_DEFAULT; }
+static void debug_init(void) { s_level = BL_LOG_LEVEL_DEFAULT; }
 
-void bl_log_set_level(bl_log_level_t level) { s_level = level; }
+static void debug_set_level(bl_debug_level_t level) { s_level = level; }
 
-bl_log_level_t bl_log_get_level(void) { return s_level; }
+static bl_debug_level_t debug_get_level(void) { return s_level; }
 
 static void emit_char(char c)
 {
@@ -71,7 +76,7 @@ static void emit_int(int32_t v)
     }
 }
 
-void bl_log_printf(bl_log_level_t level, const char *fmt, ...)
+static void debug_log(bl_debug_level_t level, const char *fmt, ...)
 {
     if (BL_LOG_DISABLE) {
         return;
@@ -134,13 +139,21 @@ void bl_log_printf(bl_log_level_t level, const char *fmt, ...)
 
 #else /* BL_LOG_DISABLE */
 
-void bl_log_init(void) {}
-void bl_log_set_level(bl_log_level_t level) { (void)level; }
-bl_log_level_t bl_log_get_level(void) { return BL_LOG_LEVEL_DEFAULT; }
-void bl_log_printf(bl_log_level_t level, const char *fmt, ...)
+static void debug_init(void) {}
+static void debug_set_level(bl_debug_level_t level) { (void)level; }
+static bl_debug_level_t debug_get_level(void) { return BL_LOG_LEVEL_DEFAULT; }
+static void debug_log(bl_debug_level_t level, const char *fmt, ...)
 {
     (void)level;
     (void)fmt;
 }
 
 #endif /* BL_LOG_DISABLE */
+
+/* ---- bl_debug_ops（core/bl_debug.h 统一 API） ---- */
+const bl_debug_ops bl_debug = {
+    .init = debug_init,
+    .set_level = debug_set_level,
+    .get_level = debug_get_level,
+    .log = debug_log,
+};
