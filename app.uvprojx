@@ -329,7 +329,7 @@
               <MiscControls>-Ospace</MiscControls>
               <Define>STM32F10X_MD</Define>
               <Undefine />
-              <IncludePath>core;port;port\stm32f1\f103c8t6;third_party\CMSIS;app\examples\f103c8t6_app</IncludePath>
+              <IncludePath>core;port;port\stm32f1\f103c8t6;bsp\oled_ssd1306;third_party\CMSIS;app\examples\f103c8t6_app</IncludePath>
             </VariousControls>
             <ScatterFile>linker\app.sct</ScatterFile>
           </Cads>
@@ -445,6 +445,11 @@
               <FilePath>port\stm32f1\f103c8t6\gpio.c</FilePath>
             </File>
             <File>
+              <FileName>i2c.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>port\stm32f1\f103c8t6\i2c.c</FilePath>
+            </File>
+            <File>
               <FileName>wdg.c</FileName>
               <FileType>1</FileType>
               <FilePath>port\stm32f1\f103c8t6\wdg.c</FilePath>
@@ -453,6 +458,21 @@
               <FileName>flash.c</FileName>
               <FileType>1</FileType>
               <FilePath>port\stm32f1\f103c8t6\flash.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>BSP</GroupName>
+          <Files>
+            <File>
+              <FileName>ssd1306.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>bsp\oled_ssd1306\ssd1306.c</FilePath>
+            </File>
+            <File>
+              <FileName>ssd1306_font.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>bsp\oled_ssd1306\ssd1306_font.c</FilePath>
             </File>
           </Files>
         </Group>

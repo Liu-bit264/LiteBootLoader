@@ -11,6 +11,7 @@ JLinkLog.txt
 # ---- 构建产物 ----
 build/
 out/
+*.log
 *.o
 *.d
 *.crf
