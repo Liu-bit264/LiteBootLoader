@@ -177,7 +177,7 @@ while (1) {
 - 用户自检页面：`bl_display_user_page()` **弱符号**（空实现，`bl_display.h` 声明），`BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
 - 调试服务实现于 `services/debug_uart/`（`bl_debug_ops`，USART1，协议活跃期静音）；core 侧仅用 `BL_LOGx` 宏，换通道只换实现。
 
-## 9. 内存预算（2026-09-25 AC5 实测回填，ARMCC V5.06u7 `-Ospace`）
+## 9. 内存预算（2026-09-26 AC5 实测回填，ARMCC V5.06u7 `-Ospace`，ADR-014 服务化后）
 
 | 项 | 预算/实测 | 说明 |
 |---|---|---|
@@ -185,7 +185,7 @@ while (1) {
 | RAM：OLED 帧缓冲 | 1 KiB | 128×64/8 |
 | RAM：VERIFY 块缓冲 | 1 KiB | bl_storage 静态分配 |
 | RAM：栈 | 1 KiB | 启动文件 Stack_Size |
-| RAM：ZI 合计实测 | 3 892 B（含上列） | 20 KiB 上限的 19% |
+| RAM：ZI 合计实测 | 3 888 B（含上列） | 20 KiB 上限的 19% |
 | Flash：CRC32 常量表 | ≈ 1 KiB | ADR-001（在 RO-data 内） |
-| Flash：实测 Code=9 628 + RO=1 900 + RW=68 | **11 596 B ≈ 11.3 KiB** | **≤ 16 KiB 验收线 ✓**（AC6 -Oz 时为 8 824 B，供参考） |
-| APP .bin | **≤ 46 KiB（验收线）** | 阶段 2 |
+| Flash：实测 Code=10 908 + RO=1 936 + RW=128 | **12 972 B ≈ 12.7 KiB** | **≤ 16 KiB 验收线 ✓**（bin SHA `f08f6d46…`；AC6 -Oz 时为 8 824 B，供参考） |
+| APP .bin | **7 856 B，≤ 46 KiB（验收线）✓** | 阶段 2，呼吸灯修复版 |

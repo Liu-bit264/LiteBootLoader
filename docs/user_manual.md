@@ -31,7 +31,7 @@ Flash 分区：
 
 BL 本体用调试器烧一次即可，之后升级 APP 全走串口。当前交付二进制：
 
-- `bootloader.bin`：12,696 B，SHA-256 `3f9694aa…0024a3f75f`（完整值以交付记录为准）
+- `bootloader.bin`：12,972 B，SHA-256 `f08f6d46…363ca`（服务化 + 审查修复版；完整值以交付记录为准）
 - APP 示例 `app/examples/f103c8t6_app/app.bin`：5,540 B，SHA-256 `b3f5b681…1102c7c74`
 
 ```bash
