@@ -9,11 +9,13 @@ set -u
 CHIP="${CHIP:-f103c8t6}"
 TARGETS="${TARGETS:-bootloader app}"
 CHIPS="chips/${CHIP}.json"
+UVTOOLS="${LITETOOLS_UVPROJX:-../LiteTools/uvprojx}"   # uvprojx 工具外置独立仓 LiteTools
 UV4="${KEIL_UV4:-/e/Hardware/Keil/Keil_v5/UV4/UV4.exe}"
 FROMELF="${KEIL_FROMELF:-/e/Hardware/Keil/Keil_v5/ARM/ARMCC/bin/fromelf.exe}"
 LOG="${LOG:-keil_build.log}"
 
 [ -f "$CHIPS" ] || { echo "[build] 芯片清单不存在: $CHIPS"; exit 2; }
+[ -f "$UVTOOLS/chipfill.py" ] || { echo "[build] LiteTools 不存在: $UVTOOLS（克隆 https 位置后与主仓并列放置，或用 LITETOOLS_UVPROJX 指向）"; exit 2; }
 # APP 产物目录由芯片清单给出（app\examples\<chip>_app，转正斜杠供 bash 使用）
 APP_DIR=$(python -c "import json;print(json.load(open('$CHIPS',encoding='utf-8'))['build']['app_example_dir'].replace(chr(92),'/'))")
 
@@ -21,11 +23,11 @@ for TGT in $TARGETS; do
   echo "==== [${CHIP}] ${TGT} ===="
 
   # 1) 芯片清单+模板 -> spec 与 scatter（构建侧唯一事实源，产物入库可复现）
-  python tools/uvprojx/chipfill.py --chip "$CHIPS" --target "$TGT" \
+  python "$UVTOOLS/chipfill.py" --chip "$CHIPS" --target "$TGT" \
       --spec-out "${TGT}.spec.json" --sct-out "linker/${TGT}.sct" || exit 1
 
   # 2) spec -> 工程文件
-  python tools/uvprojx/generator.py "${TGT}.spec.json" -o "${TGT}.uvprojx" || exit 1
+  python "$UVTOOLS/generator.py" "${TGT}.spec.json" -o "${TGT}.uvprojx" || exit 1
 
   # 3) 全量重建（-r），避开增量构建的旧产物干扰
   rm -f "$LOG"

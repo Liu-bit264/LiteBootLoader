@@ -18,8 +18,8 @@
 
 | 测试 | 命令 | 通过标准 | 状态 |
 |---|---|---|---|
-| uvprojx 解析/生成往返 | `python tools/uvprojx/test_uvprojx.py` | 全部断言通过 | ✅ 通过（阶段 0 交付起持续可复跑） |
-| ICO 解析/生成 | `python tools/ico/test_ico.py` | 全部断言通过 | ✅ 通过 |
+| uvprojx 解析/生成往返 | LiteTools 仓 `uvprojx/test_uvprojx.py`（`../LiteTools`） | 全部断言通过 | ✅ 通过（阶段 0 交付起持续可复跑） |
+| ICO 解析/生成 | LiteTools 仓 `ico/test_ico.py` | 全部断言通过 | ✅ 通过 |
 
 ## 3. L2 硬件在环自动化（selftest，15 步）
 

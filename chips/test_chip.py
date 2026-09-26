@@ -2,26 +2,34 @@
 # -*- coding: utf-8 -*-
 """CSP 测试：chipfill 模板往返 + chip.json↔board_config.h 一致性。
 
-直接 `python test_chip.py` 运行（unittest，无外部依赖）。
-- 往返：chipfill 渲染的 .spec.json / .sct 必须与仓库内已提交产物一致
+直接 `python chips/test_chip.py` 运行（unittest，无外部依赖）。
+- 往返：LiteTools 的 chipfill 渲染的 .spec.json / .sct 必须与仓库内已提交产物一致
   （改了 chips/*.json 或模板后必须重新生成，否则本测试红）。
 - 一致性：构建侧事实源（chip.json）与 C 侧唯一出处（board_config.h）的
-  分区 / SRAM / 擦除单元 / IWDG 常量必须相等（ADR-015 双事实源纪律）。"""
+  分区 / SRAM / 擦除单元 / IWDG 常量必须相等（ADR-015 双事实源纪律）。
+
+工具依赖：uvprojx 工具已外置独立仓 LiteTools（../LiteTools），
+可用环境变量 LITETOOLS_UVPROJX 指向其 uvprojx 目录覆盖默认位置。"""
 
 import json
+import os
 import re
 import sys
 import unittest
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
-sys.path.insert(0, str(HERE))
+HERE = Path(__file__).resolve().parent          # chips/
+ROOT = HERE.parent                              # 仓库根
+TOOLS = Path(os.environ.get(
+    "LITETOOLS_UVPROJX",
+    str(HERE.parent.parent / "LiteTools" / "uvprojx")))
+sys.path.insert(0, str(TOOLS))
 
 import chipfill  # noqa: E402
 import generator as uv_generator  # noqa: E402
 
-CHIP_JSON = ROOT / "chips" / "f103c8t6.json"
+CHIP_JSON = HERE / "f103c8t6.json"
+SPEC_TPL_DIR = HERE / "templates"
 BOARD_CFG = ROOT / "port" / "stm32f1" / "f103c8t6" / "board_config.h"
 
 
@@ -130,7 +138,8 @@ class ChipfillRoundtripTest(unittest.TestCase):
 
     def test_spec_render_matches_committed(self):
         for target in ("bootloader", "app"):
-            rendered = chipfill.build_spec(self.chip, target)
+            rendered = chipfill.build_spec(
+                self.chip, target, SPEC_TPL_DIR / f"{target}.spec.template.json")
             committed = json.loads(
                 (ROOT / f"{target}.spec.json").read_text(encoding="utf-8"))
             self.assertEqual(
@@ -140,11 +149,13 @@ class ChipfillRoundtripTest(unittest.TestCase):
 
     def test_spec_passes_validate(self):
         for target in ("bootloader", "app"):
-            uv_generator.validate_spec(chipfill.build_spec(self.chip, target))
+            uv_generator.validate_spec(chipfill.build_spec(
+                self.chip, target, SPEC_TPL_DIR / f"{target}.spec.template.json"))
 
     def test_sct_render_matches_committed(self):
         for target in ("bootloader", "app"):
-            rendered = chipfill.render_sct(self.chip, target)
+            rendered = chipfill.render_sct(
+                self.chip, target, TOOLS / "templates" / f"{target}.sct.template")
             committed = (ROOT / "linker" / f"{target}.sct").read_text(encoding="utf-8")
             self.assertEqual(strip_comments(committed), strip_comments(rendered),
                              f"linker/{target}.sct 与渲染不一致，须重新生成")
@@ -153,7 +164,8 @@ class ChipfillRoundtripTest(unittest.TestCase):
         bad = json.loads(CHIP_JSON.read_text(encoding="utf-8"))   # 原始清单（无 derived）
         bad.pop("memory", None)
         with self.assertRaises(chipfill.ChipFillError):
-            chipfill.build_spec(bad, "bootloader")   # derived.cpu_* 依赖 memory
+            chipfill.build_spec(bad, "bootloader",
+                                SPEC_TPL_DIR / "bootloader.spec.template.json")
 
 
 class BoardConfigConsistencyTest(unittest.TestCase):

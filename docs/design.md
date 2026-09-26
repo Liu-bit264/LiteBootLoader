@@ -137,9 +137,10 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
   register_file/sfd_file/cputype）、build（defines/include/文件清单）、memory、partitions
   （含参数双副本单元）、erase_units（F1 均匀页紧凑描述；F4 非均匀表式扩展位）、clock、
   pins、iwdg（normal_ms + **upgrade_relaxed_ms**）、sysmem。与 C 侧唯一出处
-  `board_config.h` 的四类常量一致性由 `tools/uvprojx/test_chip.py` 强制。
-- **模板化生成**：`tools/uvprojx/chipfill.py`（占位符 `{{chip.x}}` / `{"$chip": ...}`）
-  + `tools/uvprojx/templates/*.spec.template.json` + `linker/templates/*.sct.template`
+  `board_config.h` 的四类常量一致性由 `chips/test_chip.py` 强制。
+- **模板化生成**：LiteTools 仓（`../LiteTools`）的 `uvprojx/chipfill.py`（占位符
+  `{{chip.x}}` / `{"$chip": ...}`）+ 主仓 `chips/templates/*.spec.template.json`（项目
+  工程结构数据）+ LiteTools `uvprojx/templates/*.sct.template`（通用形状，随工具分发）
   → per-chip `.spec.json` 与 `.sct`（生成产物入库）。generator.py 移除全部设备名硬编码
   （FlashDriverDll/RegisterFile/SFDFile/AdsCpuType/-pCM3/LDads 地址均来自规格 device 字段）。
   金标准：渲染 spec 与原手写 spec 语义等价；改造后 F103 BL bin 与基线**逐字节一致**

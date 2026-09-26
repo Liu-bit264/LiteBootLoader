@@ -27,14 +27,14 @@
 # 1) 工具链检查（Git Bash；CMD 用 scripts\check_toolchain.bat）
 bash scripts/check_toolchain.sh
 
-# 2) uvprojx 工具（Keil 工程解析 / 生成）
-python tools/uvprojx/parser.py <工程.uvprojx> -o spec.json
-python tools/uvprojx/generator.py spec.json -o new.uvprojx        # 创建模式（结果需在 Keil 中人工验证）
-python tools/uvprojx/generator.py spec.json --update old.uvprojx  # 更新模式（保留未知字段，自动备份）
+# 2) uvprojx 工具（独立仓 ../LiteTools；Keil 工程解析 / 生成）
+uv run --python 3.12 ../LiteTools/uvprojx/parser.py <工程.uvprojx> -o spec.json
+uv run --python 3.12 ../LiteTools/uvprojx/generator.py spec.json -o new.uvprojx        # 创建模式（结果需在 Keil 中人工验证）
+uv run --python 3.12 ../LiteTools/uvprojx/generator.py spec.json --update old.uvprojx  # 更新模式（保留未知字段，自动备份）
 
-# 3) ICO 工具（图标解析 / 生成）
-python tools/ico/parser.py <文件.ico>
-python tools/ico/generator.py --sizes 16,32,48,256 -o icon.ico icon.png
+# 3) ICO 工具（独立仓 ../LiteTools；图标解析 / 生成）
+uv run --python 3.12 ../LiteTools/ico/parser.py <文件.ico>
+uv run --python 3.12 --with pillow ../LiteTools/ico/generator.py --sizes 16,32,48,256 -o icon.ico icon.png
 ```
 
 ## 构建（CSP，ADR-015）
@@ -44,17 +44,17 @@ python tools/ico/generator.py --sizes 16,32,48,256 -o icon.ico icon.png
 # CHIP 指定芯片清单（默认 f103c8t6）；TARGETS 默认 "bootloader app"
 CHIP=f103c8t6 bash scripts/build_keil.sh
 
-# 手工等价流程：
-python tools/uvprojx/chipfill.py --chip chips/f103c8t6.json --target bootloader \
+# 手工等价流程（uvprojx 工具在独立仓 ../LiteTools）：
+python ../LiteTools/uvprojx/chipfill.py --chip chips/f103c8t6.json --target bootloader \
     --spec-out bootloader.spec.json --sct-out linker/bootloader.sct   # 芯片清单 -> spec 与 scatter
-python tools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx  # spec -> 工程
+python ../LiteTools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx  # spec -> 工程
 "/e/Hardware/Keil/Keil_v5/UV4/UV4.exe" -r bootloader.uvprojx -j0 -o keil_build.log
 # 退出码：0=无警告无错误，1=有警告，≥2=有错误
 "/e/Hardware/Keil/Keil_v5/ARM/ARMCC/bin/fromelf.exe" --bin --output=bootloader.bin Objects/bootloader.axf
 # BL 当前 13 540 B @72MHz（ADR-015 擦除单元抽象 + IWDG 放宽后），产物 SHA-256 见交付记录
 
 # 改了 chips/<id>.json 或模板后：重新生成全部产物（test_chip.py 会强制往返一致）
-python tools/uvprojx/test_chip.py
+python chips/test_chip.py
 
 # 经 BL 协议升级 APP 并跳转（上位机在独立仓 ../LiteBootUpgrader，用法见 docs/protocol.md；依赖隔离见下）
 uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py upgrade app/examples/f103c8t6_app/app.bin --port COM4
@@ -66,8 +66,12 @@ uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --po
 ## 工具自测（无需 pytest，直接运行）
 
 ```bash
-python tools/uvprojx/test_uvprojx.py
-python tools/ico/test_ico.py
+# uvprojx / ico 工具单测（工具在独立仓 ../LiteTools）
+cd ../LiteTools/uvprojx && python test_uvprojx.py && cd ../../LiteBootLoader
+cd ../LiteTools/ico && python test_ico.py && cd ../../LiteBootLoader
+
+# 主仓 CSP 一致性（chip.json ↔ board_config.h + 模板往返）
+python chips/test_chip.py
 ```
 
 > **环境约定**：本机 Python 解释器来源较多（Miniforge / MSYS2 / uv），默认 `python`

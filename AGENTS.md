@@ -201,6 +201,8 @@ services/
   debug_uart/（USART1 日志服务实现）
 chips/
   <id>.json（CSP 芯片清单，ADR-015：构建侧事实源，chipfill 消费）
+  templates/（per-chip spec 模板——本项目工程结构数据）
+  test_chip.py（模板往返 + chip.json↔board_config 一致性测试）
 port/
   stm32f1/f103c8t6/
     flash.* uart.* i2c.* gpio.* wdg.* clock.* systick.*
@@ -215,17 +217,9 @@ linker/
   bootloader.ld
   app.ld
   bootloader.sct（chipfill 生成产物）
-  templates/（per-chip sct 模板）
 tools/
   vofa+/
-  （上位机已迁出独立仓：../LiteBootUpgrader —— bl_upgrade.py / GUI / 钻具）
-  uvprojx/parser.py
-  uvprojx/generator.py
-  uvprojx/chipfill.py（chip.json+模板 → spec/sct，ADR-015）
-  uvprojx/templates/（per-chip spec 模板）
-  uvprojx/test_chip.py（模板往返 + chip.json↔board_config 一致性）
-  ico/parser.py
-  ico/generator.py
+  （外部工具仓：uvprojx/ico 工具在 ../LiteTools，上位机在 ../LiteBootUpgrader）
 docs/
   design.md
   architecture.md
@@ -332,24 +326,24 @@ PC13 低电平点亮。为至少以下状态定义互不歧义的非阻塞模式
 
 脚本必须以清晰状态输出「可用 / 缺失 / 未检测」，不得因可选工具缺失而整体误报失败；本机缺什么就在报告里如实标注，不影响主交付路线。
 
-### 9.2 uvprojx 工具
+### 9.2 uvprojx 工具（外置 LiteTools 仓）
 
-开发 BL 主体前先提供可运行初版：
+已交付并外置独立仓 **LiteTools**（`../LiteTools/uvprojx/`）：
 
-- `tools/uvprojx/parser.py`：解析 target、device、源文件、include paths、宏定义和 scatter file 为 JSON
-- `tools/uvprojx/generator.py`：根据 JSON 和模板生成 `.uvprojx`
-- 写入前自动备份
-- 生成结果需提示在 Keil 中人工验证
-- XML 处理必须保留必要命名空间和未知字段，避免无关格式破坏
+- `parser.py`：解析 target、device、源文件、include paths、宏定义和 scatter file 为 JSON
+- `generator.py`：根据 JSON 和模板生成 `.uvprojx`（写入前自动备份；生成结果需提示在
+  Keil 中人工验证；XML 处理保留必要命名空间和未知字段）
+- `chipfill.py`：chip.json + 模板 → spec/sct（CSP，ADR-015；spec 模板属项目数据，
+  在主仓 `chips/templates/`；sct 通用模板随工具分发）
 
 可参考设计思路：`Eitan-Su/keil_translate_cmake`、`LoveApple14434/Keil2Cmake`；不得直接复制不兼容许可证代码。
 
-### 9.3 ICO 工具
+### 9.3 ICO 工具（外置 LiteTools 仓）
 
-开发 BL 主体前先提供可运行初版：
+已交付并外置独立仓 **LiteTools**（`../LiteTools/ico/`）：
 
-- `tools/ico/parser.py`：读取 ICO，输出尺寸、bpp、偏移、长度和图像信息
-- `tools/ico/generator.py`：由 PNG 列表生成 ICO
+- `parser.py`：读取 ICO，输出尺寸、bpp、偏移、长度和图像信息
+- `generator.py`：由 PNG 列表生成 ICO
 - 优先使用 Pillow；需要验证底层结构时可使用 `struct`
 - 校验 ICO 头 `00 00 01 00`、目录数量、偏移和数据边界
 

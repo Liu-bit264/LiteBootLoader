@@ -27,11 +27,11 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 2. 换启动文件（向量表、堆栈）与 CMSIS 器件头（平铺放 `third_party/CMSIS/`，续
    LICENSES.md 原样拷贝记录）；确认 `RESET` 段仍被 scatter 以 `*.o (RESET, +First)` 置于镜像首。
 3. 写 `chips/<id>.json`：device（含 DFP flash_driver/register_file/sfd_file——可先在
-   Keil GUI 配好设备再用 `tools/uvprojx/parser.py` 解析现成工程提取）、memory、partitions
+   Keil GUI 配好设备再用 LiteTools 仓的 `uvprojx/parser.py` 解析现成工程提取）、memory、partitions
    （含参数双副本单元）、erase_units（F1 均匀页紧凑描述 / F4 显式扇区表）、clock、pins、
    iwdg（normal_ms + upgrade_relaxed_ms，**F4 建议 8000 ms**）、sysmem。
 4. 实现 `board_config.h`：与 chip.json 四类常量（分区/SRAM/擦除单元/IWDG）保持一致——
-   `tools/uvprojx/test_chip.py` 会强制校验两侧。
+   `chips/test_chip.py` 会强制校验两侧。
 5. 实现 6 个 ops（§3，Flash 用 unit_* 语义）。
 6. 实现 `clock.c` 的 `SystemInit`（§4，**必须包含跳转进入路径**）与 `bl_clock_ops`。
 7. 实现 `bl_jump.s`（§6，逐字照搬，只换汇编器语法）。

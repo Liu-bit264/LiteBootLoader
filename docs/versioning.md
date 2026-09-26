@@ -40,7 +40,7 @@
 | `chore` | 构建/工具/杂项 | 无 |
 | `port` | 芯片端口移植 | 按 feat/fix 性质判定 |
 
-scope 取值（新增需先在本文登记）：`core`、`port/f1`、`port/f4`、`port/g0`、`port/h7`、`protocol`、`ui`、`bsp/oled`、`tools`、`tools/uvprojx`、`tools/ico`、`docs`、`scripts`、`partition`。
+scope 取值（新增需先在本文登记）：`core`、`port/f1`、`port/f4`、`port/g0`、`port/h7`、`protocol`、`ui`、`bsp/oled`、`tools`、`docs`、`scripts`、`partition`。`tools/uvprojx`、`tools/ico` 自 2026-09-27 起外置 LiteTools 仓（`../LiteTools`），相关提交在其仓内按其自身规范执行。
 
 示例：
 
