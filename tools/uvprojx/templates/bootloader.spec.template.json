@@ -1,0 +1,97 @@
+{
+  "schema_version": "2.2",
+  "_note": "由 tools/uvprojx/chipfill.py 从 chips/<id>.json 渲染生成（ADR-015）；勿手改本文件与渲染产物，改芯片清单后重新生成。",
+  "targets": [
+    {
+      "name": "bootloader",
+      "toolset": {
+        "number": "0x4",
+        "name": "ARM-ADS",
+        "uac6": false,
+        "pcc_used": "5060960::V5.06 update 7 (build 960)::.\\ARMCC"
+      },
+      "use_microlib": true,
+      "device": {
+        "name": "{{chip.device.name}}",
+        "vendor": "{{chip.device.vendor}}",
+        "pack_id": "{{chip.device.pack_id}}",
+        "cpu": "{{chip.derived.cpu_bootloader}}",
+        "cpu_core": "{{chip.device.cputype}}",
+        "debug_dll_args": "{{chip.device.debug_dll_args}}",
+        "flash_driver": "{{chip.device.flash_driver}}",
+        "register_file": "{{chip.device.register_file}}",
+        "sfd_file": "{{chip.device.sfd_file}}"
+      },
+      "output": {
+        "directory": ".\\Objects\\",
+        "name": "bootloader",
+        "create_executable": true,
+        "create_hex_file": false
+      },
+      "c_defines": "{{chip.build.c_defines}}",
+      "c_include_paths": [
+        "core",
+        "port",
+        "{{chip.build.port_dir}}",
+        "bsp\\oled_ssd1306",
+        "{{chip.build.cmsis_dir}}"
+      ],
+      "c_misc_controls": "-Ospace",
+      "scatter_file": "linker\\bootloader.sct",
+      "groups": [
+        {
+          "name": "Startup",
+          "files": [
+            { "$chip": "build.startup_files" },
+            { "$chip": "build.bl_jump_file" }
+          ]
+        },
+        {
+          "name": "Core",
+          "files": [
+            { "name": "bl_core.c", "type": 1, "path": "core\\bl_core.c" },
+            { "name": "bl_protocol.c", "type": 1, "path": "core\\bl_protocol.c" },
+            { "name": "bl_transport.c", "type": 1, "path": "core\\bl_transport.c" },
+            { "name": "bl_storage.c", "type": 1, "path": "core\\bl_storage.c" },
+            { "name": "bl_metadata.c", "type": 1, "path": "core\\bl_metadata.c" },
+            { "name": "bl_boot.c", "type": 1, "path": "core\\bl_boot.c" },
+            { "name": "bl_crc.c", "type": 1, "path": "core\\bl_crc.c" }
+          ]
+        },
+        {
+          "name": "Services",
+          "files": [
+            { "name": "bl_display_oled.c", "type": 1, "path": "services\\display_oled\\bl_display_oled.c" },
+            { "name": "bl_debug_uart.c", "type": 1, "path": "services\\debug_uart\\bl_debug_uart.c" }
+          ]
+        },
+        {
+          "name": "CMSIS",
+          "files": [
+            { "$chip": "build.cmsis_sources" }
+          ]
+        },
+        {
+          "name": "Port",
+          "files": [
+            { "name": "main.c", "type": 1, "path": "{{chip.build.port_dir}}\\main.c" },
+            { "name": "clock.c", "type": 1, "path": "{{chip.build.port_dir}}\\clock.c" },
+            { "name": "systick.c", "type": 1, "path": "{{chip.build.port_dir}}\\systick.c" },
+            { "name": "uart.c", "type": 1, "path": "{{chip.build.port_dir}}\\uart.c" },
+            { "name": "gpio.c", "type": 1, "path": "{{chip.build.port_dir}}\\gpio.c" },
+            { "name": "wdg.c", "type": 1, "path": "{{chip.build.port_dir}}\\wdg.c" },
+            { "name": "flash.c", "type": 1, "path": "{{chip.build.port_dir}}\\flash.c" },
+            { "name": "i2c.c", "type": 1, "path": "{{chip.build.port_dir}}\\i2c.c" }
+          ]
+        },
+        {
+          "name": "BSP",
+          "files": [
+            { "name": "ssd1306.c", "type": 1, "path": "bsp\\oled_ssd1306\\ssd1306.c" },
+            { "name": "ssd1306_font.c", "type": 1, "path": "bsp\\oled_ssd1306\\ssd1306_font.c" }
+          ]
+        }
+      ]
+    }
+  ]
+}

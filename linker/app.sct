@@ -1,4 +1,4 @@
-; LiteBootLoader APP 示例散布加载文件 —— APP 区 46 KiB + SRAM 20 KiB（partition.md §1）
+; LiteBootLoader APP 示例散布加载文件（由 tools/uvprojx/chipfill.py 从 chips/f103c8t6.json 生成，勿手改；APP 链接基址见 partition.md §1，启动后须设 SCB->VTOR = APP_BASE）
 LR_IROM1 0x08004000 0x0000B800  {
   ER_IROM1 0x08004000 0x0000B800  {
     *.o (RESET, +First)

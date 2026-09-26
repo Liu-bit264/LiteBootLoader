@@ -6,8 +6,10 @@
   1) 创建模式（默认）：`generator.py spec.json -o new.uvprojx`
      按内置模板生成全新 .uvprojx；模板元素与顺序对齐真实 uVision5 工程
      （含 xsi 命名空间声明、TargetName/Toolset*/uAC6 直挂 Target、RTE 节点）。
-     设备相关字段（FlashDriverDll/RegisterFile/SFDFile）仅对 STM32F103C8
-     给出 DFP 引用默认值，其它设备留空，需在 Keil 中配置。
+     设备相关字段（FlashDriverDll/RegisterFile/SFDFile/CpuType/调试 DLL 参数）
+     一律取自规格 device 字段（ADR-015：由 chipfill.py 从 chips/<id>.json 填充；
+     可用 `python tools/uvprojx/chipfill.py --chip chips/<id>.json --target ...` 生成规格），
+     未提供时 FlashDriverDll/RegisterFile/SFDFile 留空，需在 Keil 中配置。
   2) 更新模式：`generator.py spec.json --update old.uvprojx`
      只改写规格中出现的字段，其余节点（含未知字段与命名空间声明）原样保留。
      规格来自 parser.py 输出时，近似完成一次"解析-回写"。
@@ -36,14 +38,6 @@ XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8" standalone="no" ?>'
 
 # 与本机安装一致的 AC5 编译器版本记录（toolset.uac6=false 时使用；取自 Keil GUI 保存值）
 PCC_USED_AC5 = "5060960::V5.06 update 7 (build 960)::.\\ARMCC"
-
-# STM32F103C8 的 DFP 设备引用默认值
-_F103C8_FLASH_DRIVER = (
-    "UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_128 "
-    "-FS08000000 -FL020000 -FP0($$Device:STM32F103C8$Flash\\STM32F10x_128.FLM))"
-)
-_F103C8_REGISTER_FILE = "$$Device:STM32F103C8$Device\\Include\\stm32f10x.h"
-_F103C8_SFD_FILE = "$$Device:STM32F103C8$SVD\\STM32F103xx.svd"
 
 _CPU_MEM_RE = re.compile(
     r"(IRAM|IROM|XRAM)\(\s*(0x[0-9A-Fa-f]+)\s*,\s*(0x[0-9A-Fa-f]+)\s*\)")
@@ -123,7 +117,8 @@ def _build_arm_ads_misc(spec_target, memory: dict) -> ET.Element:
             ("AdsLszi", 1), ("AdsLtoi", 1), ("AdsLsun", 1), ("AdsLven", 1),
             ("AdsLsxf", 1), ("RvctClst", 0), ("GenPPlst", 0)):
         _sub(misc, tag, value)
-    _sub(misc, "AdsCpuType", '"Cortex-M3"')
+    cpu_core = (spec_target.get("device") or {}).get("cpu_core", "Cortex-M3")
+    _sub(misc, "AdsCpuType", f'"{cpu_core}"')
     _sub(misc, "RvctDeviceName", "")
     _sub(misc, "mOS", 0)
     _sub(misc, "uocRom", 0)
@@ -224,7 +219,7 @@ def _build_aads() -> ET.Element:
     return aads
 
 
-def _build_ldads(spec_target) -> ET.Element:
+def _build_ldads(spec_target, memory: dict) -> ET.Element:
     scatter = spec_target.get("scatter_file", "")
     ldads = ET.Element("LDads")
     # 指定 scatter 时关闭"使用 Target 对话框内存布局"，改用 scatter 文件
@@ -234,8 +229,10 @@ def _build_ldads(spec_target) -> ET.Element:
     _sub(ldads, "noStLib", 0)
     _sub(ldads, "RepFail", 1)
     _sub(ldads, "useFile", 1 if scatter else 0)
-    _sub(ldads, "TextAddressRange", "0x08000000")
-    _sub(ldads, "DataAddressRange", "0x20000000")
+    iram = memory.get("IRAM")
+    irom = memory.get("IROM")
+    _sub(ldads, "TextAddressRange", irom[0] if irom else "0x08000000")
+    _sub(ldads, "DataAddressRange", iram[0] if iram else "0x20000000")
     _sub(ldads, "pXoBase", "")
     _sub(ldads, "ScatterFile", spec_target.get("linker_scatter_file", "") or scatter)
     for tag in ("IncludeLibs", "IncludeLibsPath", "Misc", "LinkerInputFile",
@@ -248,7 +245,6 @@ def _build_target_option(spec_target) -> ET.Element:
     device = spec_target.get("device") or {}
     device_name = device.get("name", "")
     memory = _parse_cpu_memory(device.get("cpu", ""))
-    is_f103c8 = device_name == "STM32F103C8"
 
     opt = ET.Element("TargetOption")
     common = _sub(opt, "TargetCommonOption")
@@ -259,13 +255,13 @@ def _build_target_option(spec_target) -> ET.Element:
     _sub(common, "Cpu", device.get("cpu", ""))
     for tag in ("FlashUtilSpec", "StartupFile"):
         _sub(common, tag, "")
-    _sub(common, "FlashDriverDll", _F103C8_FLASH_DRIVER if is_f103c8 else "")
-    _sub(common, "RegisterFile", _F103C8_REGISTER_FILE if is_f103c8 else "")
+    _sub(common, "FlashDriverDll", device.get("flash_driver", ""))
+    _sub(common, "RegisterFile", device.get("register_file", ""))
     _sub(common, "DeviceId", 0)
     for tag in ("MemoryEnv", "Cmp", "Asm", "Linker", "OHString",
                 "InfinionOptionDll", "SLE66CMisc", "SLE66AMisc", "SLE66LinkerMisc"):
         _sub(common, tag, "")
-    _sub(common, "SFDFile", _F103C8_SFD_FILE if is_f103c8 else "")
+    _sub(common, "SFDFile", device.get("sfd_file", ""))
     _sub(common, "bCustSvd", 0)
     _sub(common, "UseEnv", 0)
     for tag in ("BinPath", "IncludePath", "LibPath", "RegisterFilePath",
@@ -315,14 +311,15 @@ def _build_target_option(spec_target) -> ET.Element:
     _sub(prop, "ComprImg", 1)
 
     dll = _sub(opt, "DllOption")
+    debug_args = device.get("debug_dll_args", "-pCM3")
     _sub(dll, "SimDllName", "SARMCM3.DLL")
     _sub(dll, "SimDllArguments", " -REMAP")
     _sub(dll, "SimDlgDll", "DCM.DLL")
-    _sub(dll, "SimDlgDllArguments", "-pCM3")
+    _sub(dll, "SimDlgDllArguments", debug_args)
     _sub(dll, "TargetDllName", "SARMCM3.DLL")
     _sub(dll, "TargetDllArguments", "")
     _sub(dll, "TargetDlgDll", "TCM.DLL")
-    _sub(dll, "TargetDlgDllArguments", "-pCM3")
+    _sub(dll, "TargetDlgDllArguments", debug_args)
 
     debug = _sub(opt, "DebugOption")
     opthx = _sub(debug, "OPTHX")
@@ -350,7 +347,7 @@ def _build_target_option(spec_target) -> ET.Element:
     ads.append(_build_arm_ads_misc(spec_target, memory))
     ads.append(_build_cads(spec_target))
     ads.append(_build_aads())
-    ads.append(_build_ldads(spec_target))
+    ads.append(_build_ldads(spec_target, memory))
     return opt
 
 

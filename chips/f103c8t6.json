@@ -1,0 +1,77 @@
+{
+  "_note": "CSP 芯片清单（ADR-015）：构建侧事实源，由 tools/uvprojx/chipfill.py 消费生成 per-chip 的 .spec.json 与 .sct。C 侧常量唯一出处仍为 port/.../board_config.h，两侧一致性由 tools/uvprojx/test_chip.py 校验。加芯片 = 建本文件 + 实现 port ops（porting_guide.md §CSP）。",
+  "id": "f103c8t6",
+  "family": "stm32f1",
+  "device": {
+    "name": "STM32F103C8",
+    "vendor": "STMicroelectronics",
+    "pack_id": "Keil.STM32F1xx_DFP.2.4.1",
+    "cputype": "Cortex-M3",
+    "cpu_clock": "CLOCK(12000000)",
+    "endianness": "ELITTLE",
+    "debug_dll_args": "-pCM3",
+    "flash_driver": "UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_128 -FS08000000 -FL020000 -FP0($$Device:STM32F103C8$Flash\\STM32F10x_128.FLM))",
+    "register_file": "$$Device:STM32F103C8$Device\\Include\\stm32f10x.h",
+    "sfd_file": "$$Device:STM32F103C8$SVD\\STM32F103xx.svd"
+  },
+  "build": {
+    "c_defines": ["STM32F10X_MD"],
+    "cmsis_dir": "third_party\\CMSIS",
+    "cmsis_sources": [
+      { "name": "core_cm3.c", "type": 1, "path": "third_party\\CMSIS\\core_cm3.c" }
+    ],
+    "port_dir": "port\\stm32f1\\f103c8t6",
+    "startup_files": [
+      { "name": "startup_stm32f10x_md.s", "type": 2, "path": "port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s" }
+    ],
+    "bl_jump_file": { "name": "bl_jump.s", "type": 2, "path": "port\\stm32f1\\f103c8t6\\bl_jump.s" },
+    "app_example_dir": "app\\examples\\f103c8t6_app"
+  },
+  "memory": {
+    "flash_base": "0x08000000",
+    "flash_size": "0x00010000",
+    "sram_base": "0x20000000",
+    "sram_size": "0x00005000"
+  },
+  "partitions": {
+    "bootloader": { "base": "0x08000000", "size": "0x00004000" },
+    "app": { "base": "0x08004000", "size": "0x0000B800" },
+    "params": {
+      "base": "0x0800F800",
+      "size": "0x00000800",
+      "copies": [
+        { "base": "0x0800F800", "size": "0x00000400" },
+        { "base": "0x0800FC00", "size": "0x00000400" }
+      ]
+    }
+  },
+  "erase_units": {
+    "uniform": true,
+    "base": "0x08000000",
+    "unit_size": "0x00000400",
+    "count": 64,
+    "typical_erase_ms": 4
+  },
+  "clock": {
+    "hse_mhz": 8,
+    "target_hz": 72000000,
+    "hsi_mhz": 8,
+    "wait_states": 2
+  },
+  "pins": {
+    "uart_tx": "PA9",
+    "uart_rx": "PA10",
+    "led": "PC13",
+    "led_active_low": true,
+    "i2c_scl": "PB8",
+    "i2c_sda": "PB9"
+  },
+  "iwdg": {
+    "normal_ms": 2000,
+    "upgrade_relaxed_ms": 2000
+  },
+  "sysmem": {
+    "uid_addr": "0x1FFFF7E8",
+    "flsize_addr": "0x1FFFF7E0"
+  }
+}

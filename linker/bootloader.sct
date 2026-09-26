@@ -1,4 +1,4 @@
-; LiteBootLoader 散布加载文件 —— BL 区 16 KiB + SRAM 20 KiB（partition.md §1）
+; LiteBootLoader 散布加载文件（由 tools/uvprojx/chipfill.py 从 chips/f103c8t6.json 生成，勿手改；分区定义见 partition.md §1）
 LR_IROM1 0x08000000 0x00004000  {
   ER_IROM1 0x08000000 0x00004000  {
     *.o (RESET, +First)

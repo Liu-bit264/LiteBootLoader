@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
-  <SchemaVersion>2.1</SchemaVersion>
+  <SchemaVersion>2.2</SchemaVersion>
   <Header>### uVision Project, (C) Keil Software</Header>
   <Targets>
     <Target>
@@ -358,7 +358,7 @@
             <noStLib>0</noStLib>
             <RepFail>1</RepFail>
             <useFile>1</useFile>
-            <TextAddressRange>0x08000000</TextAddressRange>
+            <TextAddressRange>0x08004000</TextAddressRange>
             <DataAddressRange>0x20000000</DataAddressRange>
             <pXoBase />
             <ScatterFile>linker\app.sct</ScatterFile>

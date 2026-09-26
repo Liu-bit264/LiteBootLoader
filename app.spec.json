@@ -1,5 +1,6 @@
 {
-  "schema_version": "2.1",
+  "schema_version": "2.2",
+  "_note": "由 tools/uvprojx/chipfill.py 从 chips/<id>.json 渲染生成（ADR-015）；勿手改本文件与渲染产物，改芯片清单后重新生成。",
   "targets": [
     {
       "name": "app",
@@ -14,7 +15,12 @@
         "name": "STM32F103C8",
         "vendor": "STMicroelectronics",
         "pack_id": "Keil.STM32F1xx_DFP.2.4.1",
-        "cpu": "IRAM(0x20000000,0x5000) IROM(0x08004000,0xB800) CPUTYPE(\"Cortex-M3\") CLOCK(12000000) ELITTLE"
+        "cpu": "IRAM(0x20000000,0x5000) IROM(0x08004000,0xB800) CPUTYPE(\"Cortex-M3\") CLOCK(12000000) ELITTLE",
+        "cpu_core": "Cortex-M3",
+        "debug_dll_args": "-pCM3",
+        "flash_driver": "UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_128 -FS08000000 -FL020000 -FP0($$Device:STM32F103C8$Flash\\STM32F10x_128.FLM))",
+        "register_file": "$$Device:STM32F103C8$Device\\Include\\stm32f10x.h",
+        "sfd_file": "$$Device:STM32F103C8$SVD\\STM32F103xx.svd"
       },
       "output": {
         "directory": ".\\Objects\\",
