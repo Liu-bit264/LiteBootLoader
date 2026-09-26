@@ -45,3 +45,6 @@ Desktop.ini
 # ---- 会话/本地状态（不入库） ----
 .zcode/
 *.uvoptx
+
+# ---- 评审过程记录（本地保留，不入库） ----
+docs/review/
