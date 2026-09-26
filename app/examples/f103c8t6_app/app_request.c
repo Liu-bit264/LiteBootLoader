@@ -61,7 +61,10 @@ static void on_frame(uint8_t cmd, uint8_t seq, const uint8_t *data, uint32_t len
     respond(cmd, seq, &st, 1u);
 }
 
-/* 整帧尝试解析：要求 SOF/长度/CRC 全部一致；不合法则整段丢弃（主机负责重试） */
+/* 整帧尝试解析：要求 SOF/长度/CRC 全部一致；不合法则整段丢弃（主机负责重试）。
+ * 注意（review P3）：这是「最小示例」重组器——按 EOF 定界累积，DATA/CRC 内
+ * 出现 0x55 0xAA 会提前截断（长度不符时静默等待、靠 267B 超长复位兜底），
+ * 严谨性弱于 core/bl_protocol.c 的流式状态机，勿复用到生产路径。 */
 static void try_parse(void)
 {
     if (s_len < 11u) {

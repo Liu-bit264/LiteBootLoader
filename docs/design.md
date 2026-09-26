@@ -10,7 +10,7 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 
 - **当前范围**：启动决策、APP 合法性校验、USART1 升级、Flash 与参数区管理、OLED/LED 状态显示、IWDG、跳转 APP、配套 Python 工具与文档。
 - **长期目标**：core 与 port 解耦，可迁移至 STM32F4 / G0 / H7。
-- **非目标**（本期明确不做，接口预留见 §3 ADR-012）：联网 OTA 技术栈、外部 Flash、F103 双 APP 分区与自动回滚。
+- **非目标**（本期明确不做，接口预留见 §3 ADR-012）：联网 OTA 技术栈、外部 Flash、F103 双 APP 分区与自动回滚、**固件签名/认证**（review P3：升级链路仅 CRC16/CRC32 完整性校验，USART1 上任意主机均可烧写；认证的接入点应落在 storage 校验链与元数据结构，见 partition.md §4）。
 
 ## 2. 需求到模块映射
 

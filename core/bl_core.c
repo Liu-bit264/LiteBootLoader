@@ -16,6 +16,19 @@ static core_state_t s_state;
 static uint32_t     s_wait_start;
 static uint32_t     s_last_hb;
 static bl_meta_t    s_meta;
+static bool         s_app_valid;        /* APP 有效性缓存（review P2） */
+static bool         s_app_valid_dirty;  /* true=擦/写后失效，下次读取重算 */
+
+/* APP 有效性缓存（review P2）：升级等待态空闲期不再每轮对整片镜像做 CRC32。
+ * 语义不变——擦/写置脏、VERIFY 通过即为有效，读取时才重算。 */
+static bool app_valid_cached(void)
+{
+    if (s_app_valid_dirty) {
+        s_app_valid = bl_boot_app_valid();
+        s_app_valid_dirty = false;
+    }
+    return s_app_valid;
+}
 
 /* ---- 工具 ---- */
 static void resp_status(uint8_t cmd, uint8_t seq, bl_status_t st)
@@ -112,6 +125,7 @@ static void handle_erase(uint8_t seq, const uint8_t *data, uint32_t len)
     }
     set_upgrade_ui();
     bl_display.set_progress(0u);
+    s_app_valid_dirty = true;   /* 整片擦除后有效性必然变化 */
     resp_status(BL_CMD_ERASE_APP, seq, bl_storage_erase_app());
 }
 
@@ -124,7 +138,14 @@ static void handle_write(uint8_t seq, const uint8_t *data, uint32_t len)
     uint32_t offset = (uint32_t)data[0] | ((uint32_t)data[1] << 8) |
                       ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24);
     set_upgrade_ui();
-    bl_display.set_progress((uint8_t)((offset * 100u) / BL_APP_SIZE));
+    /* 进度按已送达字节数（review P3）：起始 offset 只反映上一块末尾；
+       先夹取防非法 offset 的乘法回绕 */
+    uint32_t done = offset + len - 4u;
+    if (done > BL_APP_SIZE) {
+        done = BL_APP_SIZE;
+    }
+    bl_display.set_progress((uint8_t)((done * 100u) / BL_APP_SIZE));
+    s_app_valid_dirty = true;   /* 写入改变内容，有效性待 VERIFY 确定 */
     resp_status(BL_CMD_WRITE_CHUNK, seq,
                 bl_storage_write_chunk(offset, data + 4u, len - 4u));
 }
@@ -143,6 +164,12 @@ static void handle_verify(uint8_t seq, const uint8_t *data, uint32_t len)
     uint32_t calc_crc = 0u, calc_size = 0u;
     bl_status_t st = bl_storage_verify_app(size, crc, &calc_crc, &calc_size);
     bl_display.set_crc_ok(st == BL_STATUS_OK);
+    if (st == BL_STATUS_OK) {
+        s_app_valid = true;         /* 校验通过即有效性确定，免一次重算 */
+        s_app_valid_dirty = false;
+    } else {
+        s_app_valid_dirty = true;
+    }
     uint8_t d[9];
     d[0] = (uint8_t)st;
     d[1] = (uint8_t)calc_crc; d[2] = (uint8_t)(calc_crc >> 8);
@@ -272,11 +299,14 @@ void bl_core_init(void)
         s_meta.flags &= ~BL_META_FLAG_BL_REQUEST;
         BL_LOGI("BL request -> upgrade mode");
         s_state = BL_STATE_UPGRADE_WAIT;
+        s_app_valid_dirty = true;   /* 有效性未核，取用时重算 */
         bl_display.set_state(BL_DISPLAY_WAITING);
         return;
     }
 
-    if (bl_boot_app_valid()) {
+    s_app_valid = bl_boot_app_valid();
+    s_app_valid_dirty = false;
+    if (s_app_valid) {
         BL_LOGI("APP valid, wait %ums", (uint32_t)BL_BOOT_WAIT_MS);
         s_state = BL_STATE_WAIT_HOST;
         s_wait_start = bl_clock.tick_ms();
@@ -323,7 +353,7 @@ void bl_core_run(void)
         case BL_STATE_UPGRADE_WAIT:
             /* LED：协议活跃=快闪，否则按 APP 有效性慢闪/双闪（ADR-008） */
             bl_display.set_state(bl_protocol_is_active(now) ? BL_DISPLAY_UPGRADING
-                            : (bl_boot_app_valid() ? BL_DISPLAY_WAITING : BL_DISPLAY_APP_INVALID));
+                            : (app_valid_cached() ? BL_DISPLAY_WAITING : BL_DISPLAY_APP_INVALID));
             break;
         case BL_STATE_FAULT:
         default:
