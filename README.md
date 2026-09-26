@@ -4,7 +4,8 @@
 （Cortex-M3，64 KiB Flash / 20 KiB RAM），通过 core/port 分层支持后续迁移到 F4 / G0 / H7。
 
 - 项目规则与分阶段计划：见根目录 [AGENTS.md](AGENTS.md)
-- 当前状态：**阶段 2 —— APP 示例工程已交付并全链路实测**（协议升级→JUMP_APP 跳转→APP 呼吸灯→APP 请求回 BL→复位自动跳转，均在硬件通过）
+- 当前状态：**阶段 3 —— 上位机工具已交付并全链路实测**（v1.0.0 一键升级含自动"请求回 BL"、重试层、15/15 selftest、升级中断恢复演练，均在硬件通过）
+- **用户手册（怎么用看这里）**：[docs/user_manual.md](docs/user_manual.md)
 
 ## 目录结构（阶段 0 骨架）
 
@@ -79,6 +80,7 @@ python tools/ico/test_ico.py
 
 | 文档 | 内容 |
 |---|---|
+| [docs/user_manual.md](docs/user_manual.md) | **用户手册**：硬件连接、首次烧录、日常升级、指示说明、故障排查 |
 | [docs/design.md](docs/design.md) | 总体设计与固化决策记录（CRC 参数、升级模式、LED/日志策略等 ADR） |
 | [docs/architecture.md](docs/architecture.md) | 分层架构、ops 接口、运行时模型、状态机、内存预算 |
 | [docs/partition.md](docs/partition.md) | Flash 分区、参数区双副本状态机与断电恢复 |
