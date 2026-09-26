@@ -157,6 +157,10 @@ class BootLoader:
 # ---- 响应解析 ----
 
 def parse_info(d: bytes) -> str:
+    if len(d) < 19:
+        # 短响应：BL 全量遥测至少 19B；1B 状态响应通常是 APP 迷你响应器所答
+        return (f"短响应（{len(d)}B，status={st_name(d[0]) if d else '空'}）"
+                f"—— 对端疑似 APP 而非 BL")
     ma, mi, pa = d[1], d[2], d[3]
     uid = bytes(d[4:16])
     flsz = d[16] | (d[17] << 8)
