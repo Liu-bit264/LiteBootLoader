@@ -43,7 +43,7 @@ fromelf --bin --output=bootloader.bin Objects/bootloader.axf
 - 本工程用 **AC5**：不要在 Misc Controls 里加 AC6 专属选项（如 `-Oz`，AC5 报
   `C4056E: bad option`，19 个 C 文件全灭）；AC5 尺寸优化用 `-Ospace`。
 - third_party/CMSIS 为 CMSIS V1.30 自包含内核头（CMSIS 6 已不支持 AC5），勿与
-  CMSIS 6 头混用；细节见 `third_party/CMSIS/LICENSES.md` 与 `docs/design.md` ADR-013。
+  CMSIS 6 头混用；细节见 `third_party/CMSIS/LICENSES.md` 与 `docs/dev/design.md` ADR-013。
 - **改配置改源头**：`<目标>.spec.json` 与 `linker/*.sct` 是 chipfill 的**生成产物**
   （已入库可复现），不要手改。芯片相关变更改 `chips/<id>.json`（或 `chips/templates/`
   内的 spec 模板），改完跑 `python chips/test_chip.py` 确认往返一致后重新构建。

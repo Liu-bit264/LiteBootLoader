@@ -1,7 +1,7 @@
 # 版本与提交规范（versioning）
 
 > 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
-> 上位规则：AGENTS.md §11（SemVer 2.0.0 + Conventional Commits 1.0.0），本文为其操作细则。
+> 上位规则：../AGENTS.md §11（SemVer 2.0.0 + Conventional Commits 1.0.0），本文为其操作细则。
 
 ## 1. 语义化版本（SemVer 2.0.0）
 
@@ -20,7 +20,7 @@
 
 规则：
 
-- 宏为唯一事实来源，`GET_INFO` 响应（protocol.md §5.2）与 OLED 显示（architecture.md §8）均从此取值。
+- 宏为唯一事实来源，`GET_INFO` 响应（../protocol.md §5.2）与 OLED 显示（../architecture.md §8）均从此取值。
 - 发版流程：改宏 → 构建产物 SHA-256 记录到验收记录 → tag `vX.Y.Z`（tag 由用户确认后执行）。
 - 版本递增映射 Conventional Commits 类型（§3）。
 
@@ -52,9 +52,9 @@ docs(partition): 补充 seq 回绕规则
 
 ## 4. 协议版本独立演进
 
-- 升级帧的 `VER` 字节（protocol.md §4）独立于 BL 固件版本：**协议字段布局变更 = VER 递增**。
+- 升级帧的 `VER` 字节（../protocol.md §4）独立于 BL 固件版本：**协议字段布局变更 = VER 递增**。
 - 兼容规则：BL 至少支持当前 VER 与前一 VER 的解析（v1 阶段仅 0x01，发现非当前版本一律丢弃重新同步）；工具侧首发帧前先 PING 探测 `protocol_ver`。
-- 协议破坏性变更（改字段含义/布局）必须：VER+1 + protocol.md 变更记录 + 工具与 BL 同步发版。
+- 协议破坏性变更（改字段含义/布局）必须：VER+1 + ../protocol.md 变更记录 + 工具与 BL 同步发版。
 
 ## 5. 文档版本
 

@@ -1,8 +1,8 @@
 # 通信协议规范（protocol）
 
 > 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
-> 关联：[design.md](design.md)（ADR-001/002/003/007） · [partition.md](partition.md)（元数据与命令副作用） · [external_interface.md](external_interface.md)
-> 协议版本：`VER = 0x01`（独立于 BL 软件版本，演进规则见 [versioning.md](versioning.md) §4）
+> 关联：[dev/design.md](dev/design.md)（ADR-001/002/003/007） · [partition.md](partition.md)（元数据与命令副作用） · [external_interface.md](external_interface.md)
+> 协议版本：`VER = 0x01`（独立于 BL 软件版本，演进规则见 [dev/versioning.md](dev/versioning.md) §4）
 
 ## 3. 物理层
 
@@ -57,7 +57,7 @@ def crc16_modbus(data: bytes) -> int:
 ### 4.2 解析器行为
 
 - 输入为字节流；状态机 `SOF1 → SOF2 → VER → CMD → SEQ → LEN_LO → LEN_HI → DATA → CRC_LO → CRC_HI → EOF1 → EOF2`。
-- **帧同步恢复**：任何位置收到非预期字节即回到 `SOF1` 扫描态（对后续字节逐个滑动匹配 `AA 55`）。日志等无关字节因此被自然丢弃，不破坏协议（design.md ADR-009）。
+- **帧同步恢复**：任何位置收到非预期字节即回到 `SOF1` 扫描态（对后续字节逐个滑动匹配 `AA 55`）。日志等无关字节因此被自然丢弃，不破坏协议（dev/design.md ADR-009）。
 - **非法长度拒绝**：`LEN > 256` → 丢弃并重新同步，不计入会话。
 - **版本不符**：`VER != 0x01` → 丢弃并重新同步。
 - **CRC 校验失败**：静默丢弃，**不回错误帧**——原因：CMD 字段位于 CRC 覆盖范围内，帧损坏时 CMD 不可信，无法构造正确响应；由主机超时重试机制兜底。错误码 `CRC_ERROR` 仅用于 `VERIFY_APP` 镜像校验失败（§5.5）与上位机本地预检提示。
@@ -189,7 +189,7 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 - **SEQ**：主机逐命令递增（0–255 回绕）；BL 只做回显，不维护去重表。
 - **幂等性**：全部命令设计为可重复执行（重 PING 无副作用、重擦页无害、重写覆盖、重验幂等——同内容重验不重写参数区、重复 JUMP 校验失败无害），因此**重复包/超时重传直接重新执行**，不做去重。
 - **主机侧超时与重试**（工具实现约定，阶段 3 落地）：单命令响应超时 1000 ms，重试 3 次；`ERASE_APP` 因整片擦除耗时（46 页 × 20–40 ms ≈ 1–2 s）单独放宽为 5000 ms。
-- **BL 侧**：帧内 2000 ms 无新字节复位解析器（§4.2）；升级模式无会话超时（design.md ADR-003）。
+- **BL 侧**：帧内 2000 ms 无新字节复位解析器（§4.2）；升级模式无会话超时（dev/design.md ADR-003）。
 
 ## 7. 示例帧（字节级，CRC 为实测值）
 
@@ -261,7 +261,7 @@ ERASE_APP → 逐 WRITE_CHUNK（DATA 256 B，payload 252 B）→ VERIFY_APP（�
 
 ### 9.2 VOFA+ RawData 手动发帧模板
 
-VOFA+ 仅用于**日志观察**与 **RawData 通道手动发 hex 帧**调试，不是正式升级器（定位说明见 [vofa_plus.md](vofa_plus.md)，首跑配置与全命令帧速查表见 `tools/vofa+/README.md`、`tools/vofa+/rawdata_frames.md`）。串口配置 115200 8N1。可直接粘贴的帧（CRC 为实测值，改任意字节需用 §4.1 参考实现重算）：
+VOFA+ 仅用于**日志观察**与 **RawData 通道手动发 hex 帧**调试，不是正式升级器（定位说明见 [dev/vofa_plus.md](dev/vofa_plus.md)，首跑配置与全命令帧速查表见 `tools/vofa+/README.md`、`tools/vofa+/rawdata_frames.md`）。串口配置 115200 8N1。可直接粘贴的帧（CRC 为实测值，改任意字节需用 §4.1 参考实现重算）：
 
 ```text
 PING 请求     : AA 55 01 01 01 00 00 49 FC 55 AA

@@ -180,5 +180,5 @@ uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --po
 | 协议细节（帧格式/命令/状态码） | [docs/protocol.md](protocol.md) |
 | 分区与参数区掉电安全设计 | [docs/partition.md](partition.md) |
 | 架构与移植（换芯片） | [docs/architecture.md](architecture.md) / [docs/porting_guide.md](porting_guide.md) |
-| 测试与验收 | [docs/test_plan.md](test_plan.md) |
+| 测试与验收 | [docs/dev/test_plan.md](dev/test_plan.md) |
 | 对端引脚/接口速查 | [docs/external_interface.md](external_interface.md) |

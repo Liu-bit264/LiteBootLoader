@@ -1,6 +1,6 @@
 # 测试计划（Test Plan）
 
-> 对应 AGENTS.md §12 阶段 4 与 §13 验收标准。测试分四级：L1 主机侧工具自测、
+> 对应 ../AGENTS.md §12 阶段 4 与 §13 验收标准。测试分四级：L1 主机侧工具自测、
 > L2 硬件在环自动化（selftest）、L3 场景 E2E、L4 验收对照。
 > 日期基准 2026-09-26；环境：Blue Pill F103C8T6 + DAPLink（COM4）+ UartAssist/pyserial。
 
@@ -41,7 +41,7 @@
 | 15 | JUMP_APP（无效 APP） | STATE_ERROR 拒绝且不跳转 |
 
 **验收门槛：连续 ≥7 轮 15/15 全绿**（历史：时间戳回绕 bug 修复前大帧失败率 ~50-100%/轮，修复后 7 连绿）。
-遥测辅助：GET_INFO 扩展字段 `rx/vf/crcfail/bytetimeout/超时现场四元组` 用于失败归因（protocol.md §4.2）。
+遥测辅助：GET_INFO 扩展字段 `rx/vf/crcfail/bytetimeout/超时现场四元组` 用于失败归因（../protocol.md §4.2）。
 
 ## 4. L3 场景 E2E（真 APP 链路）
 
@@ -58,7 +58,7 @@
 | IWDG 长跑 | APP 连续运行 ≥10 min | 无误复位（呼吸灯连续、串口无重启横幅） | ✅ 通过（2026-09-26 实测 600 s：APP 重启横幅 0 次、BL 复位日志 0 次） |
 | VOFA+ 观察 | RawData 引擎手动发帧 | 日志可读、PING 帧往返可通 | ✅ 通过（2026-09-26 实机首跑，见 §5 #11） |
 
-## 5. L4 验收对照表（AGENTS.md §13）
+## 5. L4 验收对照表（../AGENTS.md §13）
 
 | # | 验收项 | 结论 | 证据 |
 |---|---|---|---|
@@ -69,11 +69,11 @@
 | 5 | OLED 显示版本/芯片/APP 状态/进度/CRC/IWDG | ✅ 通过（阶段 3 联测复核） | 版本/芯片/模式/RX/VF 实测；进度/CRC 行升级期显示 |
 | 6 | APP CRC 错误拒绝跳转进升级模式 | ✅ 通过 | 图案数据期 app_valid=0 + 校验关卡逐级拒绝 |
 | 7 | 升级中断/复位后可重升，不误写 BL 与参数区 | ✅ 通过 | 已擦页位图 + is_range_valid 防御 + 多次重升实测；写入中途复位注入实测（2026-09-26，VERIFY 正确检出损坏后重升恢复）；真实拔电步骤见 §5 #9 |
-| 8 | APP 主动请求进 BL，生命周期有文档与测试 | ✅ 通过 | external_interface.md §5 + L3 场景 4 |
+| 8 | APP 主动请求进 BL，生命周期有文档与测试 | ✅ 通过 | ../external_interface.md §5 + L3 场景 4 |
 | 9 | 参数区双副本断电恢复 | ✅ 通过 | 复位注入钻具 10/10 轮（2026-09-26）：SET_META 写入风暴中每轮在在途写入中间注入复位，R1~R4 恢复不变量全过、seq 单调、副本交替正常、修复写入成功、APP 区 VERIFY 未受牵连；工具 `../LiteBootUpgrader/bl_powerloss_drill.py`（独立上位机仓）。真实拔电（人工）补充步骤：升级期或 `bl_powerloss_drill.py` 运行中拔掉 USB → 重新上电 → `info` 应报出有效元数据 → `upgrade` 重升应成功 |
 | 10 | BL→APP IWDG 接管无误复位 | ✅ 通过 | 跳转后 APP 持续运行（呼吸灯），跳转前喂狗 |
 | 11 | VOFA+ 观察 + Python 工具完成升级 | ✅ 通过 | Python 工具 ✅（v1.1.1，独立仓 LiteBootUpgrader，CLI+GUI 全链路）；VOFA+ 实机首跑 PING 往返逐字节正确（2026-09-26，响应 CRC E8 69 与 CRC16/MODBUS 计算一致） |
-| 12 | external_interface.md 与 porting_guide.md 完整 | ✅ 通过 | 两文档已交付（2026-09-26） |
+| 12 | ../external_interface.md 与 ../porting_guide.md 完整 | ✅ 通过 | 两文档已交付（2026-09-26） |
 | 13 | uvprojx 与 ICO 工具可运行测试 | ✅ 通过 | L1 自测 + uvprojx 生成器全程实战（BL/APP 两工程） |
 | 14 | 版本与提交符合 SemVer/Conventional Commits | ✅ 通过 | 提交历史 feat/fix/chore + scope 规范 |
 

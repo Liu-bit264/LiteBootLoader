@@ -9,9 +9,9 @@
 
 | 引脚 | 功能 | 说明 | 出处 |
 |---|---|---|---|
-| PA9 | USART1_TX | 升级协议 + 日志（复用策略见 [design.md](design.md) ADR-009） | protocol.md §3 |
+| PA9 | USART1_TX | 升级协议 + 日志（复用策略见 [dev/design.md](dev/design.md) ADR-009） | protocol.md §3 |
 | PA10 | USART1_RX | 升级协议 | protocol.md §3 |
-| PC13 | LED | 低电平点亮，非阻塞模式见 design.md ADR-008 | — |
+| PC13 | LED | 低电平点亮，非阻塞模式见 dev/design.md ADR-008 | — |
 | PB9 | OLED_SDA | 软件 I2C | §1.2 |
 | PB8 | OLED_SCL | 软件 I2C | §1.2 |
 
@@ -82,7 +82,7 @@ extern const bl_debug_ops bl_debug;
 
 换显示/调试实现只替换 services/ 下模块并重接 ops 对象，core 不动。
 
-`bl_state_t`：WAITING / UPGRADING / APP_INVALID / JUMPING / FAULT（对应 design.md ADR-008 五种 LED 模式）。
+`bl_state_t`：WAITING / UPGRADING / APP_INVALID / JUMPING / FAULT（对应 dev/design.md ADR-008 五种 LED 模式）。
 
 ## 4. 参数区与元数据接口
 
@@ -95,7 +95,7 @@ extern const bl_debug_ops bl_debug;
 | 触发 | 主机向**运行中的 APP** 发 `SET_META(field=0x01, value=1)`（帧协议与 BL 相同）；APP 掉电安全落盘后回 `OK`，约 100 ms 后 `NVIC_SystemReset` |
 | 持久性 | 置位即掉电安全落盘（参数区双副本）；清除前的任何复位/掉电均保留请求 |
 | 清除时机 | BL 启动读取到 `bl_request=1` → 进入升级模式前消费并清除（partition.md §8） |
-| 升级模式 | 停留等待，无自动超时（design.md ADR-003） |
+| 升级模式 | 停留等待，无自动超时（dev/design.md ADR-003） |
 
 APP 侧约定（阶段 2 示例已实现）：链接至 `0x08004000`、启动设 `SCB->VTOR`、重新 `__enable_irq`（跳转第 4 步关中断）、接管 IWDG 喂狗。APP 升级口响应器（`app_request.c`）只实现 `PING(0x01)` 与 `SET_META(0x06, field=0x01)`，其余命令回 `RANGE_ERROR`；APP 串口提示统一用 `A:` 前缀（BL 日志用 `I:`），banner 形如 `A:APP v0.1.0 running, breathing`。
 

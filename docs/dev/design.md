@@ -1,8 +1,8 @@
 # LiteBootLoader 总体设计（design）
 
 > 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
-> 关联文档：[architecture.md](architecture.md) · [partition.md](partition.md) · [protocol.md](protocol.md) · [external_interface.md](external_interface.md) · [versioning.md](versioning.md) · [vofa_plus.md](vofa_plus.md)
-> 上位规则：本文件为 AGENTS.md（项目指令）阶段 0 交付物；与 AGENTS.md 冲突时以 AGENTS.md 为准。
+> 关联文档：[../architecture.md](../architecture.md) · [../partition.md](../partition.md) · [../protocol.md](../protocol.md) · [../external_interface.md](../external_interface.md) · [versioning.md](versioning.md) · [vofa_plus.md](vofa_plus.md)
+> 上位规则：本文件为 ../AGENTS.md（项目指令）阶段 0 交付物；与 ../AGENTS.md 冲突时以 ../AGENTS.md 为准。
 
 ## 1. 目标与范围
 
@@ -10,21 +10,21 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 
 - **当前范围**：启动决策、APP 合法性校验、USART1 升级、Flash 与参数区管理、OLED/LED 状态显示、IWDG、跳转 APP、配套 Python 工具与文档。
 - **长期目标**：core 与 port 解耦，可迁移至 STM32F4 / G0 / H7。
-- **非目标**（本期明确不做，接口预留见 §3 ADR-012）：联网 OTA 技术栈、外部 Flash、F103 双 APP 分区与自动回滚、**固件签名/认证**（review P3：升级链路仅 CRC16/CRC32 完整性校验，USART1 上任意主机均可烧写；认证的接入点应落在 storage 校验链与元数据结构，见 partition.md §4）。
+- **非目标**（本期明确不做，接口预留见 §3 ADR-012）：联网 OTA 技术栈、外部 Flash、F103 双 APP 分区与自动回滚、**固件签名/认证**（review P3：升级链路仅 CRC16/CRC32 完整性校验，USART1 上任意主机均可烧写；认证的接入点应落在 storage 校验链与元数据结构，见 ../partition.md §4）。
 
 ## 2. 需求到模块映射
 
-| 需求（AGENTS.md 出处） | 承载模块 | 文档 |
+| 需求（../AGENTS.md 出处） | 承载模块 | 文档 |
 |---|---|---|
-| 启动决策与 APP 校验（§5.1） | `core/bl_boot.c` + `core/bl_metadata.c` | architecture.md §5、partition.md |
-| USART1 升级协议（§6） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | protocol.md |
-| Flash 读写/擦除与地址防护（§5） | `core/bl_storage.c` + F103 端口 `flash.c` | partition.md §2 |
-| 参数区双副本（§5） | `core/bl_metadata.c` | partition.md §4–§8 |
-| OLED/LED 状态显示（§8） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | architecture.md §8 |
-| IWDG（§8.4） | 端口 `wdg.c` + 各耗时操作的喂狗点 | architecture.md §7 |
+| 启动决策与 APP 校验（§5.1） | `core/bl_boot.c` + `core/bl_metadata.c` | ../architecture.md §5、../partition.md |
+| USART1 升级协议（§6） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | ../protocol.md |
+| Flash 读写/擦除与地址防护（§5） | `core/bl_storage.c` + F103 端口 `flash.c` | ../partition.md §2 |
+| 参数区双副本（§5） | `core/bl_metadata.c` | ../partition.md §4–§8 |
+| OLED/LED 状态显示（§8） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | ../architecture.md §8 |
+| IWDG（§8.4） | 端口 `wdg.c` + 各耗时操作的喂狗点 | ../architecture.md §7 |
 | 日志（§8.3） | 服务 `services/debug_uart/`（ADR-014，编译期开关） | design.md ADR-009 |
 | 版本（§11） | `core/bl_version.h` | versioning.md |
-| 上位机工具（§9.4） | 独立仓 `LiteBootUpgrader`（`../LiteBootUpgrader/`，v1.1.0 含 GUI） | protocol.md §9 |
+| 上位机工具（§9.4） | 独立仓 `LiteBootUpgrader`（`../LiteBootUpgrader/`，v1.1.0 含 GUI） | ../protocol.md §9 |
 
 ## 3. 固化决策记录（ADR）
 
@@ -44,7 +44,7 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 
 ### ADR-002 帧校验算法：CRC-16/MODBUS
 
-poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异或；标准校验值 `"123456789"` → `0x4B37`。CRC 覆盖 `VER` 至 `DATA` 末尾，小端发送（低字节在前）。参考实现见 [protocol.md](protocol.md) §4.1。
+poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异或；标准校验值 `"123456789"` → `0x4B37`。CRC 覆盖 `VER` 至 `DATA` 末尾，小端发送（低字节在前）。参考实现见 [../protocol.md](../protocol.md) §4.1。
 
 ### ADR-003 升级模式停留等待【用户已确认】
 
@@ -54,18 +54,18 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 上电顺序与时钟策略见 ADR-010。读参数区最新有效副本后：
 
-1. `bl_request == 1` → 消费并清除该标志（一次掉电安全写，见 partition.md §8）→ 进入升级模式。
+1. `bl_request == 1` → 消费并清除该标志（一次掉电安全写，见 ../partition.md §8）→ 进入升级模式。
 2. 否则校验 APP：初始 MSP 在 `[0x20000000, 0x20005000)` 内、Reset Handler 在 APP 区且 Thumb 位（bit0）为 1、`app_size > 0`、CRC32 与参数区一致。
 3. APP 有效 → 3 s 等待窗口（`BL_BOOT_WAIT_MS`，默认 3000，集中配置）：LED 慢闪，收到任意 CRC 有效帧即转入升级模式；窗口结束执行 §5.1 九步跳转。
 4. APP 无效 → 进入升级模式（停留等待，ADR-003）。
 
 ### ADR-005 参数区双副本与掉电安全
 
-页 62 / 页 63 各存一份元数据副本，字段布局、副本状态机（ERASED/VALID/INVALID）、seq 单调递增、交替写入、写后回读、断电恢复规则见 [partition.md](partition.md) §4–§7。禁止用"最后写有效标志"类含糊描述替代状态机。
+页 62 / 页 63 各存一份元数据副本，字段布局、副本状态机（ERASED/VALID/INVALID）、seq 单调递增、交替写入、写后回读、断电恢复规则见 [../partition.md](../partition.md) §4–§7。禁止用"最后写有效标志"类含糊描述替代状态机。
 
 ### ADR-006 协议编号
 
-帧格式、命令编号 0x01–0x09、响应 `CMD|0x80`、状态码 0x00–0x05、OTA 预留 0x10–0x1F，完整定义见 [protocol.md](protocol.md) §4–§6。协议版本字节 `VER=0x01` 独立于 BL 软件版本演进（见 versioning.md §4）。
+帧格式、命令编号 0x01–0x09、响应 `CMD|0x80`、状态码 0x00–0x05、OTA 预留 0x10–0x1F，完整定义见 [../protocol.md](../protocol.md) §4–§6。协议版本字节 `VER=0x01` 独立于 BL 软件版本演进（见 versioning.md §4）。
 
 ### ADR-007 命令语义要点
 
@@ -101,7 +101,7 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 
 ### ADR-012 端口抽象与 OTA 接入点
 
-芯片差异收敛到 `port/`，通过 6 个 ops 结构提供：`bl_flash_ops` / `bl_uart_ops` / `bl_i2c_ops` / `bl_gpio_ops` / `bl_wdg_ops` / `bl_clock_ops`（方法清单见 [architecture.md](architecture.md) §3）。transport 抽象（init/send/recv）首实现为 UART，OTA 等 Broad 新通道只扩 transport，不动 protocol 核心；命令空间 0x10–0x1F 已预留（只声明，不实现）。
+芯片差异收敛到 `port/`，通过 6 个 ops 结构提供：`bl_flash_ops` / `bl_uart_ops` / `bl_i2c_ops` / `bl_gpio_ops` / `bl_wdg_ops` / `bl_clock_ops`（方法清单见 [../architecture.md](../architecture.md) §3）。transport 抽象（init/send/recv）首实现为 UART，OTA 等 Broad 新通道只扩 transport，不动 protocol 核心；命令空间 0x10–0x1F 已预留（只声明，不实现）。
 
 ### ADR-013 编译器固定 AC5（用户决定，2026-09-25）
 
@@ -159,15 +159,15 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
   include 路径表达。
 - 迁移顺序：F411CEU6 先行（验证 CSP 流程，硬件在位）→ F407ZGT6 复用 f4 家族层。
 
-## 4. 默认假设确认表（AGENTS.md §15）
+## 4. 默认假设确认表（../AGENTS.md §15）
 
 | # | 假设 | 状态 | 固化位置 |
 |---|---|---|---|
-| 1 | USART1 PA9/PA10，115200 8N1 | 确认 | protocol.md §3 |
+| 1 | USART1 PA9/PA10，115200 8N1 | 确认 | ../protocol.md §3 |
 | 2 | LED PC13 低电平点亮 | 确认 | design.md ADR-008 |
-| 3 | OLED SSD1306，PB9=SDA / PB8=SCL，软件 I2C，保留硬件 I2C1 重映射选项 | 确认 | architecture.md §3、external_interface.md §2 |
+| 3 | OLED SSD1306，PB9=SDA / PB8=SCL，软件 I2C，保留硬件 I2C1 重映射选项 | 确认 | ../architecture.md §3、../external_interface.md §2 |
 | 4 | IWDG 约 2 s | 确认（2000 ms） | design.md ADR-011 |
-| 5 | APP 基址 0x08004000 | 确认 | partition.md §1 |
+| 5 | APP 基址 0x08004000 | 确认 | ../partition.md §1 |
 | 6 | APP 校验 CRC32 | 固化为 ISO-HDLC | ADR-001 |
 | 7 | 升级帧校验 CRC16/MODBUS | 固化 | ADR-002 |
 

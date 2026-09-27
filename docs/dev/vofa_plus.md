@@ -1,7 +1,7 @@
 # VOFA+ 可行性与定位说明（vofa_plus）
 
 > 版本 0.1.0 · 2026-09-25 · 状态：阶段 3 已交付（工具目录 tools/vofa+/）
-> 关联：[protocol.md](protocol.md) §9.2（RawData 帧模板） · AGENTS.md §9.4
+> 关联：[../protocol.md](../protocol.md) §9.2（RawData 帧模板） · ../AGENTS.md §9.4
 
 ## 1. 定位声明（防混淆）
 
@@ -15,18 +15,18 @@
 | 能力 | 可行性 | 说明 |
 |---|---|---|
 | 查看日志 | 可行 | 升级通道与日志共用 USART1；协议非活跃期日志可见（design.md ADR-009：收到 SOF 即静音，超 10 s 无帧恢复）。VOFA+ 按文本流显示即可 |
-| RawData 发送 hex 帧 | 可行 | VOFA+ 的 RawData/命令通道支持十六进制输入；可直接粘贴 protocol.md §9.2 的实测帧（PING/GET_INFO/RESET 请求） |
+| RawData 发送 hex 帧 | 可行 | VOFA+ 的 RawData/命令通道支持十六进制输入；可直接粘贴 ../protocol.md §9.2 的实测帧（PING/GET_INFO/RESET 请求） |
 | 接收解析帧响应 | 部分可行 | 响应帧为二进制，RawData 窗口以 hex 显示可人工比对，无自动校验 |
 | 完成整流程升级 | **不采用** | 需要分帧、CRC 计算、进度与重试编排——这正是 bl_upgrade.py 的职责；VOFA+ 手工操作易出错且不可重复 |
 | FireWater/JustFloat 波形协议 | 不适用 | 本项目日志为文本行，非浮点帧流；不启用 VOFA+ 波形协议 |
 
-## 3. 配置要点（已交付 `tools/vofa+/README.md` 首跑指南）
+## 3. 配置要点（已交付 `tools/vofa+/../README.md` 首跑指南）
 
 - 串口：`COMx`（本机 COM4，以设备管理器实际为准），115200，8N1，无流控；
 - 引擎：**RawData**（非 JustFloat/FireWater 波形协议；官方定位即"当串口调试助手用务必选它"）；
 - 发送：「命令」控件切 Hex 模式，逐帧粘贴发送（BL 帧内 2000 ms 无新字节即复位解析器，勿拆帧间隔发送）；
 - 接收：菜单「视图 → 原始数据视图」hex/ASCII 双栏查看原始字节流；
-- 注意：改过 SEQ/CMD/DATA 的帧必须重算 CRC（protocol.md §4.1 参考实现），否则被静默丢弃。
+- 注意：改过 SEQ/CMD/DATA 的帧必须重算 CRC（../protocol.md §4.1 参考实现），否则被静默丢弃。
 
 ## 4. 与正式工具的边界
 
@@ -37,4 +37,4 @@
 | 完整镜像升级 | ✘（易错、不可重复） | ✔ |
 | 升级中断恢复测试 | ✘ | ✔（阶段 3 测试项） |
 
-阶段 3 实际交付物（2026-09-26）：`tools/vofa+/README.md`（定位声明、本机安装位置、首跑配置步骤）与 `tools/vofa+/rawdata_frames.md`（全命令 RawData 帧速查表，CRC 预计算）。未提供 `.vofa` 配置文件——本机 VOFA+ 从未运行、无历史配置，凭空发明配置格式不可验证；首跑后如有值得固化的界面配置再回填本目录。[protocol.md](protocol.md) §9.2 的帧模板保持同步。
+阶段 3 实际交付物（2026-09-26）：`tools/vofa+/../README.md`（定位声明、本机安装位置、首跑配置步骤）与 `tools/vofa+/rawdata_frames.md`（全命令 RawData 帧速查表，CRC 预计算）。未提供 `.vofa` 配置文件——本机 VOFA+ 从未运行、无历史配置，凭空发明配置格式不可验证；首跑后如有值得固化的界面配置再回填本目录。[../protocol.md](../protocol.md) §9.2 的帧模板保持同步。

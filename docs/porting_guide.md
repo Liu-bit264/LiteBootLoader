@@ -41,7 +41,7 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
    上位机仓跑 15 步硬件在环检验：`uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py selftest --port COM4`（在主仓根目录运行）。
 10. 用 `upgrade` 子命令写入一份真 APP → `jump` 验证九步跳转；断电恢复钻具
     （`bl_powerloss_drill.py`，届时为其加 `--chip` 参数化 pyocd 目标）。
-11. 按 test_plan.md 验收对照表逐条复核。
+11. 按 dev/test_plan.md 验收对照表逐条复核。
 
 ## 3. ops 接口实现要求（签名见 port/bl_port.h）
 
@@ -121,7 +121,7 @@ bl_port_switch_msp_and_jump        ; r0 = APP 初始 MSP, r1 = APP Reset Handler
 ## 9. 调试器工作流注意（实测）
 
 - pyocd/调试器会话结束会把内核留在停机态（halt-on-connect），表现为串口全静默——**每次会话最后显式复位运行**；排障时先读 `DHCSR` bit17 判断是否停机。
-- 用 `verify 回读 CRC 反推 Flash 实际内容`、`fault 现场栈帧（HFSR/CFSR/入栈 PC/LR）解码`、`采样 PC 定位冻结点` 三个手段定位问题（详见 phase 记忆与 test_plan.md §6）。
+- 用 `verify 回读 CRC 反推 Flash 实际内容`、`fault 现场栈帧（HFSR/CFSR/入栈 PC/LR）解码`、`采样 PC 定位冻结点` 三个手段定位问题（详见 phase 记忆与 dev/test_plan.md §6）。
 
 ## 10. 移植验收检查单
 
