@@ -144,6 +144,11 @@ uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
 
 **成功判据**：`verify: OK crc=… size=…`；跳转后串口出现 APP 横幅、LED 呈 APP 行为。
 
+> **通道边界（真机实测）**：蓝牙只在 **BL 升级模式**应答——跳进 APP 后蓝牙静默
+> （APP 响应器仅实现于有线 USART1，UART2 随九步跳转反初始化且 APP 不再初始化）。
+> 因此「从 APP 请求回 BL」需走有线或复位板子；蓝牙适合对**已在升级模式的板子**
+> 做免接触升级（以及 OTA 状态查询、擦写校验等全部 BL 命令）。
+
 ### 全部子命令
 
 | 子命令 | 作用 |
@@ -173,7 +178,8 @@ uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
 |---|---|---|
 | 工具全部"无响应" | 串口被别的程序占用；DAPLink 会话遗留暂停态 | 关闭占用者；pyocd 命令补 `-c "reset"` 后再试 |
 | 蓝牙口打不开/反复断 | 模块未上电/未配对；SPP 重连窗口 | 重新配对（PIN 1234）；`--conn bt` 已含打开重试，仍失败重插模块 |
-| 蓝牙口全"无响应" | 模块数据模式不是 115200 | 按 bluetooth_notes.md §5 重新 AT 配置；OLED BT:-- 时先查配对 |
+| 蓝牙口刚配对打不开（FileNotFoundError） | 模块刚上电 RFCOMM 未就绪 | 重试打开即可（实测出现，2 秒后即恢复） |
+| 蓝牙口全"无响应" | 模块数据模式不是 115200；或板子在 APP 态 | 前者按 bluetooth_notes.md §5 重新 AT 配置；后者是设计边界——蓝牙只在 BL 升级模式应答（见上「通道边界」），有线 PING 后 `upgrade` 请求回 BL 即可 |
 | 偶发命令超时但重试成功 | USB-CDC 抖动触发 BL 帧内 2 s 超时 | 正常，工具自动重发（≤3 次） |
 | `verify 失败: CRC_ERROR` | 镜像损坏/升级中断导致内容不完整 | 重新执行 `upgrade`（会整片重擦重写） |
 | JUMP 返回 STATE_ERROR | APP 无效（CRC/向量不合法） | 重新升级；LED 双闪与此同因 |
