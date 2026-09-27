@@ -1,0 +1,51 @@
+name: 芯片支持请求
+description: 为新的 STM32 芯片请求支持包（CSP），或咨询移植可行性
+labels: ["enhancement", "csp"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        新增芯片支持的流程见 [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) 与
+        [docs/porting_guide.md](../blob/main/docs/porting_guide.md)。
+        有板子的请求可优先获得验证支持；也欢迎直接按清单提交移植 PR。
+  - type: input
+    id: chip
+    attributes:
+      label: 目标芯片型号
+      placeholder: "例如 STM32F411CEU6"
+    validations:
+      required: true
+  - type: textarea
+    id: memory
+    attributes:
+      label: Flash / RAM 与页（扇区）结构
+      description: 容量、页或扇区大小分布、是否有双 Bank；可贴数据手册或 DFP 链接
+      placeholder: "例如 512 KiB Flash，扇区 16K×4 / 64K×1 / 128K×3；128 KiB RAM"
+    validations:
+      required: true
+  - type: input
+    id: pack
+    attributes:
+      label: Keil DFP 包与版本
+      placeholder: "例如 Keil.STM32F4xx_DFP 2.x.x"
+  - type: input
+    id: clock
+    attributes:
+      label: 时钟方案
+      description: HSE 频率与目标主频
+      placeholder: "例如 HSE 25 MHz → 100 MHz"
+  - type: dropdown
+    id: board
+    attributes:
+      label: 硬件在手？
+      options:
+        - 有板子，可上板验证
+        - 仅仿真器，无目标板
+        - 暂无硬件
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其他说明
+      description: 外设差异、特殊需求（如大扇区下的 IWDG 放宽参数）、相关参考

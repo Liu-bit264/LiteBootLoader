@@ -1,0 +1,66 @@
+name: Bug 报告
+description: 报告 LiteBootLoader 固件、脚本或文档的问题
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量填写以下信息，复现信息越完整，问题定位越快。
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      options:
+        - 固件 core/
+        - 芯片端口 port/
+        - APP 示例
+        - 构建脚本 / 工程生成
+        - 上位机升级流程（LiteBootUpgrader 联动）
+        - 文档
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: BL/APP 版本
+      description: 上位机 `info` 命令返回值，或 core/bl_version.h 中的版本号
+      placeholder: "例如 BL 0.1.0 / APP 0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: 芯片与硬件环境
+      description: 芯片型号、板型、调试器、串口工具
+      placeholder: "例如 STM32F103C8T6 最小系统板 + DAPLink + COM4"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 精确到命令与时序；升级链路问题请说明阶段（擦除/写入/校验/跳转/APP 运行）及是否涉及断电或复位
+      placeholder: |
+        1. 执行 `bl_upgrade.py upgrade app.bin --port COM4`
+        2. 写入到 30% 时拔电
+        3. 重新上电后执行 `verify` …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为与实际行为
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 串口日志 / 协议帧记录
+      description: 十六进制帧记录可用 VOFA+ 或上位机 `listen` / `raw` 抓取
+      placeholder: "粘贴日志或帧记录（可折叠代码块）"
+  - type: textarea
+    id: extra
+    attributes:
+      label: 附加材料
+      description: 工程配置、截图、最小复现工程等
