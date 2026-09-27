@@ -78,6 +78,8 @@
             { "name": "clock.c", "type": 1, "path": "{{chip.build.port_dir}}\\clock.c" },
             { "name": "systick.c", "type": 1, "path": "{{chip.build.port_dir}}\\systick.c" },
             { "name": "uart.c", "type": 1, "path": "{{chip.build.port_dir}}\\uart.c" },
+            { "name": "uart2.c", "type": 1, "path": "{{chip.build.port_dir}}\\uart2.c" },
+            { "name": "wifi_stub.c", "type": 1, "path": "port\\wifi_stub.c" },
             { "name": "gpio.c", "type": 1, "path": "{{chip.build.port_dir}}\\gpio.c" },
             { "name": "wdg.c", "type": 1, "path": "{{chip.build.port_dir}}\\wdg.c" },
             { "name": "flash.c", "type": 1, "path": "{{chip.build.port_dir}}\\flash.c" },

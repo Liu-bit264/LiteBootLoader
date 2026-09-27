@@ -1,6 +1,6 @@
 # 通信协议规范（protocol）
 
-> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
+> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
 > 关联：[dev/design.md](dev/design.md)（ADR-001/002/003/007） · [partition.md](partition.md)（元数据与命令副作用） · [external_interface.md](external_interface.md)
 > 协议版本：`VER = 0x01`（独立于 BL 软件版本，演进规则见 [dev/versioning.md](dev/versioning.md) §4）
 
@@ -8,8 +8,8 @@
 
 | 项 | 值 |
 |---|---|
-| 接口 | USART1，PA9 = TX，PA10 = RX |
-| 波特率 / 格式 | 115200，8N1，无流控 |
+| 接口 | 双通道（0.2.0 起）：通道 0 = USART1（PA9=TX，PA10=RX）有线；通道 1 = UART2（PA2=TX，PA3=RX）HC-05 蓝牙 SPP（[dev/bluetooth_notes.md](dev/bluetooth_notes.md)） |
+| 波特率 / 格式 | 115200，8N1，无流控（两通道同速；HC-05 数据模式需一次性 AT 配置，bluetooth_notes.md §5） |
 | 电平 | TTL 3.3 V（主机侧经 USB-TTL 适配器接入） |
 | 字节序 | 多字节**数值字段一律小端**（LE） |
 
@@ -63,6 +63,19 @@ def crc16_modbus(data: bytes) -> int:
 - **CRC 校验失败**：静默丢弃，**不回错误帧**——原因：CMD 字段位于 CRC 覆盖范围内，帧损坏时 CMD 不可信，无法构造正确响应；由主机超时重试机制兜底。错误码 `CRC_ERROR` 仅用于 `VERIFY_APP` 镜像校验失败（§5.5）与上位机本地预检提示。
 - **帧内超时**：一帧接收中途超过 2000 ms 无新字节 → 复位解析器，丢弃半帧。（2026-09-26 定版。原 50 ms 阈值会把多块接收的大帧整帧误杀：`bl_protocol_poll` 曾用循环顶部旧时间戳与 feed 中更新的 `s_last_byte` 做无符号减法，SysTick 毫秒边界跨越其间即回绕成极大值立即假触发——大帧 5 块接收、单块 ~15% 跨界概率 → ~56%/帧，小帧单块且收完即回 SOF1 态故从不触发，selftest 遥测 bytetimeout 计数实锤。修复后 poll 现场重读当前时刻；阈值放宽至 2000 ms 容忍 USB/CDC 转发抖动，请求-响应协议下无副作用，主机重试间隔应 ≥2 s。）
 
+### 4.3 多通道仲裁（0.2.0 新增）
+
+USART1（有线）与 UART2（蓝牙）共用同一个协议解析器实例。transport 层以**活动通道锁**
+串行化（architecture.md §6.1）：某通道收到首个字节即锁定，其后字节只从该通道取出；
+静默超过帧内字节超时（2000 ms，与 §4.2 同窗口）自动释放回轮询。语义：
+
+- 半帧在途期间不会混入另一通道的字节；两台主机同时发起会话时后到者等待或重试。
+- 响应帧恒回发到请求所在通道（send 路由到活动通道，无活动通道回落通道 0）。
+- WIFI 为占位通道（规划书目标 2），未实现时被选路逻辑跳过。
+- **真机实测（0.2.0 HIL）**：有线会话结束后 ≤2s（锁窗口内）从蓝牙发单次 PING 会主机侧
+  超时——锁释放后迟到字节仍被解析并按新活动通道回响应，下一命令将迟到的异己响应丢弃
+  后正常工作。跨通道快速切换依赖主机重试，符合「后到者等待或重试」设计。
+
 ## 5. 命令定义
 
 ### 5.0 命令编号与状态码总表
@@ -78,7 +91,8 @@ def crc16_modbus(data: bytes) -> int:
 | 0x07 | GET_META | 空 | 0x87 | 21 B，见 §5.7 |
 | 0x08 | JUMP_APP | 空 | 0x88 | status(1) |
 | 0x09 | RESET | 空 | 0x89 | status(1) |
-| 0x10–0x1F | （预留）OTA 扩展 | — | — | 仅预留编号，本期不实现 |
+| 0x10 | OTA_QUERY | 空 | 0x90 | 22 B，见 §5.10 |
+| 0x11–0x1F | （预留）OTA 扩展 | — | — | 仅预留编号（ADR-016） |
 
 所有响应 DATA **首字节固定为状态码**；未知命令回 `CMD|0x80` + `STATE_ERROR`（SEQ 照常回显）。
 
@@ -184,6 +198,26 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 
 回 `OK` 后延时 100 ms 执行 `NVIC_SystemReset`（IWDG 保持运行，等效看门狗复位）。用于主机侧主动复位重测。
 
+### 5.10 OTA_QUERY（0x10，0.2.0 新增，规划书目标 3）
+
+OTA 状态查询（只读幂等）：BL/APP 版本、APP 有效性、参数区摘要与链路状态一次读清，
+供上位机决定是否需要升级；升级本身复用 ERASE_APP / WRITE_CHUNK / VERIFY_APP / JUMP_APP
+（§5.3–§5.8，全幂等），0x11–0x1F 继续预留。
+
+响应 DATA（22 B）：
+
+| 偏移 | 长度 | 内容 |
+|---:|---:|---|
+| 0 | 1 | status |
+| 1 | 3 | BL 版本 major/minor/patch |
+| 4 | 3 | APP 版本 major/minor/patch（元数据，出厂态 0.0.0） |
+| 7 | 1 | APP 有效性：0x00 无效 / 0x01 有效（实时 CRC 结论，同 JUMP 判定） |
+| 8 | 4 | app_size（LE32，元数据记录值） |
+| 12 | 4 | app_crc32（LE32） |
+| 16 | 4 | 元数据 seq（LE32，出厂态 0） |
+| 20 | 1 | 通道号：0x00 = USART1 有线，0x01 = UART2 蓝牙（请求实际到达的通道） |
+| 21 | 1 | BT STATE 引脚电平：0x00 = HC-05 未连接，0x01 = SPP 已连接 |
+
 ## 6. SEQ 语义、幂等性与超时
 
 - **SEQ**：主机逐命令递增（0–255 回绕）；BL 只做回显，不维护去重表。
@@ -228,6 +262,14 @@ AA 55 01 04 02 0C 00 00 00 00 00 DE AD BE EF 12 34 56 78 E8 C9 55 AA
 AA 55 01 84 02 01 00 00 A1 AC 55 AA
 ```
 
+### 7.5 OTA_QUERY 请求（0.2.0 新增）
+
+覆盖体：`01 10 01 00 00`（VER, CMD=0x10, SEQ, LEN=0）→ CRC = `0xC04C`
+
+```text
+AA 55 01 10 01 00 00 4C C0 55 AA
+```
+
 ## 8. 异常恢复
 
 | 场景 | 行为 |
@@ -240,13 +282,16 @@ AA 55 01 84 02 01 00 00 A1 AC 55 AA
 
 ## 9. 上位机工具与 VOFA+
 
-### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.1.1 含 tkinter GUI）
+### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.3.0 含 tkinter GUI 基础/高级双模式）
 
 ```bash
 # 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §3）
 # 一键升级（从任意状态：对端是 BL 直接升；是 APP 则自动"请求回 BL"再升级）
 uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     upgrade app.bin --port COM4
+# OTA 状态查询（0.2.0 起：版本/有效性/通道/蓝牙连接状态）
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
+    ota --port COM4
 # 流程检验（15 步硬件在环 selftest）
 uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     selftest --port COM4
@@ -259,12 +304,18 @@ ERASE_APP → 逐 WRITE_CHUNK（DATA 256 B，payload 252 B）→ VERIFY_APP（�
 → 提示 JUMP_APP。所有命令带重试层（§6）：超时重发 ≤3 次，间隔 2.2 s（≥ BL 帧内 2000 ms
 超时复位窗口）。串口枚举用 pyserial（Windows 形如 `COM4`）。
 
+**蓝牙连接**（0.2.0 起）：HC-05 与 PC 配对（PIN 1234）后呈现为 SPP 出来的 COM 口，
+CLI 加 `--conn bt`（打开失败自动重试，容 SPP 重连窗口）或 GUI「连接类型=蓝牙」即用
+同一协议栈；模块需先按 [dev/bluetooth_notes.md](dev/bluetooth_notes.md) §5 一次性 AT
+配置到 115200。
+
 ### 9.2 VOFA+ RawData 手动发帧模板
 
-VOFA+ 仅用于**日志观察**与 **RawData 通道手动发 hex 帧**调试，不是正式升级器（定位说明见 [dev/vofa_plus.md](dev/vofa_plus.md)，首跑配置与全命令帧速查表见 `tools/vofa+/README.md`、`tools/vofa+/rawdata_frames.md`）。串口配置 115200 8N1。可直接粘贴的帧（CRC 为实测值，改任意字节需用 §4.1 参考实现重算）：
+VOFA+ 仅用于**日志观察**与 **RawData 通道手动发 hex 帧**调试，不是正式升级器（定位说明见 [dev/vofa_plus.md](dev/vofa_plus.md)，首跑配置与全命令帧速查表见 `tools/vofa+/README.md`、`tools/vofa+/rawdata_frames.md`）。串口配置 115200 8N1（蓝牙 SPP COM 口同样可用）。可直接粘贴的帧（CRC 为实测值，改任意字节需用 §4.1 参考实现重算）：
 
 ```text
 PING 请求     : AA 55 01 01 01 00 00 49 FC 55 AA
 GET_INFO 请求 : AA 55 01 02 01 00 00 49 B8 55 AA
+OTA_QUERY 请求: AA 55 01 10 01 00 00 4C C0 55 AA
 RESET 请求    : AA 55 01 09 01 00 00 4B 9C 55 AA
 ```

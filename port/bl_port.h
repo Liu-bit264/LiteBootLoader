@@ -49,12 +49,21 @@ typedef struct {
     void (*delay_ms)(uint32_t ms);
 } bl_clock_ops;
 
-extern const bl_uart_ops  bl_uart;
+extern const bl_uart_ops  bl_uart;      /* 通道 0：USART1 有线（port/<chip>/uart.c） */
+extern const bl_uart_ops  bl_uart_bt;   /* 通道 1：USART2 蓝牙 HC-05（port/<chip>/uart2.c） */
+extern const bl_uart_ops  bl_wifi;      /* WIFI 占位 stub（port/wifi_stub.c，规划书目标 2） */
 extern const bl_flash_ops bl_flash;
 extern const bl_i2c_ops   bl_i2c;
 extern const bl_gpio_ops  bl_gpio;
 extern const bl_wdg_ops   bl_wdg;
 extern const bl_clock_ops bl_clock;
+
+/* ---- 通道接收统计（transport 聚合诊断用；定义在各通道端口实现内） ----
+   未实现统计的占位通道（bl_wifi）不提供符号，由 transport 注册表跳过 */
+uint32_t bl_uart_port_rx_total(void);
+uint32_t bl_uart_port_rx_pending(void);
+uint32_t bl_uart_bt_port_rx_total(void);
+uint32_t bl_uart_bt_port_rx_pending(void);
 
 /* ---- 跳转序列与系统级辅助（architecture.md §3，bl_boot 九步使用） ---- */
 void bl_port_disable_irq(void);

@@ -252,6 +252,44 @@ static void handle_get_meta(uint8_t seq, const uint8_t *data, uint32_t len)
     bl_protocol_send((uint8_t)(BL_CMD_GET_META | 0x80u), seq, d, k);
 }
 
+/* OTA 查询（protocol.md §5.1，规划书目标 3）：版本/有效性/通道状态一次读清，
+   供上位机决定是否需要升级；升级本身复用 ERASE/WRITE/VERIFY（全幂等）。 */
+static void handle_ota_query(uint8_t seq, const uint8_t *data, uint32_t len)
+{
+    (void)data;
+    if (len != 0u) {
+        resp_status(BL_CMD_OTA_QUERY, seq, BL_STATUS_RANGE_ERROR);
+        return;
+    }
+    bl_meta_t m;
+    bl_meta_load(&m);
+    uint8_t d[22];
+    uint32_t k = 0;
+    d[k++] = (uint8_t)BL_STATUS_OK;
+    d[k++] = BL_VERSION_MAJOR;
+    d[k++] = BL_VERSION_MINOR;
+    d[k++] = BL_VERSION_PATCH;
+    d[k++] = (uint8_t)m.app_ver_major;
+    d[k++] = (uint8_t)m.app_ver_minor;
+    d[k++] = (uint8_t)m.app_ver_patch;
+    d[k++] = bl_boot_app_valid() ? 0x01u : 0x00u;
+    d[k++] = (uint8_t)m.app_size;
+    d[k++] = (uint8_t)(m.app_size >> 8);
+    d[k++] = (uint8_t)(m.app_size >> 16);
+    d[k++] = (uint8_t)(m.app_size >> 24);
+    d[k++] = (uint8_t)m.app_crc32;
+    d[k++] = (uint8_t)(m.app_crc32 >> 8);
+    d[k++] = (uint8_t)(m.app_crc32 >> 16);
+    d[k++] = (uint8_t)(m.app_crc32 >> 24);
+    d[k++] = (uint8_t)m.seq;
+    d[k++] = (uint8_t)(m.seq >> 8);
+    d[k++] = (uint8_t)(m.seq >> 16);
+    d[k++] = (uint8_t)(m.seq >> 24);
+    d[k++] = bl_transport_active_channel();
+    d[k++] = bl_gpio.read(BL_PIN_BT_STATE) ? 0x01u : 0x00u;
+    bl_protocol_send((uint8_t)(BL_CMD_OTA_QUERY | 0x80u), seq, d, k);
+}
+
 static void handle_jump(uint8_t seq, const uint8_t *data, uint32_t len)
 {
     (void)data;
@@ -301,6 +339,7 @@ void bl_core_frame_received(uint8_t cmd, uint8_t seq, const uint8_t *data, uint3
     case BL_CMD_GET_META:    handle_get_meta(seq, data, len); break;
     case BL_CMD_JUMP_APP:    handle_jump(seq, data, len); break;
     case BL_CMD_RESET:       handle_reset(seq, data, len); break;
+    case BL_CMD_OTA_QUERY:   handle_ota_query(seq, data, len); break;
     default:                 resp_status(cmd, seq, BL_STATUS_STATE_ERROR); break;
     }
 }

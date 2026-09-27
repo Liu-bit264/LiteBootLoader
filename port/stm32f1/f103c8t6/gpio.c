@@ -11,9 +11,11 @@ typedef struct {
 } pin_map_t;
 
 static const pin_map_t k_pins[] = {
-    [BL_PIN_LED]     = { GPIOC, GPIO_Pin_13 },
-    [BL_PIN_I2C_SCL] = { GPIOB, GPIO_Pin_8 },
-    [BL_PIN_I2C_SDA] = { GPIOB, GPIO_Pin_9 },
+    [BL_PIN_LED]       = { GPIOC, GPIO_Pin_13 },
+    [BL_PIN_I2C_SCL]   = { GPIOB, GPIO_Pin_8 },
+    [BL_PIN_I2C_SDA]   = { GPIOB, GPIO_Pin_9 },
+    [BL_PIN_BT_STATE]  = { GPIOB, GPIO_Pin_0 },
+    [BL_PIN_BT_EN]     = { GPIOB, GPIO_Pin_1 },
 };
 #define PIN_COUNT (sizeof(k_pins) / sizeof(k_pins[0]))
 
@@ -25,6 +27,17 @@ void bl_gpio_port_init(void)
     GPIOC->CRH &= ~(GPIO_CRH_MODE13 | GPIO_CRH_CNF13);
     GPIOC->CRH |= GPIO_CRH_MODE13_1;              /* output 2MHz */
     GPIOC->BSRR = GPIO_Pin_13;                    /* 高 = 灭 */
+
+    /* PB0 BT_STATE：输入下拉（CNF=10/MODE=00/ODR=0）——模块未接或未连接时读 0 */
+    GPIOB->CRL &= ~(GPIO_CRL_MODE0 | GPIO_CRL_CNF0);
+    GPIOB->CRL |= GPIO_CRL_CNF0_1;
+    GPIOB->BRR = GPIO_Pin_0;
+
+    /* PB1 BT_EN：通用推挽输出 2MHz，默认低 = HC-05 上电进数据模式
+       （bluetooth_notes.md §2：AT 模式要求 KEY 上电时为高，固件不运行时切换） */
+    GPIOB->CRL &= ~(GPIO_CRL_MODE1 | GPIO_CRL_CNF1);
+    GPIOB->CRL |= GPIO_CRL_MODE1_1;
+    GPIOB->BRR = GPIO_Pin_1;
 
     /* PB8/PB9 交由 bl_i2c 配置为开漏（i2c.c 自己初始化） */
 }

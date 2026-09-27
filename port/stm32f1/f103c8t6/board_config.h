@@ -33,6 +33,8 @@
                                               F1 取同值（页擦 ~4ms 无风险）；F4 建议 8000——128K 扇区擦除
                                               ~875ms 且单 bank 擦除期间 CPU 停顿无法喂狗 */
 #define BL_UART_BAUD           115200u
+#define BL_BT_UART_BAUD        115200u /* UART2/HC-05 数据模式（bluetooth_notes.md §5：
+                                           模块经 AT+UART 一次性配置，勿在固件做运行时 AT） */
 #define BL_PROTOCOL_ACTIVE_MS  10000u  /* 协议活跃判定（ADR-008/009） */
 #define BL_UI_REFRESH_MS       200u    /* OLED 最低刷新间隔 */
 #define BL_DISPLAY_USER_PAGE   0       /* 1=等待/升级模式下调用 bl_display_user_page()
@@ -50,6 +52,9 @@
 #define BL_PIN_LED             0u      /* PC13，低电平点亮 */
 #define BL_PIN_I2C_SCL         1u      /* PB8 */
 #define BL_PIN_I2C_SDA         2u      /* PB9 */
+#define BL_PIN_BT_STATE        3u      /* PB0，HC-05 STATE：SPP 连接指示（输入，下拉） */
+#define BL_PIN_BT_EN           4u      /* PB1，HC-05 EN：默认低=数据模式（bluetooth_notes.md §2，
+                                           运行时翻转进 AT 不可靠，仅预留） */
 
 /* ---- F103 系统内存区（GET_INFO 用） ---- */
 #define BL_UID_ADDR            0x1FFFF7E8u

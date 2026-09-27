@@ -1,6 +1,6 @@
 # LiteBootLoader 总体设计（design）
 
-> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
+> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
 > 关联文档：[../architecture.md](../architecture.md) · [../partition.md](../partition.md) · [../protocol.md](../protocol.md) · [../external_interface.md](../external_interface.md) · [versioning.md](versioning.md) · [vofa_plus.md](vofa_plus.md)
 > 上位规则：本文件为 ../AGENTS.md（项目指令）阶段 0 交付物；与 ../AGENTS.md 冲突时以 ../AGENTS.md 为准。
 
@@ -8,9 +8,9 @@
 
 LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、可移植的裸机 BootLoader 框架：
 
-- **当前范围**：启动决策、APP 合法性校验、USART1 升级、Flash 与参数区管理、OLED/LED 状态显示、IWDG、跳转 APP、配套 Python 工具与文档。
+- **当前范围**：启动决策、APP 合法性校验、USART1/蓝牙（HC-05）双通道升级、OTA 状态查询、Flash 与参数区管理、OLED/LED 状态显示、IWDG、跳转 APP、配套 Python 工具与文档。
 - **长期目标**：core 与 port 解耦，可迁移至 STM32F4 / G0 / H7。
-- **非目标**（本期明确不做，接口预留见 §3 ADR-012）：联网 OTA 技术栈、外部 Flash、F103 双 APP 分区与自动回滚、**固件签名/认证**（review P3：升级链路仅 CRC16/CRC32 完整性校验，USART1 上任意主机均可烧写；认证的接入点应落在 storage 校验链与元数据结构，见 ../partition.md §4）。
+- **非目标**（本期明确不做，接口预留见 §3 ADR-012/ADR-016）：联网 OTA 技术栈（蓝牙 SPP 字节流通道已于 0.2.0 接入、WIFI 仅 API 预留）、外部 Flash、F103 双 APP 分区与自动回滚、**固件签名/认证**（review P3：升级链路仅 CRC16/CRC32 完整性校验，任意主机均可烧写；认证的接入点应落在 storage 校验链与元数据结构，见 ../partition.md §4）。
 
 ## 2. 需求到模块映射
 
@@ -18,6 +18,7 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 |---|---|---|
 | 启动决策与 APP 校验（§5.1） | `core/bl_boot.c` + `core/bl_metadata.c` | ../architecture.md §5、../partition.md |
 | USART1 升级协议（§6） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | ../protocol.md |
+| 蓝牙空口升级 + OTA 查询（规划书《空口蓝牙串口及OTA》2026-09-27，ADR-016） | F103 端口 `uart2.c` + `core/bl_transport.c` 通道注册表 + `core/bl_core.c` OTA_QUERY | ../architecture.md §6.1、../protocol.md §5.10、[bluetooth_notes.md](bluetooth_notes.md) |
 | Flash 读写/擦除与地址防护（§5） | `core/bl_storage.c` + F103 端口 `flash.c` | ../partition.md §2 |
 | 参数区双副本（§5） | `core/bl_metadata.c` | ../partition.md §4–§8 |
 | OLED/LED 状态显示（§8） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | ../architecture.md §8 |
@@ -126,6 +127,25 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
   `BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
 - 备选实现（LED-only 显示、RTT 日志）换 services 目录即可，core 不动。
 
+### ADR-016 多通道 transport + OTA_QUERY（用户确认，2026-09-27）
+
+规划书《空口蓝牙串口及OTA》三目标落地：
+
+- **蓝牙通道**（目标 1/2）：HC-05（BT 2.0 SPP）→ USART2 PA2/PA3 为 transport 通道 1；
+  STATE→PB0（连接指示，输入下拉）、EN→PB1（默认低，运行时翻转进 AT 模式不可靠，仅
+  预留——联网核实结论见 [bluetooth_notes.md](bluetooth_notes.md) §2）。数据模式一次性
+  AT 配置为 115200（`BL_BT_UART_BAUD`，与 USART1 同速），固件不做运行时 AT。
+- **通道注册表与仲裁**（目标 2）：`bl_transport` 改为通道表 + 活动通道锁（静默 2 s 释放，
+  与帧内字节超时同窗，见 ../architecture.md §6.1），protocol 层无感；WIFI 为同签名占位
+  stub（目标 2 只预留实现层与 API，实接入补实现）。`bl_transport.c` 顺带修正直接 include
+  芯片端口头的分层破绽（统计函数改经 bl_port.h 声明）。
+- **OTA 命令**（目标 3，轻量）：0x10 OTA_QUERY 只读查询（BL/APP 版本、APP 实时有效性、
+  元数据 seq、请求到达通道、BT 连接状态，../protocol.md §5.10）；升级复用既有幂等命令；
+  0x11–0x1F 继续预留。备选"完整 OTA BEGIN/DATA/END 状态机"被否决（与 WRITE_CHUNK 机制
+  重叠、16 KiB 余量不容，用户确认轻量方案）。
+- 体积影响：BL 13 728 → 15 324 B（16 KiB 上限内，余量 ~1 KiB）；APP 8 072 → 8 152 B
+  （共享 uart.c/gpio.c 随 BT 引脚与弱符号微增）。
+
 ### ADR-015 多芯片支持：CSP + manifest 驱动（用户决定，2026-09-27）
 
 目标：让"加一颗芯片"变得便捷（建目录 + chip.json + 实现 ops，构建零手工）。结构方案
@@ -180,7 +200,10 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 | `BL_USE_HSE` | 1 | 时钟源：1=HSE 8M→PLL 72M（默认）/ 0=HSI 8MHz 回退（ADR-010） |
 | `BL_BOOT_WAIT_MS` | 3000 | 启动等待窗口 |
 | `BL_IWDG_TIMEOUT_MS` | 2000 | IWDG 超时 |
-| `BL_UART_BAUD` | 115200 | 升级串口波特率 |
+| `BL_UART_BAUD` | 115200 | 升级串口（USART1）波特率 |
+| `BL_BT_UART_BAUD` | 115200 | 蓝牙通道（UART2/HC-05 数据模式）波特率（ADR-016） |
+| `BL_PIN_LED` / `BL_PIN_I2C_SCL` / `BL_PIN_I2C_SDA` | 0 / 1 / 2 | PC13 / PB8 / PB9 |
+| `BL_PIN_BT_STATE` / `BL_PIN_BT_EN` | 3 / 4 | PB0（HC-05 STATE 输入）/ PB1（HC-05 EN 输出，默认低，ADR-016） |
 | `BL_APP_BASE` / `BL_APP_SIZE` | 0x08004000 / 0x0000B800 | APP 分区 |
 | `BL_PARAM_BASE` / `BL_PARAM_SIZE` | 0x0800F800 / 0x00000800 | 参数区 |
 | `BL_PROTOCOL_ACTIVE_MS` | 10000 | 协议活跃判定窗口 |

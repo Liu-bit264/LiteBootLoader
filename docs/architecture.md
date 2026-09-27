@@ -1,6 +1,6 @@
 # LiteBootLoader 架构设计（architecture）
 
-> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
+> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
 > 关联：[dev/design.md](dev/design.md)（固化决策） · [partition.md](partition.md)（Flash/元数据） · [protocol.md](protocol.md)（通信协议） · [external_interface.md](external_interface.md)（对外接口索引）
 
 ## 1. 分层总览
@@ -18,7 +18,7 @@
 │   bl_storage Flash 抽象操作 + APP 擦写/CRC32                 │
 │   bl_metadata 参数区双副本（状态机见 partition.md）           │
 │   bl_boot    启动决策 / APP 校验 / 九步跳转                   │
-│   bl_transport init/send/recv 抽象（首实现 UART）            │
+│   bl_transport 通道注册表（USART1 有线/UART2 蓝牙/WIFI 占位，§6.1）│
 │   bl_ui / bl_log 已服务化迁出（ADR-014）                      │
 │   bl_crc / bl_version + core/bl_display.h · bl_debug.h 接口  │
 ├──────────────── services/（可替换服务实现，ADR-014）─────────┤
@@ -26,7 +26,7 @@
 │   debug_uart    USART1 日志（实现 bl_debug_ops）             │
 ├──────────────── ops 结构（§3）──────────────────────────────┤
 │  port/stm32f1/f103c8t6/（芯片相关，可替换）                   │
-│   flash.c uart.c i2c.c gpio.c wdg.c clock.c systick.c       │
+│   flash.c uart.c uart2.c i2c.c gpio.c wdg.c clock.c systick.c │
 ├────────────────────────────────────────────────────────────┤
 │  bsp/oled_ssd1306/（板级器件驱动，经 bl_i2c_ops 通信）        │
 ├────────────────────────────────────────────────────────────┤
@@ -156,10 +156,31 @@ while (1) {
 | 中断 | 用途 | 说明 |
 |---|---|---|
 | SysTick | 1 ms 节拍、超时/窗口计时 | 仅递增毫秒计数，不做业务 |
-| USART1_RX | 收帧字节流 → 512 B 环形缓冲 | 帧最长 267 B（2+1+1+1+2+256+2+2）；@115200 约 11.5 B/ms，单页擦除（≤40 ms）期间的到达字节 ≤460 B，512 B 环形缓冲可吸收单页突发。更长的连续到达依赖主机"停等"协议（发出命令后等响应），溢出字节按帧同步丢弃处理（protocol.md §4.2） |
-| USART1_TX | 不用中断 | 响应/日志帧短，阻塞发送（≤272 B ≈ 24 ms @115200，可接受），文档化取舍 |
+| USART1_RX | 通道 0 收帧字节流 → 512 B 环形缓冲 | 帧最长 267 B（2+1+1+1+2+256+2+2）；@115200 约 11.5 B/ms，单页擦除（≤40 ms）期间的到达字节 ≤460 B，512 B 环形缓冲可吸收单页突发。更长的连续到达依赖主机"停等"协议（发出命令后等响应），溢出字节按帧同步丢弃处理（protocol.md §4.2） |
+| USART2_RX | 通道 1（蓝牙 HC-05）收帧字节流 → 独立 512 B 环形缓冲 | 与 USART1 同构（uart2.c）；RAM 各占 512 B（§9） |
+| USART1_TX / USART2_TX | 不用中断 | 响应/日志帧短，阻塞发送（≤272 B ≈ 24 ms @115200，可接受），文档化取舍 |
 
 主循环内联执行耗时 Flash 操作时，RX 中断继续填充环形缓冲，不丢字节（缓冲深度按上表核算）。
+
+### 6.1 通道注册表与仲裁（0.2.0 新增，ADR-016）
+
+`core/bl_transport.c` 维护通道注册表：
+
+| 序号 | 通道 | ops 单例 | 实现 | 状态 |
+|---|---|---|---|---|
+| 0 | USART1 有线 | `bl_uart` | `port/<chip>/uart.c` | 在用 |
+| 1 | UART2 蓝牙（HC-05 SPP） | `bl_uart_bt` | `port/<chip>/uart2.c` | 0.2.0 起 |
+| 2 | WIFI | `bl_wifi` | `port/wifi_stub.c` | 占位（规划书目标 2），实接入时补实现 |
+
+- **注册条件**：实现 `bl_uart_ops` 三方法 + 两个接收统计函数并登记进 `s_chans[]`；统计
+  缺席的占位通道（WIFI stub）在 init 时被跳过——预留真能编译、真能被选路识别。
+- **活动通道仲裁**：某通道收到首个字节即锁定（记录最后字节时刻），锁定期间只从该通道
+  取字节；静默超过 `BL_FRAME_BYTE_TIMEOUT_MS`（与协议帧内字节超时同窗口）释放回轮询。
+  半帧在途期间两路字节不会交错进同一全局解析器，protocol 层无感切换；响应经 `send`
+  路由回请求所在通道，无活动通道时回落通道 0。残余的并发交错由 CRC 丢弃 + 主机重试兜底。
+- 通道号经 `bl_transport_active_channel()` 供 OTA_QUERY（protocol.md §5.10）上报请求到达通道。
+- `bl_transport.c` 不再直接 include 芯片端口头 `uart.h`（0.2.0 顺带修正的分层破绽）：
+  各通道接收统计函数统一经 `bl_port.h` 声明，core 只依赖 `bl_port.h` + `board_config.h`。
 
 ## 7. IWDG 喂狗点分布（固定清单）
 
@@ -184,11 +205,11 @@ while (1) {
 
 | 项 | 预算/实测 | 说明 |
 |---|---|---|
-| RAM：RX 环形缓冲 | 512 B | §6 |
+| RAM：RX 环形缓冲 | 2 × 512 B | §6：USART1 + USART2（蓝牙）各一（0.2.0 起） |
 | RAM：OLED 帧缓冲 | 1 KiB | 128×64/8 |
 | RAM：VERIFY 块缓冲 | 1 KiB | bl_storage 静态分配 |
 | RAM：栈 | 1 KiB | 启动文件 Stack_Size |
-| RAM：ZI 合计实测 | 3 888 B（含上列） | 20 KiB 上限的 19% |
+| RAM：ZI 合计实测 | 4 404 B（含上列） | 20 KiB 上限的 21.5% |
 | Flash：CRC32 常量表 | ≈ 1 KiB | ADR-001（在 RO-data 内） |
-| Flash：实测 bin | **13 728 B ≈ 13.4 KiB** | **≤ 16 KiB 验收线 ✓**（ADR-015 + review 2026-09-27 修复后；bin SHA `ce41b1b6…`；AC6 -Oz 时为 8 824 B，供参考） |
-| APP .bin | **8 072 B，≤ 46 KiB（验收线）✓** | 阶段 2，review 加固后重建（SHA `1ab705d6…`） |
+| Flash：实测 bin | **15 324 B ≈ 15.0 KiB** | **≤ 16 KiB 验收线 ✓**（0.2.0：多通道 transport + OTA_QUERY 后，SHA `499de4bc…`；0.1.0 基线 13 728 B `ce41b1b6…`；AC6 -Oz 时为 8 824 B，供参考） |
+| APP .bin | **8 152 B，≤ 46 KiB（验收线）✓** | 0.2.0 重建（SHA `534eb656…`；共享 uart.c/gpio.c 随 BT 引脚与弱符号微增） |

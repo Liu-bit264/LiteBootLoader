@@ -3,7 +3,8 @@
 简体中文 | [English](README.en.md)
 
 可编译、可测试、可移植的 STM32 BootLoader 框架（BL）：启动决策、APP 合法性校验、
-USART1 升级协议、Flash 与参数区管理、OLED/LED 状态显示、IWDG 看门狗与安全跳转。
+USART1 有线 + 蓝牙（HC-05）双通道升级协议、OTA 状态查询、Flash 与参数区管理、
+OLED/LED 状态显示、IWDG 看门狗与安全跳转。
 通过 core/port 分层与**芯片支持包（CSP，`chips/*.json` + `port/<family>/<chip>/`）**
 支持多芯片移植。
 
@@ -15,6 +16,8 @@ USART1 升级协议、Flash 与参数区管理、OLED/LED 状态显示、IWDG �
 - **当前支持包：STM32F103C8T6**（Cortex-M3，64 KiB Flash / 20 KiB RAM）——目前唯一完成
   全链路硬件验证的支持包：14/14 验收项通过、上位机升级 E2E、断电恢复演练；
   产物尺寸与 SHA 见 [CHANGELOG.md](CHANGELOG.md)
+- **蓝牙空口升级（0.2.0）**：HC-05（SPP）经 UART2 接入为 transport 通道 1，WIFI 仅 API
+  预留；OTA 状态查询命令 0x10（ADR-016）；蓝牙真机在环验证进行中
 - STM32F4 / G0 / H7 端口目录已预留（仅骨架）；新增芯片支持的完整流程见
   [docs/porting_guide.md](docs/porting_guide.md)
 - 多芯片基础设施（CSP：芯片清单 + 模板化工程生成 + 擦除单元抽象 + IWDG 参数化）已落地，
@@ -101,6 +104,7 @@ uv run --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COMx
 | [docs/partition.md](docs/partition.md) | Flash 分区、参数区双副本状态机与断电恢复 |
 | [docs/external_interface.md](docs/external_interface.md) | 外部接口清单（引脚、协议摘要、抽象接口、OTA 接入点） |
 | [docs/porting_guide.md](docs/porting_guide.md) | 移植指南：ops 实现要求、时钟双路径、跳转原子性、移植陷阱 |
+| [docs/dev/bluetooth_notes.md](docs/dev/bluetooth_notes.md) | 蓝牙 HC-05 核实笔记：引脚语义、AT 一次性配置、来源引用 |
 | [docs/dev/design.md](docs/dev/design.md) | 总体设计与固化决策记录（CRC 参数、升级模式、LED/日志策略等 ADR） |
 | [docs/dev/versioning.md](docs/dev/versioning.md) | SemVer 与 Conventional Commits 细则 |
 | [docs/dev/vofa_plus.md](docs/dev/vofa_plus.md) | VOFA+ 定位与可行性说明 |

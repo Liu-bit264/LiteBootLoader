@@ -56,6 +56,21 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 
 可直接复用（无需改动）：`core/bl_crc.c`（CRC16/MODBUS、CRC-32/ISO-HDLC，纯计算）、`core/bl_metadata.c`（依赖 `bl_flash` ops 与 `bl_wdg.refresh`，页内布局见 partition.md §4）。
 
+### 3.1 多通道 transport（0.2.0 起，ADR-016）
+
+每颗芯片可提供多个 UART 通道单例（F103：`bl_uart`=USART1 有线、`bl_uart_bt`=USART2 蓝牙）：
+
+1. 新通道 = 实现 `uart2.c`（与 uart.c 同构：RX 中断 + 独立环形缓冲 + 两个统计函数 +
+   ops 单例）+ `uart2.h`；USART2 类外设注意所在 APB 总线时钟（F1 的 USART2 挂 APB1 =
+   SYSCLK/2，与 USART1 的 APB2 不同）。
+2. `board_config.h` 加常量（如 `BL_BT_UART_BAUD`、`BL_PIN_BT_STATE/EN`），`chips/<id>.json`
+   的 `pins` 同步登记，spec 模板 Port 组加源文件（构建零手工）。
+3. 通道登记进 `core/bl_transport.c` 的 `s_chans[]`（ops + 统计函数指针）。
+4. WIFI 等未实现通道放 `port/wifi_stub.c` 占位（无统计符号，core 自动跳过——真能编译、
+   真能被选路识别）。
+5. 九步跳转第 6 步经 `bl_port_uart_deinit` 反初始化所有 BL 使用过的 UART：不含某通道的
+   目标（如 APP 示例）链接 uart.c 内的 `__weak` 空实现即可，无需链入该通道实现。
+
 ## 4. 时钟与 SystemInit——两条进入路径
 
 `SystemInit` 有两种进入方式，**必须区分处理**（F103 实测教训：跳转进入时把 Flash 等待周期降到 0WS，72MHz 下取指损坏，APP 静默硬fault）：

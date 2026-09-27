@@ -475,6 +475,16 @@
               <FilePath>port\stm32f1\f103c8t6\uart.c</FilePath>
             </File>
             <File>
+              <FileName>uart2.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>port\stm32f1\f103c8t6\uart2.c</FilePath>
+            </File>
+            <File>
+              <FileName>wifi_stub.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>port\wifi_stub.c</FilePath>
+            </File>
+            <File>
               <FileName>gpio.c</FileName>
               <FileType>1</FileType>
               <FilePath>port\stm32f1\f103c8t6\gpio.c</FilePath>
