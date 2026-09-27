@@ -61,27 +61,27 @@ static void on_frame(uint8_t cmd, uint8_t seq, const uint8_t *data, uint32_t len
     respond(cmd, seq, &st, 1u);
 }
 
-/* 整帧尝试解析：要求 SOF/长度/CRC 全部一致；不合法则整段丢弃（主机负责重试）。
- * 注意（review P3）：这是「最小示例」重组器——按 EOF 定界累积，DATA/CRC 内
- * 出现 0x55 0xAA 会提前截断（长度不符时静默等待、靠 267B 超长复位兜底），
- * 严谨性弱于 core/bl_protocol.c 的流式状态机，勿复用到生产路径。 */
-static void try_parse(void)
+/* 整帧尝试解析：要求 SOF/长度/CRC 全部一致；成功返回 true 并分发。
+ * 注意（review 2026-09-27 P2 加固）：这是「最小示例」重组器——按 EOF 定界累积，
+ * DATA/CRC 内出现 0x55 0xAA 会提前定界（伪 EOF）。伪 EOF 或校验失败一律丢弃
+ * 已积累内容、等主机重发，不再靠 267B 超长复位兜底（避免畸形输入拖延正常帧）。
+ * 严谨性仍弱于 core/bl_protocol.c 的流式状态机，勿复用到生产路径。 */
+static bool try_parse(void)
 {
     if (s_len < 11u) {
-        return;
+        return false;
     }
     uint32_t ln = (uint32_t)s_buf[5] | ((uint32_t)s_buf[6] << 8);
     if (ln > BL_FRAME_DATA_MAX || s_len != (11u + ln)) {
-        return;
+        return false;
     }
     uint16_t want = (uint16_t)s_buf[7 + ln] | ((uint16_t)s_buf[8 + ln] << 8);
     if (s_buf[0] != 0xAAu || s_buf[1] != 0x55u ||
         bl_crc16_update(BL_CRC16_INIT, &s_buf[2], (uint32_t)(5 + ln)) != want) {
-        s_len = 0u;   /* CRC/边界不合法：丢弃，等待主机重发 */
-        return;
+        return false;   /* CRC/边界不合法：丢弃，等待主机重发 */
     }
     on_frame(s_buf[3], s_buf[4], &s_buf[7], ln);
-    s_len = 0u;
+    return true;
 }
 
 void app_request_init(void)
@@ -102,7 +102,10 @@ void app_request_poll(void)
         }
         s_buf[s_len++] = b[i];
         if (s_len >= 2u && s_buf[s_len - 2u] == 0x55u && s_buf[s_len - 1u] == 0xAAu) {
-            try_parse();   /* 看到 EOF：长度一致则成帧，否则继续积累 */
+            /* EOF 定界点：成帧则分发，伪 EOF（DATA/CRC 内 55 AA）或坏帧丢弃；
+               两种情况都清空积累区——伪帧不再等 267B 兜底（review 2026-09-27 P2） */
+            try_parse();
+            s_len = 0u;
         }
     }
 }

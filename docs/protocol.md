@@ -110,6 +110,19 @@ def crc16_modbus(data: bytes) -> int:
 | 23 | 4 | app_crc32（LE32） |
 | 27 | 4 | 元数据 seq（LE32，出厂态 0） |
 
+31 B 之后为**诊断扩展区**（阶段 3 升级流程检验引入；主机按实际 LEN 解析，最小实现可只回 31 B）：
+
+| 偏移 | 长度 | 内容 |
+|---:|---:|---|
+| 31 | 4 | 设备侧累计接收字节数（LE32） |
+| 35 | 4 | 已送达有效帧数（LE32） |
+| 39 | 4 | CRC 不符丢弃帧数（LE32） |
+| 43 | 4 | 帧内字节超时复位数（LE32） |
+| 47 | 4 | 超时挂起计数（LE32） |
+| 51 | 16 | 最近一次帧内超时现场快照（4×LE32，诊断帧饥饿） |
+
+完整响应 67 B。
+
 ### 5.3 ERASE_APP（0x03）
 
 整片擦除 APP 区（页 16–61），擦除单元间喂狗。幂等：重复调用返回 OK。DATA 必须为空，否则 `RANGE_ERROR`。
@@ -131,9 +144,9 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 
 处理：BL 按 1 KiB 块计算 `[APP_BASE, APP_BASE+app_size)` 的 CRC-32/ISO-HDLC（块间喂狗），与 `app_crc32` 比较：
 
-- 匹配 → 回 `OK + calc_crc32 + calc_size`，并以新 seq 将 `app_size/app_crc32` **自动持久化**到参数区（partition.md §6.3）。
+- `app_size < 8`（向量表最少 2 字：初始 MSP + Reset Handler，更小镜像无法支撑跳转判定）、`app_size == 0` 或 `> 46 KiB` → `RANGE_ERROR`。
+- 匹配 → 回 `OK + calc_crc32 + calc_size`，并以新 seq 将 `app_size/app_crc32` **自动持久化**到参数区（partition.md §6.3）。**持久化幂等**：当前元数据已记录相同 `app_size/app_crc32` 且无待消费 `bl_request` 时跳过重写——VERIFY 超时重发/重验不产生额外参数区擦写。
 - 不匹配 → 回 `CRC_ERROR + calc_crc32 + calc_size`，不持久化。
-- `app_size == 0` 或 `> 46 KiB` → `RANGE_ERROR`。
 
 ### 5.6 SET_META（0x06）
 
@@ -174,7 +187,7 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 ## 6. SEQ 语义、幂等性与超时
 
 - **SEQ**：主机逐命令递增（0–255 回绕）；BL 只做回显，不维护去重表。
-- **幂等性**：全部命令设计为可重复执行（重 PING 无副作用、重擦页无害、重写覆盖、重验重算、重复 JUMP 校验失败无害），因此**重复包/超时重传直接重新执行**，不做去重。
+- **幂等性**：全部命令设计为可重复执行（重 PING 无副作用、重擦页无害、重写覆盖、重验幂等——同内容重验不重写参数区、重复 JUMP 校验失败无害），因此**重复包/超时重传直接重新执行**，不做去重。
 - **主机侧超时与重试**（工具实现约定，阶段 3 落地）：单命令响应超时 1000 ms，重试 3 次；`ERASE_APP` 因整片擦除耗时（46 页 × 20–40 ms ≈ 1–2 s）单独放宽为 5000 ms。
 - **BL 侧**：帧内 2000 ms 无新字节复位解析器（§4.2）；升级模式无会话超时（design.md ADR-003）。
 

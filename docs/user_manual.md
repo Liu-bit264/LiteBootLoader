@@ -31,8 +31,8 @@ Flash 分区：
 
 BL 本体用调试器烧一次即可，之后升级 APP 全走串口。当前交付二进制：
 
-- `bootloader.bin`：13,540 B，SHA-256 `e864fe22…f4e8cec`（ADR-015 擦除单元抽象 + IWDG 放宽版；完整值以交付记录为准）
-- APP 示例 `app/examples/f103c8t6_app/app.bin`：8,064 B，SHA-256 `a7a8a647…4ee51ff`
+- `bootloader.bin`：13,728 B，SHA-256 `ce41b1b6…8181bb1`（ADR-015 + review 加固版；完整值以交付记录为准）
+- APP 示例 `app/examples/f103c8t6_app/app.bin`：8,072 B，SHA-256 `1ab705d6…fc4d574`
 
 ```bash
 # pyocd 烧录 BL：flash 与 reset 必须分开调用（pyocd 的 reset 是独立子命令，

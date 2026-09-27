@@ -34,10 +34,15 @@ bool bl_storage_init(void)
     memset(s_erased_map, 0, sizeof(s_erased_map));
 
     /* 校验单元表几何完整（各单元等大且拼满 Flash 由端口层保证的正确性入口），
-       并定位覆盖 APP 区的单元区间（F1 均匀页退化为 16..61 连续区间） */
+       并定位覆盖 APP 区的单元区间（F1 均匀页退化为 16..61 连续区间）。
+       移植防御（review 2026-09-27 P1）：覆盖 APP 的首/末擦除单元必须与 APP
+       起止边界精确重合——F4 非均匀扇区若横跨 APP/BL/参数区边界，整单元擦除
+       会波及邻区，此处直接拒绝初始化进 FAULT。 */
     uint32_t count = bl_flash.unit_count();
     uint32_t covered = 0u;
     uint32_t end_addr = BL_APP_BASE + BL_APP_SIZE;
+    uint32_t first_addr = 0u;
+    uint32_t last_end = 0u;
     s_app_first_unit = 0u;
     s_app_unit_total = 0u;
     for (uint32_t i = 0; i < count; i++) {
@@ -50,12 +55,15 @@ bool bl_storage_init(void)
         if (ua + us > BL_APP_BASE && ua < end_addr) {
             if (s_app_unit_total == 0u) {
                 s_app_first_unit = (uint16_t)i;
+                first_addr = ua;
             }
+            last_end = ua + us;
             s_app_unit_total++;
         }
     }
     return covered == BL_FLASH_SIZE && s_app_unit_total > 0u &&
-           s_app_unit_total <= BL_APP_UNITS_MAX;
+           s_app_unit_total <= BL_APP_UNITS_MAX &&
+           first_addr == BL_APP_BASE && last_end == end_addr;
 }
 
 /* APP 内第 rel 个覆盖单元的几何（依赖覆盖单元全局序号连续，现实分区恒成立） */
@@ -157,7 +165,10 @@ bl_status_t bl_storage_write_chunk(uint32_t offset, const uint8_t *data, uint32_
 bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
                                   uint32_t *calc_crc, uint32_t *calc_size)
 {
-    if (size == 0u || size > BL_APP_SIZE || (size % 4u) != 0u) {
+    /* 下界 8 = 向量表最少 2 字（初始 MSP + Reset Handler）：更小的 size 无法
+       覆盖跳转判定所需向量，持久化会让有效性判定依赖未校验的旧内容
+       （review 2026-09-27 P1） */
+    if (size < 8u || size > BL_APP_SIZE || (size % 4u) != 0u) {
         return BL_STATUS_RANGE_ERROR;
     }
     uint32_t crc = BL_CRC32_INIT;
@@ -179,7 +190,9 @@ bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
     if (crc != expect_crc) {
         return BL_STATUS_CRC_ERROR;
     }
-    if (!bl_meta_commit_app(size, crc)) {
+    /* 持久化幂等（review 2026-09-27 P2）：元数据已记录相同内容且无待消费
+       bl_request 时跳过重写——VERIFY 超时重发不再产生额外参数区擦写 */
+    if (!bl_meta_matches_app(size, crc) && !bl_meta_commit_app(size, crc)) {
         return BL_STATUS_FLASH_ERROR;
     }
     return BL_STATUS_OK;

@@ -126,7 +126,9 @@ static bool ops_erase_unit(uint32_t unit_index)
 
 static bool ops_range_valid(uint32_t addr, uint32_t len)
 {
-    return len > 0u && addr >= BL_FLASH_BASE &&
+    /* len 上限前置：否则 len > FLASH_SIZE 时右侧无符号回绕使检查失效
+       （review 2026-09-27 P3） */
+    return len > 0u && len <= BL_FLASH_SIZE && addr >= BL_FLASH_BASE &&
            (addr - BL_FLASH_BASE) <= (BL_FLASH_SIZE - len);
 }
 

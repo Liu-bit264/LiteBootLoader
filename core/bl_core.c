@@ -308,12 +308,20 @@ void bl_core_frame_received(uint8_t cmd, uint8_t seq, const uint8_t *data, uint3
 void bl_core_init(void)
 {
     bl_transport_init();
-    bl_storage_init();
     bl_debug.init();
     bl_protocol_init();
     bl_display.init();
 
-    bl_meta_load(&s_meta);
+    /* 几何自检（review 2026-09-27 P2）：擦除单元表或参数副本几何非法时
+       拒绝带病启动——失败静默会让后续判定建立在未确认的状态上 */
+    if (!bl_storage_init() || !bl_meta_load(&s_meta)) {
+        BL_LOGE("storage/meta geometry check failed -> FAULT");
+        s_state = BL_STATE_FAULT;
+        s_app_valid = false;
+        s_app_valid_dirty = false;
+        bl_display.set_state(BL_DISPLAY_FAULT);
+        return;
+    }
 
     if (s_meta.flags & BL_META_FLAG_BL_REQUEST) {
         /* 消费并清除 bl_request（partition.md §8）：清除写本身掉电安全 */

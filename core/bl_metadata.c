@@ -216,6 +216,15 @@ bool bl_meta_commit_app(uint32_t size, uint32_t crc32)
                   s_meta.app_ver_major, s_meta.app_ver_minor, s_meta.app_ver_patch);
 }
 
+bool bl_meta_matches_app(uint32_t size, uint32_t crc32)
+{
+    /* 与 commit_app 将写入的内容逐项等价（size/crc 相同、flags 不含待消费
+       bl_request、版本字段本就沿用）才允许跳过重写 */
+    return s_loaded && s_active != 0xFFu &&
+           s_meta.app_size == size && s_meta.app_crc32 == crc32 &&
+           (s_meta.flags & BL_META_FLAG_BL_REQUEST) == 0u;
+}
+
 bool bl_meta_set_bl_request(bool set)
 {
     if (!s_loaded) {

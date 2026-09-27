@@ -102,6 +102,10 @@ bl_port_switch_msp_and_jump        ; r0 = APP 初始 MSP, r1 = APP Reset Handler
 ## 7. Flash 驱动与参数区适配
 
 - 写入前确保擦除态：F103 用"本会话已擦页位图 + 内容扫描兜底"（bl_storage.c），**同一页多次分块写入不得互相整页擦除**（实测教训：否则页内只剩最后一次写入）。
+- 分区必须按擦除单元边界对齐（ADR-015 移植防御，review 2026-09-27 P1）：覆盖 APP 区
+  的首/末擦除单元必须与 APP 起止边界精确重合，否则 `bl_storage_init` 拒绝初始化进
+  FAULT——防止 F4 非均匀扇区横跨 APP/BL/参数区边界时整单元擦除波及邻区。F1 均匀页
+  天然满足；F4 分区设计（BL=扇区 0–1、参数=扇区 2/3、APP=扇区 4 起）天然满足。
 - 参数区双副本（partition.md §3-§7）要求**两副本各占一个独立擦除单元**（ADR-015：
   `bl_metadata` 加载期强制校验，F4 两个 16K 扇区直接成立）。副本间隔由
   `BL_PARAM_COPY_SIZE` 定义（F1=1 页，F4=16K 扇区），`chips/<id>.json` 的

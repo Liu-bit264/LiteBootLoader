@@ -190,5 +190,5 @@ while (1) {
 | RAM：栈 | 1 KiB | 启动文件 Stack_Size |
 | RAM：ZI 合计实测 | 3 888 B（含上列） | 20 KiB 上限的 19% |
 | Flash：CRC32 常量表 | ≈ 1 KiB | ADR-001（在 RO-data 内） |
-| Flash：实测 Code=11 460 + RO=1 944 + RW=136 | **13 540 B ≈ 13.2 KiB** | **≤ 16 KiB 验收线 ✓**（ADR-015 擦除单元抽象 + IWDG 放宽后；bin SHA `e864fe22…`；AC6 -Oz 时为 8 824 B，供参考） |
-| APP .bin | **8 064 B，≤ 46 KiB（验收线）✓** | 阶段 2，CSP A 同步重建（SHA `a7a8a647…`） |
+| Flash：实测 bin | **13 728 B ≈ 13.4 KiB** | **≤ 16 KiB 验收线 ✓**（ADR-015 + review 2026-09-27 修复后；bin SHA `ce41b1b6…`；AC6 -Oz 时为 8 824 B，供参考） |
+| APP .bin | **8 072 B，≤ 46 KiB（验收线）✓** | 阶段 2，review 加固后重建（SHA `1ab705d6…`） |

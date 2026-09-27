@@ -19,6 +19,7 @@ typedef struct {
 
 bool bl_meta_load(bl_meta_t *out);                       /* §6.1 读取规则 */
 bool bl_meta_commit_app(uint32_t size, uint32_t crc32);  /* VERIFY 持久化 */
+bool bl_meta_matches_app(uint32_t size, uint32_t crc32); /* 已持久化相同内容且无待消费 bl_request */
 bool bl_meta_set_bl_request(bool set);                   /* 置位/清除 */
 bool bl_meta_set_app_version(uint16_t ma, uint16_t mi, uint16_t pa);
 
