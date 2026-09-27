@@ -61,6 +61,10 @@
   "pins": {
     "uart_tx": "PA9",
     "uart_rx": "PA10",
+    "uart2_tx": "PA2",
+    "uart2_rx": "PA3",
+    "bt_state": "PB0",
+    "bt_en": "PB1",
     "led": "PC13",
     "led_active_low": true,
     "i2c_scl": "PB8",

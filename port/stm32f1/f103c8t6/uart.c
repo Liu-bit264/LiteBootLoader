@@ -1,4 +1,5 @@
 #include "uart.h"
+#include "uart2.h"
 #include "board_config.h"
 #include "bl_port.h"
 #include "clock.h"
@@ -40,7 +41,17 @@ void bl_uart_port_deinit(void)
     RCC->APB2ENR &= ~RCC_APB2ENR_USART1EN;
 }
 
-void bl_port_uart_deinit(void) { bl_uart_port_deinit(); }
+void bl_port_uart_deinit(void)
+{
+    bl_uart_port_deinit();
+    bl_uart_bt_port_deinit();   /* 蓝牙通道随九步跳转第 6 步一并反初始化 */
+}
+
+/* 蓝牙通道反初始化弱默认：不含 uart2.c 的目标（APP 示例无蓝牙）链接空实现，
+   含 uart2.c 的工程由强符号覆盖（弱符号模式同 bl_display_user_page） */
+__weak void bl_uart_bt_port_deinit(void)
+{
+}
 
 uint32_t bl_uart_port_rx_pop(uint8_t *buf, uint32_t max)
 {

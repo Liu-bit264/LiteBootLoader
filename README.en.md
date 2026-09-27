@@ -3,8 +3,9 @@
 [简体中文](README.md) | English
 
 A compilable, testable and portable BootLoader (BL) framework for STM32:
-boot decision, APP image validation, USART1 upgrade protocol, flash and parameter-area
-management, OLED/LED status display, IWDG watchdog and safe jump-to-APP.
+boot decision, APP image validation, dual-channel upgrade protocol (USART1 wired +
+Bluetooth HC-05), OTA status query, flash and parameter-area management, OLED/LED
+status display, IWDG watchdog and safe jump-to-APP.
 Multi-chip porting is supported through the core/port layering and **Chip Support
 Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
 
@@ -17,6 +18,9 @@ Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
   the only support package with full hardware validation so far: 14/14 acceptance items
   passed, host-tool upgrade E2E, power-loss recovery drills; artifact sizes and SHA-256
   are recorded in the [changelog](CHANGELOG.en.md)
+- **Bluetooth over-the-air upgrades (0.2.0)**: HC-05 (SPP) attached via UART2 as
+  transport channel 1, WIFI reserved at the API level; OTA status query command 0x10
+  (ADR-016); on-target Bluetooth validation is in progress
 - STM32F4 / G0 / H7 port directories are reserved (skeletons only); the full workflow for
   adding a new chip is described in [docs/porting_guide.md](docs/porting_guide.md)
 - Multi-chip infrastructure (CSP: chip manifest + template-driven project generation +
@@ -108,6 +112,7 @@ uv run --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COMx
 | [docs/partition.md](docs/partition.md) | Flash partitions, dual-copy parameter area state machine, power-loss recovery |
 | [docs/external_interface.md](docs/external_interface.md) | External interface list (pins, protocol summary, abstract interfaces, OTA extension points) |
 | [docs/porting_guide.md](docs/porting_guide.md) | Porting guide: ops requirements, dual clock path, atomic jump, pitfalls |
+| [docs/dev/bluetooth_notes.md](docs/dev/bluetooth_notes.md) | Bluetooth HC-05 verified facts: pin semantics, one-time AT setup, sources |
 | [docs/dev/design.md](docs/dev/design.md) | Design & decision records (CRC parameters, upgrade modes, LED/log policies, ADRs) |
 | [docs/dev/versioning.md](docs/dev/versioning.md) | SemVer & Conventional Commits rules |
 | [docs/dev/vofa_plus.md](docs/dev/vofa_plus.md) | VOFA+ positioning and feasibility notes |

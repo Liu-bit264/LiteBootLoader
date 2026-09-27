@@ -25,6 +25,9 @@ typedef enum {
 #define BL_CMD_JUMP_APP    0x08u
 #define BL_CMD_RESET       0x09u
 
+/* OTA 扩展（protocol.md §5.1，规划书目标 3）：0x10 已实现；0x11–0x1F 继续预留 */
+#define BL_CMD_OTA_QUERY   0x10u
+
 #define BL_PROTOCOL_VER    0x01u
 
 void bl_protocol_init(void);

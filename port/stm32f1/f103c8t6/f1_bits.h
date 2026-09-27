@@ -4,6 +4,12 @@
    带守卫：若未来器件头补齐这些宏则自动让位。 */
 #include "stm32f10x.h"
 
+#ifndef GPIO_Pin_0
+#define GPIO_Pin_0  ((uint16_t)0x0001)
+#endif
+#ifndef GPIO_Pin_1
+#define GPIO_Pin_1  ((uint16_t)0x0002)
+#endif
 #ifndef GPIO_Pin_8
 #define GPIO_Pin_8  ((uint16_t)0x0100)
 #endif

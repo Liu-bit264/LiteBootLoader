@@ -7,7 +7,7 @@
 #include "bl_protocol.h"
 #include "ssd1306.h"
 #include "clock.h"
-#include "uart.h"
+#include "bl_transport.h"
 
 static bl_display_state_t s_state;
 static uint8_t  s_progress;
@@ -103,14 +103,16 @@ static void refresh_screen(void)
     }
 
     ssd1306_puts(0, 4, s_crc_ok ? "CRC:OK " : "CRC:-- ");
+    /* 蓝牙通道状态：STATE 引脚高 = SPP 已连接（bluetooth_notes.md §1） */
+    ssd1306_puts(0, 5, bl_gpio.read(BL_PIN_BT_STATE) ? "BT:OK " : "BT:-- ");
     ssd1306_puts(8, 5, "WDG:ON ");
 
-    /* 接线诊断行：RX=累计收到字节，VF=已解析送达的有效帧（protocol.md §4.2） */
+    /* 接线诊断行：RX=各通道累计收到字节，VF=已解析送达的有效帧（protocol.md §4.2） */
     {
         char diag[22];
         uint8_t k = 0;
         diag[k++] = 'R'; diag[k++] = 'X'; diag[k++] = ':';
-        k += fmt_dec(diag + k, bl_uart_port_rx_total(), 7u);
+        k += fmt_dec(diag + k, bl_transport_rx_total(), 7u);
         diag[k++] = ' '; diag[k++] = 'V'; diag[k++] = 'F'; diag[k++] = ':';
         (void)fmt_dec(diag + k, bl_protocol_stat_delivered(), 7u);
         diag[21] = '\0';

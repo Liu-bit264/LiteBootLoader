@@ -4,6 +4,40 @@
 
 English version: [CHANGELOG.en.md](CHANGELOG.en.md)
 
+## [0.2.0] - 2026-09-27
+
+规划书《空口蓝牙串口及OTA》落地（ADR-016）：蓝牙空口升级 + WIFI API 预留 + OTA 查询。
+
+### Added
+
+- **蓝牙 transport 通道**（目标 1/2）：HC-05（BT 2.0 SPP）经 USART2（PA2/PA3）接入为
+  transport 通道 1（`port/stm32f1/f103c8t6/uart2.c`），STATE→PB0 / EN→PB1 经
+  `bl_gpio_ops`；数据模式一次性 AT 配置 115200（`BL_BT_UART_BAUD`），联网核实结论见
+  [docs/dev/bluetooth_notes.md](docs/dev/bluetooth_notes.md)
+- **transport 多通道化**：`core/bl_transport.c` 重写为通道注册表 + 活动通道仲裁
+  （静默 2 s 释放，与帧内字节超时同窗），protocol 层无感切换；WIFI 为同签名占位 stub
+  （`port/wifi_stub.c`，目标 2 只预留 API，实接入时补实现）；顺带修正 transport 直连
+  芯片端口头的分层破绽（统计改经 bl_port.h 声明）
+- **OTA 命令 0x10 OTA_QUERY**（目标 3，轻量方案，用户确认）：BL/APP 版本、APP 实时
+  有效性、元数据 seq、请求到达通道、蓝牙连接状态一次查询；升级复用既有幂等命令；
+  0x11–0x1F 继续预留
+- OLED 状态行新增蓝牙连接指示（BT:OK/BT:--）；诊断 RX 计数改为各通道累计
+
+### Changed
+
+- BL 版本 0.1.0 → 0.2.0；协议 0x10–0x1F 预留区间细分（0x10 已实现）
+- 文档同步：architecture §6.1（通道注册表与仲裁）、protocol §3/§4.3/§5.10/§7.5、
+  external_interface §1.1/§1.4/§3.1/§6、design ADR-016、porting_guide §3.1、
+  partition §1（OTA 边界与通道无关）、user_manual 蓝牙章节
+- 上位机配套：LiteBootUpgrader v1.3.0（`ota` 子命令、`--conn bt`、GUI 连接类型/OTA 查询）
+
+### Verification
+
+- AC5 全量重建 0 错 0 警：BL 15 324 B ≤ 16 KiB（SHA-256 `499de4bc…`）、
+  APP 8 152 B ≤ 46 KiB（SHA-256 `534eb656…`）；`chips/test_chip.py` 11/11 通过
+- 蓝牙硬件在环（HC-05 真机升级、断连恢复、双通道互扰）**未验证**——需上板按
+  [docs/user_manual.md](docs/user_manual.md)「蓝牙升级」章节执行
+
 ## [0.1.0] - 2026-09-27
 
 首个公开发布版本。

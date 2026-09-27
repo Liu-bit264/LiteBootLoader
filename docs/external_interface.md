@@ -1,6 +1,6 @@
 # 外部接口清单（external_interface）
 
-> 版本 0.1.0 · 2026-09-25 初版 · 2026-09-26 修订 · 状态：与实现同步（阶段 4 收尾）
+> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
 > 定位：对外可见的硬件与软件接口**索引式清单**；细节以各专文为准，本文保证与专文一致。
 
 ## 1. 硬件接口
@@ -11,6 +11,10 @@
 |---|---|---|---|
 | PA9 | USART1_TX | 升级协议 + 日志（复用策略见 [dev/design.md](dev/design.md) ADR-009） | protocol.md §3 |
 | PA10 | USART1_RX | 升级协议 | protocol.md §3 |
+| PA2 | USART2_TX | 蓝牙通道（HC-05 RXD，0.2.0 起） | §1.4 |
+| PA3 | USART2_RX | 蓝牙通道（HC-05 TXD） | §1.4 |
+| PB0 | BT_STATE | HC-05 STATE 输入：高 = SPP 已连接（输入下拉） | §1.4 |
+| PB1 | BT_EN | HC-05 EN 输出：默认低 = 数据模式（运行时翻转进 AT 不可靠，仅预留） | §1.4 |
 | PC13 | LED | 低电平点亮，非阻塞模式见 dev/design.md ADR-008 | — |
 | PB9 | OLED_SDA | 软件 I2C | §1.2 |
 | PB8 | OLED_SCL | 软件 I2C | §1.2 |
@@ -25,6 +29,14 @@
 
 115200 bps，8N1，无流控；主机侧经 3.3 V USB-TTL 适配器，Windows 端口形如 `COM3`。
 
+### 1.4 USART2 / 蓝牙 HC-05 物理参数（0.2.0 起，规划书目标 1）
+
+115200 bps，8N1，无流控（与 USART1 同速）。HC-05（BT 2.0 SPP）经 UART2 接入：VCC 5V
+共地，RXD←PA2、TXD→PA3（3.3 V 逻辑直连无需分压），STATE→PB0、EN→PB1。模块需**一次性
+AT 配置**数据模式到 115200（USB-TTL + `AT+UART=115200,0,0`，AT 模式固定 38400，步骤与
+核实来源见 [dev/bluetooth_notes.md](dev/bluetooth_notes.md) §2/§4/§5）；配对 PIN 默认
+1234。与 PC 配对后呈现为 SPP 出来的 COM 口，对协议层透明。
+
 ## 2. 通信协议接口（详见 [protocol.md](protocol.md)）
 
 | 项 | 摘要 |
@@ -32,24 +44,30 @@
 | 帧格式 | `SOF(AA 55) VER CMD SEQ LEN(LE16) DATA(0..256) CRC16(LE16) EOF(55 AA)` |
 | 帧校验 | CRC-16/MODBUS（poly 0x8005/0xA001，init 0xFFFF，check 0x4B37），覆盖 VER…DATA |
 | 镜像校验 | CRC-32/ISO-HDLC（zlib 兼容，check 0xCBF43926），对 0xFF 填充至 4 字节对齐的镜像 |
-| 命令 | PING 0x01 / GET_INFO 0x02 / ERASE_APP 0x03 / WRITE_CHUNK 0x04 / VERIFY_APP 0x05 / SET_META 0x06 / GET_META 0x07 / JUMP_APP 0x08 / RESET 0x09；响应 = CMD\|0x80 |
+| 命令 | PING 0x01 / GET_INFO 0x02 / ERASE_APP 0x03 / WRITE_CHUNK 0x04 / VERIFY_APP 0x05 / SET_META 0x06 / GET_META 0x07 / JUMP_APP 0x08 / RESET 0x09 / OTA_QUERY 0x10；响应 = CMD\|0x80 |
 | 状态码 | OK 0x00 / CRC_ERROR 0x01 / FLASH_ERROR 0x02 / RANGE_ERROR 0x03 / STATE_ERROR 0x04 / TIMEOUT 0x05 |
-| 预留 | 命令 0x10–0x1F 预留 OTA 扩展（未实现） |
+| 预留 | 命令 0x11–0x1F 预留 OTA 扩展（0x10 OTA_QUERY 已实现，ADR-016） |
 | 协议版本 | VER = 0x01 |
 
 ## 3. 软件抽象接口
 
-### 3.1 transport 抽象（`core/bl_transport.h`）
+### 3.1 transport 抽象（`core/bl_transport.h`，0.2.0 多通道化）
+
+flat 函数接口 + 内部通道注册表（仲裁见 [architecture.md](architecture.md) §6.1）：
 
 ```c
-typedef struct {
-    void (*init)(void);
-    bool (*send)(const uint8_t *buf, uint32_t len);
-    bool (*recv)(uint8_t *buf, uint32_t len, uint32_t *out_len);   /* 非阻塞 */
-} bl_transport_ops;
+void bl_transport_init(void);
+bool bl_transport_send(const uint8_t *buf, uint32_t len);   /* 路由到活动通道 */
+uint32_t bl_transport_recv(uint8_t *buf, uint32_t max);     /* 非阻塞；活动通道锁 */
+uint8_t bl_transport_active_channel(void);   /* 0=USART1 有线 1=UART2 蓝牙；0xFF=无 */
+uint32_t bl_transport_rx_total(void);                        /* 各通道累计接收之和 */
+uint32_t bl_transport_rx_pending(void);
 ```
 
-首实现 UART；**CAN / SPI / I2C 扩展方法**：实现同签名 ops 并注册即可，protocol 层不感知通道。选型约束：面向字节流的通道直接适配；面向报文的通道（CAN）需在适配层做流拆包（阶段外文档化）。
+通道注册表：`bl_uart`（USART1 有线）/ `bl_uart_bt`（USART2 HC-05）/ `bl_wifi`
+（WIFI 占位 stub，规划书目标 2，实接入时补实现并登记通道表）。**CAN / SPI / I2C 扩展
+方法**：实现同签名 `bl_uart_ops`（字节流适配）+ 接收统计并登记进 `core/bl_transport.c`
+通道表即可，protocol 层不感知通道；面向报文的通道（CAN）需在适配层做流拆包（阶段外文档化）。
 
 ### 3.2 storage 抽象（`port/bl_port.h` → `bl_flash_ops`）
 
@@ -99,11 +117,15 @@ extern const bl_debug_ops bl_debug;
 
 APP 侧约定（阶段 2 示例已实现）：链接至 `0x08004000`、启动设 `SCB->VTOR`、重新 `__enable_irq`（跳转第 4 步关中断）、接管 IWDG 喂狗。APP 升级口响应器（`app_request.c`）只实现 `PING(0x01)` 与 `SET_META(0x06, field=0x01)`，其余命令回 `RANGE_ERROR`；APP 串口提示统一用 `A:` 前缀（BL 日志用 `I:`），banner 形如 `A:APP v0.1.0 running, breathing`。
 
-## 6. 后续 OTA 接入点（只定义，不实现）
+## 6. OTA 接入点（0.2.0 起部分实现；规划书《空口蓝牙串口及OTA》，ADR-016）
 
-1. **通道层**：新增 transport ops 实现（如 BLE/以太网模组桥接成字节流），protocol 与 storage 不变。
-2. **命令层**：命令 0x10–0x1F 预留（如分块元数据、差分升级、密钥握手）。
+1. **通道层（已实现）**：USART2 + HC-05 蓝牙为 transport 通道 1（`bl_uart_bt`）；WIFI 为
+   同签名占位 stub（`bl_wifi`，规划书目标 2 只预留实现层与 API），protocol 与 storage 不变。
+2. **命令层（部分实现）**：0x10 OTA_QUERY 已实现（[protocol.md](protocol.md) §5.10，版本/
+   有效性/通道/蓝牙连接状态查询）；0x11–0x1F 继续预留（分块元数据、差分升级、密钥握手等）。
 3. **安全扩展位**：元数据 `flags` 高位保留可扩展"镜像签名有效"标志（配合外部校验器，本期不做）。
+4. **安全边界（不变）**：OTA 路径只可达 APP 区；参数区仅 `bl_metadata` 内部可达
+   （[partition.md](partition.md) §1，与通道无关）。
 
 ## 7. 构建与烧录接口（阶段 1 回填）
 
