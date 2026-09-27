@@ -167,6 +167,24 @@ class ChipfillRoundtripTest(unittest.TestCase):
             chipfill.build_spec(bad, "bootloader",
                                 SPEC_TPL_DIR / "bootloader.spec.template.json")
 
+    def test_malformed_chip_rejected(self):
+        # review 2026-09-27 P2：清单字段类型错收敛为 ChipFillError（LiteTools 校验）
+        import tempfile
+        bad = json.loads(CHIP_JSON.read_text(encoding="utf-8"))
+        bad["memory"]["flash_base"] = 0x08000000   # int 而非十六进制字符串
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "bad.json"
+            p.write_text(json.dumps(bad), encoding="utf-8")
+            with self.assertRaises(chipfill.ChipFillError):
+                chipfill.load_chip(p)
+        bad2 = json.loads(CHIP_JSON.read_text(encoding="utf-8"))
+        bad2["memory"].pop("sram_size", None)
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "bad2.json"
+            p.write_text(json.dumps(bad2), encoding="utf-8")
+            with self.assertRaises(chipfill.ChipFillError):
+                chipfill.load_chip(p)
+
 
 class BoardConfigConsistencyTest(unittest.TestCase):
     """chip.json（构建侧）↔ board_config.h（C 侧）四类常量一致性（ADR-015）。"""
@@ -219,6 +237,14 @@ class BoardConfigConsistencyTest(unittest.TestCase):
                          iwdg["upgrade_relaxed_ms"])
         self.assertGreaterEqual(iwdg["upgrade_relaxed_ms"], iwdg["normal_ms"],
                                 "放宽值不得小于常规值")
+
+    def test_derived_cpu_format(self):
+        # 回归（2026-09-27）：cpu 串尺寸字段必须保留 0x 前缀——丢失会让
+        # generator._parse_cpu_memory 匹配失败而静默回退默认内存区
+        derived = self.chip["derived"]
+        self.assertIn("IRAM(0x20000000,0x5000)", derived["cpu_bootloader"])
+        self.assertIn("IROM(0x08000000,0x10000)", derived["cpu_bootloader"])
+        self.assertIn("IROM(0x08004000,0xB800)", derived["cpu_app"])
 
     def test_copy_units_independent(self):
         """F1 双副本间隔=1 页必然独立；此处校验副本间隔是擦除单元的整数倍。"""
