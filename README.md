@@ -94,6 +94,29 @@ uv run --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COMx
 | [LiteBootUpgrader](../LiteBootUpgrader) | 上位机 CLI + GUI（串口升级/跳转/自检） | 实现本仓 protocol.md 当前版本（VER 0x01）；本仓协议或行为变更后，LBU 需同步并通过 `test_host_protocol.py` 与硬件 E2E 回归 |
 | [LiteTools](../LiteTools) | Keil uvprojx / ICO 工具 + chipfill | 消费本仓 `chips/<id>.json` schema 与 `chips/templates/` spec 模板；schema 或模板变更需 LiteTools 单测 + 本仓 `chips/test_chip.py` 双向回归 |
 
+三仓耦合关系图示：
+
+```mermaid
+flowchart LR
+    subgraph LBL["LiteBootLoader（本仓）"]
+        FW["固件 core/port/services<br/>协议契约 docs/protocol.md"]
+        CSP["CSP：chips/*.json<br/>+ spec 模板"]
+    end
+    subgraph LBU["LiteBootUpgrader"]
+        HOST["上位机 CLI + GUI<br/>协议栈唯一实现"]
+    end
+    subgraph LT["LiteTools"]
+        GEN["chipfill<br/>uvprojx / ICO 工具"]
+    end
+    BOARD["开发板<br/>BL @0x08000000<br/>APP @0x08004000"]
+
+    HOST -->|"实现 protocol.md（VER 0x01）<br/>协议变更 → LBU 同步回归"| FW
+    GEN -->|"消费 chip.json schema + 模板<br/>变更 → 双向回归"| CSP
+    GEN -.->|"生成 spec/sct/uvprojx"| FW
+    HOST -. "有线 USART1 / 蓝牙 UART2" .-> BOARD
+    FW --- BOARD
+```
+
 ## 文档
 
 | 文档 | 内容 |

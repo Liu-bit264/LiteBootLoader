@@ -63,6 +63,31 @@ def crc16_modbus(data: bytes) -> int:
 - **CRC 校验失败**：静默丢弃，**不回错误帧**——原因：CMD 字段位于 CRC 覆盖范围内，帧损坏时 CMD 不可信，无法构造正确响应；由主机超时重试机制兜底。错误码 `CRC_ERROR` 仅用于 `VERIFY_APP` 镜像校验失败（§5.5）与上位机本地预检提示。
 - **帧内超时**：一帧接收中途超过 2000 ms 无新字节 → 复位解析器，丢弃半帧。（2026-09-26 定版。原 50 ms 阈值会把多块接收的大帧整帧误杀：`bl_protocol_poll` 曾用循环顶部旧时间戳与 feed 中更新的 `s_last_byte` 做无符号减法，SysTick 毫秒边界跨越其间即回绕成极大值立即假触发——大帧 5 块接收、单块 ~15% 跨界概率 → ~56%/帧，小帧单块且收完即回 SOF1 态故从不触发，selftest 遥测 bytetimeout 计数实锤。修复后 poll 现场重读当前时刻；阈值放宽至 2000 ms 容忍 USB/CDC 转发抖动，请求-响应协议下无副作用，主机重试间隔应 ≥2 s。）
 
+解析器状态机图示：
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> SOF1
+    SOF1 --> SOF2 : 0xAA
+    SOF2 --> VER : 0x55
+    VER --> CMD : VER=0x01（否则丢弃重同步）
+    CMD --> SEQ
+    SEQ --> LEN_LO
+    LEN_LO --> LEN_HI
+    LEN_HI --> DATA : LEN≤256（否则丢弃重同步）
+    DATA --> CRC_LO : 满 LEN 字节
+    CRC_LO --> CRC_HI
+    CRC_HI --> EOF1
+    EOF1 --> EOF2 : 0x55
+    EOF2 --> [*] : 0x55 → CRC 校验通过 → 交 bl_core 分发
+    note right of SOF1
+        任何状态收到非预期字节 → 回 SOF1 逐字节滑动重同步；
+        帧内字节间隔 > 2000 ms → 复位回 SOF1（§4.2 帧内超时）；
+        CRC 校验失败 → 静默丢弃（不回错误帧，主机重试兜底）
+    end note
+```
+
 ### 4.3 多通道仲裁（0.2.0 新增）
 
 USART1（有线）与 UART2（蓝牙）共用同一个协议解析器实例。transport 层以**活动通道锁**
@@ -224,6 +249,35 @@ OTA 状态查询（只读幂等）：BL/APP 版本、APP 有效性、参数区�
 - **幂等性**：全部命令设计为可重复执行（重 PING 无副作用、重擦页无害、重写覆盖、重验幂等——同内容重验不重写参数区、重复 JUMP 校验失败无害），因此**重复包/超时重传直接重新执行**，不做去重。
 - **主机侧超时与重试**（工具实现约定，阶段 3 落地）：单命令响应超时 1000 ms，重试 3 次；`ERASE_APP` 因整片擦除耗时（46 页 × 20–40 ms ≈ 1–2 s）单独放宽为 5000 ms。
 - **BL 侧**：帧内 2000 ms 无新字节复位解析器（§4.2）；升级模式无会话超时（dev/design.md ADR-003）。
+
+一键升级全流程时序图示（`upgrade` 子命令，任意初始状态；通道无关——有线/蓝牙同一时序）：
+
+```mermaid
+sequenceDiagram
+    participant H as 主机（CLI/GUI）
+    participant B as BL（请求所在通道）
+    H->>B: GET_INFO（探测对端）
+    alt 对端 = BL
+        B-->>H: OK + 31/67B 信息
+    else 对端 = APP（回 RANGE_ERROR）
+        H->>B: SET_META(bl_request=1)
+        Note over B: APP 掉电安全落盘后自复位<br/>BL 启动消费标志 → 升级模式
+        B-->>H: OK
+        H->>B: GET_INFO（复探，重试 ≤3 次）
+        B-->>H: OK
+    end
+    H->>B: ERASE_APP（IWDG 放宽，约 1.1s）
+    B-->>H: OK
+    loop 每 252B 块（4 字节对齐镜像）
+        H->>B: WRITE_CHUNK offset(LE32)+payload
+        B-->>H: OK（页内按需擦除，块间喂狗）
+    end
+    H->>B: VERIFY_APP size+crc32
+    B-->>H: OK + calc_crc/calc_size（持久化元数据，IWDG 恢复）
+    Note over H,B: 主机提示「APP 就绪，可 jump」
+    H->>B: JUMP_APP
+    B-->>H: OK → 喂狗 + 九步跳转
+```
 
 ## 7. 示例帧（字节级，CRC 为实测值）
 

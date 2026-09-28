@@ -102,6 +102,29 @@ uv run --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COMx
 | [LiteBootUpgrader](../LiteBootUpgrader) | Host tool CLI + GUI (serial upgrade / jump / self-test) | Implements the current protocol.md version (VER 0x01); after protocol or behavior changes here, LBU must sync and pass `test_host_protocol.py` plus hardware E2E regression |
 | [LiteTools](../LiteTools) | Keil uvprojx / ICO tools + chipfill | Consumes this repo's `chips/<id>.json` schema and `chips/templates/` spec templates; schema or template changes require LiteTools unit tests + this repo's `chips/test_chip.py` regression |
 
+Three-repo coupling diagram:
+
+```mermaid
+flowchart LR
+    subgraph LBL["LiteBootLoader (this repo)"]
+        FW["Firmware core/port/services<br/>protocol contract: docs/protocol.md"]
+        CSP["CSP: chips/*.json<br/>+ spec templates"]
+    end
+    subgraph LBU["LiteBootUpgrader"]
+        HOST["Host tool CLI + GUI<br/>sole protocol implementation"]
+    end
+    subgraph LT["LiteTools"]
+        GEN["chipfill<br/>uvprojx / ICO tools"]
+    end
+    BOARD["Target board<br/>BL @0x08000000<br/>APP @0x08004000"]
+
+    HOST -->|"implements protocol.md (VER 0x01)<br/>protocol change → sync LBU + regression"| FW
+    GEN -->|"consumes chip.json schema + templates<br/>change → two-way regression"| CSP
+    GEN -.->|"generates spec/sct/uvprojx"| FW
+    HOST -. "wired USART1 / Bluetooth UART2" .-> BOARD
+    FW --- BOARD
+```
+
 ## Documentation
 
 | Document | Contents |
