@@ -41,6 +41,36 @@
 3. `bsp/**` 只依赖 `bl_i2c_ops`/`bl_gpio_ops` 抽象与自身配置，不直接访问寄存器。
 4. 无 RTOS、无 `malloc/calloc/realloc`，全部静态分配（RAM 预算见 §9）。
 
+依赖方向图示（与上列规则一一对应）：
+
+```mermaid
+flowchart TB
+    subgraph core["core/（纯 C：无 HAL、无芯片头）"]
+        CORE["bl_core · bl_protocol · bl_transport · bl_storage<br/>bl_metadata · bl_boot · bl_crc · bl_version"]
+        SVC_API["core/bl_display.h<br/>core/bl_debug.h<br/>（统一服务 API，ADR-014）"]
+    end
+    subgraph services["services/（可替换实现）"]
+        DISP["display_oled<br/>实现 bl_display_ops"]
+        DBG["debug_uart<br/>实现 bl_debug_ops"]
+    end
+    PORT_H["port/bl_port.h<br/>（ops 抽象 + 通道声明）"]
+    subgraph chip["port/stm32f1/f103c8t6/（芯片相关）"]
+        P["flash · uart · uart2 · i2c · gpio<br/>wdg · clock · systick · bl_jump.s"]
+    end
+    BSP["bsp/oled_ssd1306"]
+    CMSIS["third_party/CMSIS（V1.30 内核头）"]
+    APP["app/examples/f103c8t6_app"]
+
+    CORE -- "只依赖 ops/常量" --> PORT_H
+    PORT_H --- P
+    P --> CMSIS
+    DISP -- 实现 --> SVC_API
+    DBG -- 实现 --> SVC_API
+    DISP --> BSP
+    BSP -- "bl_i2c_ops" --> PORT_H
+    APP -- "经 ops 使用" --> PORT_H
+```
+
 ## 2. 目录职责
 
 | 目录 | 职责 | 说明 |
@@ -151,6 +181,24 @@ while (1) {
 
 说明：升级流程为**命令驱动**，无独立"会话状态机"；`ERASE_APP` 与 `WRITE_CHUNK` 无强制先后（写前确保擦除态——位图 + 扫描兜底，同页分块写入不互抹，ADR-007），`VERIFY_APP` 通过后自动持久化元数据。
 
+状态机图示（`ERASING/WRITING/VERIFYING` 为命令执行期的瞬时标记，图中并入 UPGRADE_WAIT 自环）：
+
+```mermaid
+stateDiagram-v2
+    [*] --> BOOT_DECISION : 上电/复位（IWDG 已开启）
+    BOOT_DECISION --> UPGRADE_WAIT : bl_request=1（消费并清除）
+    BOOT_DECISION --> WAIT_HOST : APP 校验通过
+    BOOT_DECISION --> UPGRADE_WAIT : APP 无效/无 APP
+    WAIT_HOST --> UPGRADE_WAIT : 收到任意 CRC 有效帧
+    WAIT_HOST --> JUMPING : 3s 窗口结束（BL_BOOT_WAIT_MS）
+    UPGRADE_WAIT --> UPGRADE_WAIT : 命令执行（ERASE/WRITE/VERIFY…，LED 快闪）
+    UPGRADE_WAIT --> JUMPING : JUMP_APP 校验通过
+    UPGRADE_WAIT --> [*] : RESET 命令 / 断电
+    JUMPING --> [*] : 九步跳转 → APP
+    BOOT_DECISION --> FAULT : 存储/元数据几何自检失败
+    FAULT --> [*] : 仅 IWDG 复位或断电
+```
+
 ## 6. 中断与缓冲
 
 | 中断 | 用途 | 说明 |
@@ -181,6 +229,23 @@ while (1) {
 - 通道号经 `bl_transport_active_channel()` 供 OTA_QUERY（protocol.md §5.10）上报请求到达通道。
 - `bl_transport.c` 不再直接 include 芯片端口头 `uart.h`（0.2.0 顺带修正的分层破绽）：
   各通道接收统计函数统一经 `bl_port.h` 声明，core 只依赖 `bl_port.h` + `board_config.h`。
+
+接收仲裁图示（`send` 恒路由到活动通道、无活动通道回落通道 0）：
+
+```mermaid
+flowchart TD
+    A["bl_transport_recv(buf, max)"] --> B{"活动通道锁存在？"}
+    B -->|"否"| C["按 0→1 顺序扫描已注册通道"]
+    C -->|"通道有字节"| D["锁定该通道，记 last_byte = now"]
+    C -->|"均无字节"| E["返回 0"]
+    D --> F["返回该通道字节"]
+    B -->|"是"| G{"静默 ≥ 2s？<br/>（BL_FRAME_BYTE_TIMEOUT_MS）"}
+    G -->|"是"| H["释放锁，回到扫描"]
+    G -->|"否"| I["只从锁定通道取字节"]
+    I -->|"有字节"| J["刷新 last_byte，返回"]
+    I -->|"无字节"| E
+    H --> C
+```
 
 ## 7. IWDG 喂狗点分布（固定清单）
 
