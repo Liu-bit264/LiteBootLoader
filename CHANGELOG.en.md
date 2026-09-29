@@ -8,9 +8,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
-Second chip support package: STM32F411CEU6 minimal implementation (ADR-017, CSP phase B).
-**Support-package-only change — core/protocol/firmware behavior untouched, BL version
-stays 0.2.0** (version policy per maintainer decision: bump only when core/protocol changes).
+This section will be released as **BL 0.3.0** (optional-services change touches core and
+default firmware behavior, feat→MINOR).
+
+Second chip support package: STM32F411CEU6 minimal implementation (ADR-017, CSP phase B);
+optional-service model and minimized BL example config (ADR-019).
 
 ### Added
 
@@ -33,9 +35,25 @@ stays 0.2.0** (version policy per maintainer decision: bump only when core/proto
   SHA-256 records in LICENSES.md; new `scripts/vendor_copy.py` copy-and-verify tool
 - **F411 minimal APP example** (`app/examples/f411ceu6_app/`): breathing LED + upgrade
   request responder
+- **`scripts/pyocd_manual_flash.py`**: register-level flashing tool for the F411 board
+  (workaround for the broken pyocd flash-algo path on this board; verifies after a reset
+  to flush the F4 ART cache)
 
 ### Changed
 
+- **Optional-service model (ADR-019)**: the only mandatory service is the wired UART
+  channel. `core/bl_service_stub.c` provides `__weak` defaults for
+  `bl_display`/`bl_debug`/`bl_port_i2c_release` — display/debug become link-time
+  optional plugins; service hardware bootstrap moved into each service's init
+  (main.c assembles only the mandatory chain). Verified on both boards: F103 selftest
+  15/15, display-less variant completes the full flow over serial, F411 upgrade/jump
+  re-verified
+- **BL example config minimized**: the F103 default BL config drops the original
+  full-featured list (OLED/Bluetooth/I2C out of the build, `BL_TRANSPORT_BT_EN=0`),
+  unified to "minimal usable" = `display_led` (LED status) + `debug_uart` (serial
+  logs), same shape as the F411 minimal package; **APP example configs unchanged**
+  (F103 APP keeps the OLED demo; BSP lists split into `bsp_files_bl`/`bsp_files_app`).
+  OLED/Bluetooth remain optional capabilities — see porting_guide §3.1
 - **Pins promoted to board-level declarations (ADR-018)**: `board_config.h` is now the
   single source of pin facts (logical id + `*_PORT` port index + `*_NUM` pin number +
   `BL_PIN_LED_ACTIVE_LOW` polarity); gpio.c only consumes them (map/ops paths are
