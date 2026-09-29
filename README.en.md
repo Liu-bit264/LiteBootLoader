@@ -21,9 +21,10 @@ Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
 - **Bluetooth over-the-air upgrades (0.2.0)**: HC-05 (SPP) attached via UART2 as
   transport channel 1, WIFI reserved at the API level; OTA status query command 0x10
   (ADR-016); on-target Bluetooth validation is in progress
-- **STM32F411CEU6 minimal support package (in progress, ADR-017)**: UART upgrade +
-  boot/jump only (no OLED/Bluetooth); compile and consistency tests pass, on-target
-  validation pending; F407ZGT6 is planned as the second f4-family reuse point
+- **STM32F411CEU6 minimal support package (ADR-017)**: UART upgrade + boot/jump only
+  (no OLED/Bluetooth); build, consistency tests and on-target HIL all pass (upgrade /
+  jump / round-trip / reset-injection verified, see changelog); F407ZGT6 is planned as
+  the second f4-family reuse point
 - STM32G0 / H7 port directories are reserved (skeletons only); the full workflow for
   adding a new chip is described in [docs/porting_guide.md](docs/porting_guide.md)
 - Multi-chip infrastructure (CSP: chip manifest + template-driven project generation +

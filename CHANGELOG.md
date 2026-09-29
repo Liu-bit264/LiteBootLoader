@@ -35,8 +35,12 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
   （SHA-256 `534eb656…`）——与 0.2.0 基线逐字节一致
 - F411 新建：AC5 全量重建 0 错 0 警，BL 12 452 B ≤ 32K（SHA-256 `600ca358…`）、
   APP 6 272 B（SHA-256 `0e0a09ec…`）
-- **F411 硬件在环未执行**（烧录/升级/跳转/断电演练待上板）；签名/哈希校验确认独立
-  迭代（接入点见 docs/partition.md §4 预留说明）
+- **F411 硬件在环完成（2026-09-29）**：上板烧录（寄存器级，见 `scripts/pyocd_manual_flash.py`）
+  → GET_INFO（flash=512KB/UID 正确）→ 升级（448K 擦除 4.21s，IWDG 8s 放宽实测无复位，
+  VERIFY CRC32 一致）→ 跳转 APP 呼吸灯 → setmeta 回 BL 闭环（seq 单调）→ 擦除中复位注入
+  恢复 → 有效 APP 上电自跳转；selftest 15 步 14 PASS + 1 假阳性（LBU 夹具硬编码 F103
+  `APP_SIZE=0xB800`，详见 docs/dev/test_plan.md §5.1）
+- 签名/哈希校验确认独立迭代（接入点见 docs/partition.md §4 预留说明）
 
 ## [0.2.0] - 2026-09-27
 

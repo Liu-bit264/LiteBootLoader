@@ -41,8 +41,14 @@ stays 0.2.0** (version policy per maintainer decision: bump only when core/proto
   APP 8 152 B (SHA-256 `534eb656…`) — byte-identical to the 0.2.0 baseline
 - F411 new: AC5 full rebuild 0 errors 0 warnings, BL 12 452 B ≤ 32K (SHA-256 `600ca358…`),
   APP 6 272 B (SHA-256 `0e0a09ec…`)
-- **F411 on-target HIL not executed** (flash/upgrade/jump/power-loss drill pending);
-  signature/hash verification confirmed as a separate iteration (integration point
+- **F411 on-target HIL completed (2026-09-29)**: flash (register-level, see
+  `scripts/pyocd_manual_flash.py`) → GET_INFO (flash=512KB/UID correct) → upgrade
+  (448K erase 4.21s with no reset under the 8s IWDG relaxation, VERIFY CRC32 match) →
+  jump to breathing-LED APP → setmeta round-trip back to BL (monotonic seq) → reset
+  injected mid-erase recovered → auto-jump on valid APP at boot; selftest 15 steps:
+  14 PASS + 1 false-FAIL (LBU fixture hardcodes F103 `APP_SIZE=0xB800`, see
+  docs/dev/test_plan.md §5.1)
+- Signature/hash verification confirmed as a separate iteration (integration point
   documented in docs/partition.md §4)
 
 ## [0.2.0] - 2026-09-27

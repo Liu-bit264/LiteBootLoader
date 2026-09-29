@@ -18,8 +18,9 @@ OLED/LED 状态显示、IWDG 看门狗与安全跳转。
   产物尺寸与 SHA 见 [CHANGELOG.md](CHANGELOG.md)
 - **蓝牙空口升级（0.2.0）**：HC-05（SPP）经 UART2 接入为 transport 通道 1，WIFI 仅 API
   预留；OTA 状态查询命令 0x10（ADR-016）；蓝牙真机在环验证进行中
-- **STM32F411CEU6 最小支持包（进行中，ADR-017）**：仅串口升级 + 引导跳转（无 OLED/蓝牙），
-  编译与一致性测试已通过，硬件在环待上板；F407ZGT6 规划为 f4 家族第二个复用点
+- **STM32F411CEU6 最小支持包（ADR-017）**：仅串口升级 + 引导跳转（无 OLED/蓝牙），
+  编译/一致性/上板 HIL 均已通过（升级-跳转-回环-复位注入实测，见 CHANGELOG）；
+  F407ZGT6 规划为 f4 家族第二个复用点
 - STM32F4 / G0 / H7 端口目录已预留（仅骨架）；新增芯片支持的完整流程见
   [docs/porting_guide.md](docs/porting_guide.md)
 - 多芯片基础设施（CSP：芯片清单 + 模板化工程生成 + 擦除单元抽象 + IWDG 参数化）已落地，
