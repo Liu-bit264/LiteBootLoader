@@ -19,14 +19,16 @@ Flash 与参数区管理、状态显示（默认 LED 状态灯，OLED 可选）�
 
 ## 支持的芯片
 
-| 芯片 | 状态 | 说明 |
+| 芯片 | 支持范围 | 验证状态 |
 |---|---|---|
-| STM32F103C8T6 | 全功能 | 唯一完成 14/14 验收项、上位机升级 E2E 与断电恢复演练的支持包 |
-| STM32F411CEU6 | 最小包 | 仅串口升级 + 引导跳转（无 OLED / 蓝牙 / I2C）；升级、跳转、setmeta 回环、复位注入已上板实测 |
-| STM32G0 / H7 | 预留目录 | 仅骨架，可自行按移植指南补齐 |
-| STM32F407ZGT6 | 规划中 | f4 家族第二个复用点 |
+| STM32F103C8T6（参考支持包） | 串口升级 + 引导跳转为主干；蓝牙（UART2）与 OLED（软件 I2C）可选能力的实现均已就绪 | 唯一完成全链路硬件验证：14/14 验收项、上位机升级 E2E、断电恢复演练 |
+| STM32F411CEU6（最小包） | 仅串口升级 + 引导跳转（无蓝牙 / OLED / I2C） | 编译、一致性、上板 HIL 通过：升级、跳转、setmeta 回环、复位注入实测 |
+| STM32G0 / H7 | 预留端口目录（仅骨架） | 未实现 |
+| STM32F407ZGT6 | 规划中：f4 家族第二个复用点 | 未开始 |
 
-产物尺寸、SHA-256 与逐项验收结论见 [CHANGELOG.md](CHANGELOG.md)。
+两个支持包的**默认 BL 示例配置都是最小集**（LED 状态灯 + 串口日志，ADR-019）：蓝牙与 OLED
+只是可选能力，默认不启用（启用方式见下文「配置」）。F103 的 14/14 验收、产物尺寸与 SHA-256
+是在含 OLED 与蓝牙的示例配置下取得的，逐项结论见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 快速开始
 
@@ -55,16 +57,33 @@ BL 本体用调试器烧一次即可（用户手册 §3 给出 pyocd 逐条命�
 
 ## 配置：board_config.h
 
-| 想改什么 | 改哪里 |
-|---|---|
-| 引脚：USART TX/RX、LED、蓝牙 STATE/EN、软件 I2C SCL/SDA | `board_config.h` 的 `BL_UART_TX_PORT`/`_NUM`、`BL_UART_RX_*`、`BL_PIN_LED*`、`BL_PIN_BT_*`、`BL_PIN_I2C_*`；并同步 `chips/<id>.json` 的 `pins` |
-| 晶振与主频（如 8 MHz ↔ 25 MHz 晶振） | `board_config.h` 的 `BL_HSE_MHZ`；PLL 参数在 `port/<家族>/<型号>/clock.c` 按该宏选取 |
-| 分区与擦除单元（BL / APP / 参数区） | `board_config.h` 的 `BL_FLASH_*` 与 `BL_ERASE_UNIT_TABLE`；并同步 `chips/<id>.json` 的 `partitions`/`erase_units` |
-| IWDG 超时与升级期放宽值 | `board_config.h` 的 IWDG 宏（F103 2000 / 8000 ms 等） |
-| 可选服务：蓝牙通道、OLED、日志级别 | `board_config.h` 的服务开关（如 `BL_TRANSPORT_BT_EN`、`BL_LOG_*`）；未启用的服务由 `core/bl_service_stub.c` 弱默认兜底，启用步骤见 [porting_guide §3.1](docs/porting_guide.md) |
+板级配置的唯一入口是 `port/<家族>/<型号>/board_config.h`（C 侧常量唯一出处），必须与构建侧
+`chips/<id>.json` 保持一致。改完任一侧：
 
-改动任一侧后：`python chips/test_chip.py`（强制 chip.json ↔ board_config.h 一致 +
-产物模板往返）→ `CHIP=<id> bash scripts/build_keil.sh`（重新生成产物并全量构建）。
+```bash
+python chips/test_chip.py              # 强制 chip.json ↔ board_config.h 一致 + 产物模板往返
+CHIP=<id> bash scripts/build_keil.sh   # 重新生成产物并全量构建
+```
+
+**必选**（决定升级链路能否跑通，每块板都要按实物确认）
+
+| 项 | 改哪里 |
+|---|---|
+| 串口通道引脚（唯一强制服务） | `BL_UART_TX_PORT`/`_NUM`、`BL_UART_RX_*`（默认 USART1 PA9/PA10） |
+| 晶振与主频 | `BL_HSE_MHZ`（F411 支持 8/25 MHz 两种晶振）；PLL 参数在 `port/<家族>/<型号>/clock.c` 按该宏选取 |
+| 分区与擦除单元（BL / APP / 参数区） | `BL_FLASH_*` 与 `BL_ERASE_UNIT_TABLE`；并同步 `chips/<id>.json` 的 `partitions`/`erase_units` |
+| IWDG 超时与升级期放宽值 | IWDG 宏（F103 2000 / 8000 ms 等） |
+
+**可选能力**（按需启用；未启用时由 `core/bl_service_stub.c` 的弱默认兜底）
+
+| 能力 | 启用方式 |
+|---|---|
+| LED 状态灯显示 | 链接 `services/display_led`（默认最小集已含）；引脚 `BL_PIN_LED*` |
+| 串口日志 | 链接 `services/debug_uart`（默认最小集已含）；级别/关闭用 `BL_LOG_LEVEL` / `BL_LOG_DISABLE` |
+| 蓝牙 HC-05 通道（transport 通道 1） | `BL_TRANSPORT_BT_EN=1` + 蓝牙引脚 `BL_PIN_BT_STATE`/`_EN`（含 `*_PORT`/`_NUM`）+ `chips/<id>.json` 的 `build.port_files_bl` 加回 `uart2.c`；步骤见 [porting_guide §3.1](docs/porting_guide.md) |
+| OLED 显示（SSD1306，软件 I2C） | 链接 `services/display_oled` + `bsp/oled_ssd1306`；引脚 `BL_PIN_I2C_SCL`/`_SDA`（含 `*_PORT`/`_NUM`） |
+
+可选能力的引脚同样要登记进 `chips/<id>.json` 的 `pins`（`test_chip.py` 会校验两侧一致）。
 
 ## 文档
 

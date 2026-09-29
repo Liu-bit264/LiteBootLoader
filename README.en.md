@@ -25,15 +25,18 @@ either side, run `python chips/test_chip.py` to enforce it (item-by-item table u
 
 ## Supported Chips
 
-| Chip | Status | Notes |
+| Chip | Support scope | Validation status |
 |---|---|---|
-| STM32F103C8T6 | Full-featured | The only support package with the complete hardware validation chain: 14/14 acceptance items, host-tool upgrade E2E, power-loss recovery drills |
-| STM32F411CEU6 | Minimal package | UART upgrade + boot/jump only (no OLED / Bluetooth / I2C); upgrade, jump, setmeta round-trip and reset injection verified on target |
-| STM32G0 / H7 | Reserved | Skeletons only; complete them following the porting guide |
-| STM32F407ZGT6 | Planned | Second reuse point in the f4 family |
+| STM32F103C8T6 (reference package) | Serial upgrade + boot/jump as the backbone; the optional Bluetooth (UART2) and OLED (soft I2C) capabilities are implemented as well | The only package with the complete hardware validation chain: 14/14 acceptance items, host-tool upgrade E2E, power-loss recovery drills |
+| STM32F411CEU6 (minimal package) | UART upgrade + boot/jump only (no Bluetooth / OLED / I2C) | Build, consistency and on-target HIL pass: upgrade, jump, setmeta round-trip, reset injection |
+| STM32G0 / H7 | Reserved port directories (skeletons) | Not implemented |
+| STM32F407ZGT6 | Planned: second reuse point in the f4 family | Not started |
 
-Artifact sizes, SHA-256 values and the per-item acceptance results are recorded in
-[CHANGELOG.md](CHANGELOG.md).
+Both packages ship a **minimal default BL example configuration** (LED status + serial log,
+ADR-019): Bluetooth and OLED are optional capabilities and are off by default (see
+"Configuration" below). The F103 14/14 acceptance run, artifact sizes and SHA-256 values
+were obtained with the example configuration that included OLED and Bluetooth; per-item
+results are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Quick Start
 
@@ -64,17 +67,36 @@ commands); after that every APP upgrade goes over serial. For the GUI, double-cl
 
 ## Configuration: board_config.h
 
-| What to change | Where |
-|---|---|
-| Pins: USART TX/RX, LED, Bluetooth STATE/EN, soft-I2C SCL/SDA | `board_config.h`: `BL_UART_TX_PORT`/`_NUM`, `BL_UART_RX_*`, `BL_PIN_LED*`, `BL_PIN_BT_*`, `BL_PIN_I2C_*`; mirror them into `chips/<id>.json` `pins` |
-| Oscillator and core clock (e.g. an 8 MHz vs 25 MHz crystal) | `board_config.h` `BL_HSE_MHZ`; the PLL parameters are selected from that macro in `port/<family>/<chip>/clock.c` |
-| Partitions and erase units (BL / APP / parameter area) | `board_config.h` `BL_FLASH_*` and `BL_ERASE_UNIT_TABLE`; mirror them into `chips/<id>.json` `partitions`/`erase_units` |
-| IWDG timeout and the relaxed upgrade value | The IWDG macros in `board_config.h` (2000 / 8000 ms on F103, etc.) |
-| Optional services: Bluetooth channel, OLED, log level | The service switches in `board_config.h` (e.g. `BL_TRANSPORT_BT_EN`, `BL_LOG_*`); services that are not enabled fall back to the weak defaults in `core/bl_service_stub.c` — enabling steps are in [porting_guide §3.1](docs/porting_guide.md) |
+The single entry point for board configuration is `port/<family>/<chip>/board_config.h` (the
+single C-side source of those constants); it must stay consistent with the build-side
+`chips/<id>.json`. After changing either side:
 
-After changing either side: `python chips/test_chip.py` (enforces chip.json ↔
-board_config.h consistency plus artifact template round-trip), then
-`CHIP=<id> bash scripts/build_keil.sh` (regenerates the artifacts and does a full rebuild).
+```bash
+python chips/test_chip.py              # enforce chip.json ↔ board_config.h + artifact template round-trip
+CHIP=<id> bash scripts/build_keil.sh   # regenerate the artifacts and do a full rebuild
+```
+
+**Required** (determines whether the upgrade chain works — check against your hardware)
+
+| Item | Where |
+|---|---|
+| Serial channel pins (the only mandatory service) | `BL_UART_TX_PORT`/`_NUM`, `BL_UART_RX_*` (USART1 PA9/PA10 by default) |
+| Oscillator and core clock | `BL_HSE_MHZ` (the F411 accepts an 8 or 25 MHz crystal); the PLL parameters are selected from that macro in `port/<family>/<chip>/clock.c` |
+| Partitions and erase units (BL / APP / parameter area) | `BL_FLASH_*` and `BL_ERASE_UNIT_TABLE`; mirror them into `chips/<id>.json` `partitions`/`erase_units` |
+| IWDG timeout and the relaxed upgrade value | The IWDG macros (2000 / 8000 ms on F103, etc.) |
+
+**Optional capabilities** (enable as needed; otherwise the weak defaults in
+`core/bl_service_stub.c` apply)
+
+| Capability | How to enable |
+|---|---|
+| LED status display | Link `services/display_led` (already part of the minimal configuration); pins `BL_PIN_LED*` |
+| Serial log | Link `services/debug_uart` (already part of the minimal configuration); level/off via `BL_LOG_LEVEL` / `BL_LOG_DISABLE` |
+| Bluetooth HC-05 channel (transport channel 1) | `BL_TRANSPORT_BT_EN=1` + the Bluetooth pins `BL_PIN_BT_STATE`/`_EN` (with `*_PORT`/`_NUM`) + add `uart2.c` back to `chips/<id>.json` `build.port_files_bl`; steps in [porting_guide §3.1](docs/porting_guide.md) |
+| OLED display (SSD1306, soft I2C) | Link `services/display_oled` + `bsp/oled_ssd1306`; pins `BL_PIN_I2C_SCL`/`_SDA` (with `*_PORT`/`_NUM`) |
+
+The pins of optional capabilities must be registered in `chips/<id>.json` `pins` as well
+(`test_chip.py` checks both sides for consistency).
 
 ## Documentation
 
