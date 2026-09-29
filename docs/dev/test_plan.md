@@ -1,6 +1,6 @@
 # 测试计划（Test Plan）
 
-> 对应 ../AGENTS.md §12 阶段 4 与 §13 验收标准。测试分四级：L1 主机侧工具自测、
+> 对应 [../../AGENTS.md](../../AGENTS.md) §9.2（CSP 变更清单）与 §9.4（质量基线）。测试分四级：L1 主机侧工具自测、
 > L2 硬件在环自动化（selftest）、L3 场景 E2E、L4 验收对照。
 > 日期基准 2026-09-26；环境：Blue Pill F103C8T6 + DAPLink（COM4）+ UartAssist/pyserial。
 
@@ -11,7 +11,7 @@
 | 硬件 | STM32F103C8T6 最小系统板（8 MHz 晶振）、DAPLink（CMSIS-DAP + CDC）、OLED SSD1306（PB8/PB9） |
 | 串口 | COM4，115200 8N1（DAPLink CDC）；测试期间必须关闭 UartAssist 等占用者 |
 | 构建 | `bash scripts/build_keil.sh`（UV4 退出码判定：0=无警告无错误） |
-| 烧录 BL | `pyocd flash --target stm32f103c8 --pack <DFP> --base-address 0x08000000 bootloader.bin`，**会话结束必须 `-c "reset"` 恢复运行**（否则内核停在调试停机态，串口全静默） |
+| 烧录 BL | `pyocd flash --target stm32f103c8 --pack <DFP> --base-address 0x08000000 bootloader.bin`，**会话结束必须 `pyocd reset` 恢复运行**（否则内核停在调试停机态，串口全静默） |
 | 上位机 | `uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py <子命令> --port COM4`（独立上位机仓，依赖隔离，勿 pip 直装） |
 
 ## 2. L1 主机侧工具自测（无需硬件）
@@ -30,9 +30,9 @@
 | 1 | PING | 协议帧往返、VER 回显 |
 | 2 | ERASE_APP | 46 页整片擦除、页间喂狗（实测 ~1.1 s） |
 | 3-4 | 读路径探针 verify(1024/512, 全FF) | **CRC32 实现与 zlib 逐位一致**、擦除有效性、Flash 读路径 |
-| 5 | WRITE 4B @0 | 最小写入 |
-| 6 | VERIFY 4B 回读 | 写入内容与图案一致 |
-| 7-9 | WRITE 248B/252B/8B | 分块写入、已擦页位图（同页不互抹） |
+| 5 | WRITE 8B @0 | 最小写入（8B = 固件 VERIFY 下界） |
+| 6 | VERIFY 8B 回读 | 写入内容与图案一致 |
+| 7-9 | WRITE 244B/252B/8B @8/252/504 | 分块写入（首块 8B 与后续互不重叠，避免同址重编程 PGERR）、已擦页位图（同页不互抹） |
 | 10 | VERIFY 512B 全量 | 内容 + 持久化前校验 |
 | 11 | GET_META | app_size/app_crc/seq/active_copy 持久化正确 |
 | 12 | WRITE 越界 | offset=APP_SIZE → RANGE_ERROR |
@@ -58,7 +58,7 @@
 | IWDG 长跑 | APP 连续运行 ≥10 min | 无误复位（呼吸灯连续、串口无重启横幅） | ✅ 通过（2026-09-26 实测 600 s：APP 重启横幅 0 次、BL 复位日志 0 次） |
 | VOFA+ 观察 | RawData 引擎手动发帧 | 日志可读、PING 帧往返可通 | ✅ 通过（2026-09-26 实机首跑，见 §5 #11） |
 
-## 5. L4 验收对照表（../AGENTS.md §13）
+## 5. L4 验收对照表（../../AGENTS.md §9.4）
 
 | # | 验收项 | 结论 | 证据 |
 |---|---|---|---|
@@ -89,7 +89,7 @@
 |---|---|---|
 | `chips/test_chip.py` 全芯片一致性（含 F4 非均匀扇区表两侧比对、双副本独立单元、引脚声明段） | ✅ 通过 | 12/12（f103c8t6 + f411ceu6） |
 | BL 编译 0 错 0 警，bin ≤ 32K（本芯片分区） | ✅ 通过 | 12 584 B（SHA-256 `4277840d…`，BL 0.3.0/ADR-019 基线），AC5 全量重建；上板 HIL 于 0.2.0-exp 同代码版完成（F411 板重连后重刷 0.3.0 即可） |
-| APP 编译 0 错 0 警，bin ≤ 448K | ✅ 通过 | 6 356 B（SHA-256 `46c711e4…`） |
+| APP 编译 0 错 0 警，bin ≤ 448K | ✅ 通过 | 6 384 B（SHA-256 `fe11b440…`） |
 | F103 回归不回退 | ✅ 通过 | 引脚抽象前与 0.2.0 基线逐字节一致（`499de4bc…`/`534eb656…`）；抽象后行为等价微增 BL 15 400 B（`31dc570f…`）/ APP 8 228 B（`3d5301c4…`），0 错 0 警限额内 |
 | GET_INFO（sysmem 地址实测） | ✅ 通过 | `BL v0.2.0 flash=512KB`（FLSIZE@0x1FFF7A22 正确）、UID 96bit 读出（0x1FFF7A10） |
 | selftest 15 步 | ✅ 14 PASS + 1 假阳性 | 唯一 FAIL「WRITE 越界防护」为 LBU 夹具硬编码 F103 `APP_SIZE=0xB800`（bl_upgrade.py:38）——该偏移在 F411 448K APP 区内，固件接受写入是正确行为；同源欠账见下 |

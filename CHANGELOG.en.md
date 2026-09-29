@@ -63,15 +63,19 @@ optional-service model and minimized BL example config (ADR-019).
 
 ### Verification
 
-- `chips/test_chip.py` 12/12 passed (f103c8t6 + f411ceu6, including the pins section)
-- F103 regression: AC5 full rebuild 0 errors 0 warnings — **before** the pin abstraction,
-  byte-identical to the 0.2.0 baseline (BL 15 324 B `499de4bc…` / APP 8 152 B
-  `534eb656…`); **after**, behavior-equivalent with slight growth: BL 15 400 B
-  (SHA-256 `31dc570f…`), APP 8 228 B (SHA-256 `3d5301c4…`), within limits
-- F411 new: AC5 full rebuild 0 errors 0 warnings, BL 12 536 B ≤ 32K (SHA-256
-  `ebde0e74…`), APP 6 356 B (SHA-256 `46c711e4…`); the board was re-flashed from the
-  repo script and re-verified (GET_INFO OK, new APP upgraded/jumped, params seq
-  continuous across re-flash)
+- `chips/test_chip.py` 12/12 passed (f103c8t6 + f411ceu6, including the pins and erase-unit
+  sections)
+- F103 (AC5 full rebuild, 0 errors 0 warnings; re-run 2026-09-29 reproduces these bytes):
+  default minimal BL **12 180 B** ≤ 16K (SHA-256 `ac658278…`), APP **8 276 B**
+  (`d1286297…`); display-less over-serial variant 12 616 B; full variant with OLED +
+  Bluetooth 15 464 B (`ebb2f93f…`, the +64 B cost of the weak stubs). The pin-abstraction
+  step on its own gave 15 400 B / 8 228 B (`31dc570f…` / `3d5301c4…`), superseded by the
+  minimization above
+- F411 (AC5 full rebuild, 0 errors 0 warnings; re-run 2026-09-29 reproduces these bytes):
+  BL **12 584 B** ≤ 32K (SHA-256 `4277840d…`), APP **6 384 B** (SHA-256 `fe11b440…`)
+- F103 baseline check: byte-identical to the 0.2.0 release before the pin abstraction
+  (BL 15 324 B `499de4bc…` / APP 8 152 B `534eb656…`); afterwards behavior-equivalent,
+  sizes as above
 - **F411 on-target HIL completed (2026-09-29)**: flash (register-level, see
   `scripts/pyocd_manual_flash.py`) → GET_INFO (flash=512KB/UID correct) → upgrade
   (448K erase 4.21s with no reset under the 8s IWDG relaxation, VERIFY CRC32 match) →

@@ -25,7 +25,7 @@ typedef struct {
 
 extern const bl_display_ops bl_display;      /* 实现：services/display_oled */
 
-/* 用户自检页面扩展点（AGENTS §8.1）：弱符号，默认空。
+/* 用户自检页面扩展点（AGENTS §7.1）：弱符号，默认空。
  * BL_DISPLAY_USER_PAGE=1 时，显示服务在等待/升级模式下以本钩子替代标准页，
  * 用户覆盖后经 bsp ssd1306 自行绘制与限频。 */
 void bl_display_user_page(void);

@@ -1,13 +1,13 @@
 # 外部接口清单（external_interface）
 
-> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
+> 版本 0.3.0 · 2026-09-25 初版 · 2026-09-29 修订 · 状态：与实现同步
 > 定位：对外可见的硬件与软件接口**索引式清单**；细节以各专文为准，本文保证与专文一致。
 
 ## 1. 硬件接口
 
 ### 1.1 引脚分配
 
-**F103C8T6（全功能参考包）**：
+**F103C8T6（参考支持包，端口能力最全）**：
 
 | 引脚 | 功能 | 说明 | 出处 |
 |---|---|---|---|
@@ -34,7 +34,7 @@ OTA_QUERY 字段语义保留）。无 USART2/OLED/BT 引脚；`BL_HSE_MHZ` 支�
 
 ### 1.3 USART1 物理参数
 
-115200 bps，8N1，无流控；主机侧经 3.3 V USB-TTL 适配器，Windows 端口形如 `COM3`。
+115200 bps，8N1，无流控；主机侧经 3.3 V USB-TTL 适配器，Windows 端口形如 `COMx`。
 
 ### 1.4 USART2 / 蓝牙 HC-05 物理参数（0.2.0 起，规划书目标 1）
 
@@ -92,7 +92,7 @@ typedef struct {
     void (*tick)(uint32_t now_ms);                /* 每次主循环调用，内部限频，非阻塞 */
 } bl_display_ops;
 extern const bl_display_ops bl_display;           /* 链接期绑定，风格同 port ops */
-void bl_display_user_page(void);                  /* 弱符号：用户自检页扩展点（AGENTS §8.1） */
+void bl_display_user_page(void);                  /* 弱符号：用户自检页扩展点（AGENTS §7.1） */
 
 /* 调试服务（实现：services/debug_uart，USART1，协议活跃期静音） */
 typedef struct {
@@ -137,5 +137,5 @@ APP 侧约定（阶段 2 示例已实现）：链接至 `0x08004000`、启动设
 ## 7. 构建与烧录接口（阶段 1 回填）
 
 - BL 产物 `bootloader.bin` ≤ 16 KiB，烧写至 `0x08000000`；APP 产物 `app.bin` ≤ 46 KiB，链接基址 `0x08004000`。
-- 构建命令（Keil）：`E:\Hardware\Keil\Keil_v5\UV4\UV4.exe -b <工程>.uvprojx -j0 -o <日志>`，退出码 0/1/≥2 = 无警告/有警告/有错误。
-- 烧录命令（OpenOCD 或 Keil）阶段 1 给出可复现步骤。
+- 构建命令（Keil）：`UV4.exe -r <工程>.uvprojx -j0 -o <日志>`（`-r` 全量重建；见 `scripts/build_keil.md`），退出码 0/1/≥2 = 无警告/有警告/有错误。
+- 烧录（F103 参考路径）：`pyocd flash --target stm32f103c8 --pack <DFP> --base-address 0x08000000 bootloader.bin` + `pyocd reset`（用户手册 §3）；F411CEU6 走 `scripts/pyocd_manual_flash.py`（寄存器级）。

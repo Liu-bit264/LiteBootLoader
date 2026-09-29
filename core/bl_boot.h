@@ -1,6 +1,6 @@
 #ifndef BL_BOOT_H
 #define BL_BOOT_H
-/* 启动决策与跳转（design.md ADR-004，AGENTS.md §5.1 九步） */
+/* 启动决策与跳转（design.md ADR-004，AGENTS.md §4.2 九步） */
 #include <stdint.h>
 #include <stdbool.h>
 
