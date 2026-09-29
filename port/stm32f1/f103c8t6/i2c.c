@@ -4,29 +4,56 @@
 #include "f1_bits.h"
 #include "stm32f10x.h"
 
-/* 软件 I2C（PB8=SCL / PB9=SDA）：
+/* 软件 I2C（引脚消费 board_config 的 BL_PIN_I2C_SCL/SDA，默认 PB8=SCL / PB9=SDA）：
    - SCL 推挽（单主机，SSD1306 不拉伸时钟，无需外部上拉）
    - SDA 平时推挽；ACK/读取阶段切输入上拉采样
    - ACK 在第 9 个 SCL 高电平期间采样（协议正确时序，勿改回 SCL 低电平采样）
-   - 命令传输尽力而为：NACK 不中止事务（SSD1306 write-only，漏时钟才是致命的） */
+   - 命令传输尽力而为：NACK 不中止事务（SSD1306 write-only，漏时钟才是致命的）
 
-#define SCL_H() (GPIOB->BSRR = GPIO_Pin_8)
-#define SCL_L() (GPIOB->BRR = GPIO_Pin_8)
-#define SDA_H() (GPIOB->BSRR = GPIO_Pin_9)
-#define SDA_L() (GPIOB->BRR = GPIO_Pin_9)
-#define SDA_READ() ((GPIOB->IDR & GPIO_Pin_9) != 0u)
+   宏化（ADR-018；审计 2026-09-29 补充项）：端口由 GPIOA_BASE + 0x400*序号派生
+   （F1 GPIO 端口间隔 0x400），CRL/CRH 与位段在编译期由 *_NUM 选择——CSP 引脚
+   是编译期常量，零运行时开销。 */
+#define I2C_GPIO(port)  ((GPIO_TypeDef *)(GPIOA_BASE + 0x400u * (port)))
+#define I2C_SCL_GPIO    I2C_GPIO(BL_PIN_I2C_SCL_PORT)
+#define I2C_SDA_GPIO    I2C_GPIO(BL_PIN_I2C_SDA_PORT)
+#define I2C_SCL_MASK    (1u << BL_PIN_I2C_SCL_NUM)
+#define I2C_SDA_MASK    (1u << BL_PIN_I2C_SDA_NUM)
+
+/* 引脚 0-7 配置位在 CRL、8-15 在 CRH（编译期选择），每引脚 4 位 CNF[1:0]+MODE[1:0] */
+#if BL_PIN_I2C_SCL_NUM < 8u
+#define I2C_SCL_CR      I2C_SCL_GPIO->CRL
+#define I2C_SCL_SHIFT   (4u * BL_PIN_I2C_SCL_NUM)
+#else
+#define I2C_SCL_CR      I2C_SCL_GPIO->CRH
+#define I2C_SCL_SHIFT   (4u * (BL_PIN_I2C_SCL_NUM - 8u))
+#endif
+#if BL_PIN_I2C_SDA_NUM < 8u
+#define I2C_SDA_CR      I2C_SDA_GPIO->CRL
+#define I2C_SDA_SHIFT   (4u * BL_PIN_I2C_SDA_NUM)
+#else
+#define I2C_SDA_CR      I2C_SDA_GPIO->CRH
+#define I2C_SDA_SHIFT   (4u * (BL_PIN_I2C_SDA_NUM - 8u))
+#endif
+#define I2C_MODE_PP2M(sh)   (0x2u << (sh))   /* MODE=10（2MHz）CNF=00（推挽） */
+#define I2C_MODE_IN_PU(sh)  (0x8u << (sh))   /* MODE=00 CNF=10（输入上拉） */
+
+#define SCL_H() (I2C_SCL_GPIO->BSRR = I2C_SCL_MASK)
+#define SCL_L() (I2C_SCL_GPIO->BRR = I2C_SCL_MASK)
+#define SDA_H() (I2C_SDA_GPIO->BSRR = I2C_SDA_MASK)
+#define SDA_L() (I2C_SDA_GPIO->BRR = I2C_SDA_MASK)
+#define SDA_READ() ((I2C_SDA_GPIO->IDR & I2C_SDA_MASK) != 0u)
 
 static void sda_mode_out(void)
 {
-    /* 推挽输出 2MHz：CNF9=00, MODE9=10 */
-    GPIOB->CRH = (GPIOB->CRH & ~(GPIO_CRH_MODE9 | GPIO_CRH_CNF9)) | GPIO_CRH_MODE9_1;
+    /* 推挽输出 2MHz（CRx 位段由编译期选择） */
+    I2C_SDA_CR = (I2C_SDA_CR & ~(0xFu << I2C_SDA_SHIFT)) | I2C_MODE_PP2M(I2C_SDA_SHIFT);
 }
 
 static void sda_mode_in(void)
 {
-    /* 输入上拉：MODE9=00, CNF9=10, ODR9=1（F1 输入模式下 ODR 选上/下拉） */
-    GPIOB->CRH = (GPIOB->CRH & ~(GPIO_CRH_MODE9 | GPIO_CRH_CNF9)) | GPIO_CRH_CNF9_1;
-    GPIOB->BSRR = GPIO_Pin_9;
+    /* 输入上拉：MODE=00, CNF=10, ODR=1（F1 输入模式下 ODR 选上/下拉） */
+    I2C_SDA_CR = (I2C_SDA_CR & ~(0xFu << I2C_SDA_SHIFT)) | I2C_MODE_IN_PU(I2C_SDA_SHIFT);
+    SDA_H();
 }
 
 static void i2c_delay(void)
@@ -117,10 +144,11 @@ static uint8_t i2c_read_byte(bool nack)
 
 void bl_i2c_port_init(void)
 {
-    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
-    /* PB8：推挽输出 2MHz（SCL）；PB9：推挽输出（SDA，ACK 期动态切输入） */
-    GPIOB->CRH &= ~(GPIO_CRH_MODE8 | GPIO_CRH_CNF8);
-    GPIOB->CRH |= GPIO_CRH_MODE8_1;               /* CNF8=00 推挽 */
+    /* 端口时钟使能按板级端口序号派生（APB2ENR 的 IOPxEN 各端口连续） */
+    RCC->APB2ENR |= (RCC_APB2ENR_IOPAEN << BL_PIN_I2C_SCL_PORT) |
+                    (RCC_APB2ENR_IOPAEN << BL_PIN_I2C_SDA_PORT);
+    /* SCL：推挽输出 2MHz；SDA：推挽输出（ACK 期动态切输入） */
+    I2C_SCL_CR = (I2C_SCL_CR & ~(0xFu << I2C_SCL_SHIFT)) | I2C_MODE_PP2M(I2C_SCL_SHIFT);
     sda_mode_out();
     SCL_H();
     SDA_H();
@@ -128,7 +156,8 @@ void bl_i2c_port_init(void)
 
 void bl_i2c_port_release(void)
 {
-    GPIOB->CRH &= ~(GPIO_CRH_MODE8 | GPIO_CRH_CNF8 | GPIO_CRH_MODE9 | GPIO_CRH_CNF9);
+    I2C_SCL_CR &= ~(0xFu << I2C_SCL_SHIFT);
+    I2C_SDA_CR &= ~(0xFu << I2C_SDA_SHIFT);
 }
 
 void bl_port_i2c_release(void) { bl_i2c_port_release(); }

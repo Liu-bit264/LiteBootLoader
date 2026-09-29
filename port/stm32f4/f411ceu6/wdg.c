@@ -36,6 +36,11 @@ static bool ops_set_timeout(uint32_t timeout_ms)
     if (reload > 4095u) {
         return false;
     }
+    /* 写 RLR 前等 RVU 清零（RM0390 IWDG_SR；审计 2026-09-29 P3-3）：
+       RVU 在途（上一次 0xAAAA 重载未完成）时本次写入被硬件忽略——
+       F4 放宽档是安全关键路径，必须确认写入真实生效 */
+    while (IWDG->SR & IWDG_SR_RVU) {
+    }
     IWDG->KR = 0x5555Au;                     /* 解锁 */
     IWDG->RLR = reload;
     IWDG->KR = 0xAAAAu;                      /* 重载并等同步 */
