@@ -165,7 +165,7 @@ USART1（有线）与 UART2（蓝牙）共用同一个协议解析器实例。tr
 ### 5.3 ERASE_APP（0x03）
 
 整片擦除 APP 区（F103C8T6 为页 16–61），擦除单元间喂狗。幂等：重复调用返回 OK。DATA 必须为空，否则 `RANGE_ERROR`。
-BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR-015；F1 与常规值同为 2 s，行为不变；F4 建议 8 s——大扇区擦除期间无法喂狗），VERIFY 完成或 JUMP 前恢复。对协议透明，不改变任何帧语义。
+BL 内部在执行首个擦/写命令（ERASE_APP，或 §5.4 WRITE_CHUNK 的写前自动擦除路径）前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR-015；F1 与常规值同为 2 s，行为不变；F4 建议 8 s——大扇区擦除期间无法喂狗），VERIFY 完成或 JUMP 前恢复。对协议透明，不改变任何帧语义。
 
 ### 5.4 WRITE_CHUNK（0x04）
 
@@ -183,7 +183,7 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 
 处理：BL 按 1 KiB 块计算 `[APP_BASE, APP_BASE+app_size)` 的 CRC-32/ISO-HDLC（块间喂狗），与 `app_crc32` 比较：
 
-- `app_size < 8`（向量表最少 2 字：初始 MSP + Reset Handler，更小镜像无法支撑跳转判定）、`app_size == 0` 或 `> APP 区大小`（F103C8T6 为 46 KiB）→ `RANGE_ERROR`。
+- `app_size < 8`（向量表最少 2 字：初始 MSP + Reset Handler，更小镜像无法支撑跳转判定）、`app_size == 0`、非 4 字节对齐或 `> APP 区大小`（F103C8T6 为 46 KiB）→ `RANGE_ERROR`。
 - 匹配 → 回 `OK + calc_crc32 + calc_size`，并以新 seq 将 `app_size/app_crc32` **自动持久化**到参数区（partition.md §6.3）。**持久化幂等**：当前元数据已记录相同 `app_size/app_crc32` 且无待消费 `bl_request` 时跳过重写——VERIFY 超时重发/重验不产生额外参数区擦写。
 - 不匹配 → 回 `CRC_ERROR + calc_crc32 + calc_size`，不持久化。
 
@@ -247,7 +247,7 @@ OTA 状态查询（只读幂等）：BL/APP 版本、APP 有效性、参数区�
 
 - **SEQ**：主机逐命令递增（0–255 回绕）；BL 只做回显，不维护去重表。
 - **幂等性**：全部命令设计为可重复执行（重 PING 无副作用、重擦页无害、重写覆盖、重验幂等——同内容重验不重写参数区、重复 JUMP 校验失败无害），因此**重复包/超时重传直接重新执行**，不做去重。
-- **主机侧超时与重试**（工具实现约定，阶段 3 落地）：单命令响应超时 1000 ms，重试 3 次；`ERASE_APP` 因整片擦除耗时（46 页 × 20–40 ms ≈ 1–2 s）单独放宽为 5000 ms。
+- **主机侧超时与重试**（工具实现约定，阶段 3 落地）：单命令响应超时 1000 ms，超时重发至**共 3 次尝试**（首发 + 重发 2 次，LBU `RETRY_ATTEMPTS = 3`）；`ERASE_APP` 因整片擦除耗时（F103 46 页 × 20–40 ms ≈ 1–2 s；F411 大扇区可达数秒）放宽——CLI 单发 8000 ms，升级流程重试层每尝试 5000 ms。
 - **BL 侧**：帧内 2000 ms 无新字节复位解析器（§4.2）；升级模式无会话超时（dev/design.md ADR-003）。
 
 一键升级全流程时序图示（`upgrade` 子命令，任意初始状态；通道无关——有线/蓝牙同一时序）：
@@ -355,7 +355,7 @@ uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
 工具行为：读入镜像 → 0xFF 填充至 4 字节对齐 → `ensure_bl` 探测（GET_INFO：OK=BL 直接升；
 RANGE_ERROR=APP 响应器，自动 SET_META bl_request=1 等复位；无响应等 2.2 s 重试 ×3）→
 ERASE_APP → 逐 WRITE_CHUNK（DATA 256 B，payload 252 B）→ VERIFY_APP（自动携带 size/CRC）
-→ 提示 JUMP_APP。所有命令带重试层（§6）：超时重发 ≤3 次，间隔 2.2 s（≥ BL 帧内 2000 ms
+→ 提示 JUMP_APP。所有命令带重试层（§6）：至共 3 次尝试（超时重发 ≤2 次），间隔 2.2 s（≥ BL 帧内 2000 ms
 超时复位窗口）。串口枚举用 pyserial（Windows 形如 `COM4`）。
 
 **蓝牙连接**（0.2.0 起）：HC-05 与 PC 配对（PIN 1234）后呈现为 SPP 出来的 COM 口，

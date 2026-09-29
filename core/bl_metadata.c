@@ -95,10 +95,15 @@ static bool check_copy_units_independent(void)
 bool bl_meta_load(bl_meta_t *out)
 {
     if (!s_units_checked) {
-        s_units_checked = true;
+        /* 检查标记只在通过后置位（审计 2026-09-29 P1-1）：失败后每次调用
+           重新检查，不一次性放行；同时清零输出，防忽略返回值的调用方
+           （如 handle_get_info）读到未初始化栈 */
+        static const bl_meta_t zero = {0};
+        *out = zero;
         if (!check_copy_units_independent()) {
             return false;   /* 副本几何非法：拒绝加载，防止误写 */
         }
+        s_units_checked = true;
     }
     bl_meta_t a, b;
     bool a_ok = eval_copy(BL_PARAM_BASE, &a);                                 /* 副本 A */
