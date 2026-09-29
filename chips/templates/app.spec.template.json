@@ -29,46 +29,72 @@
         "create_hex_file": false
       },
       "c_defines": "{{chip.build.c_defines}}",
-      "c_include_paths": { "$chip": "build.include_paths_app" },
+      "c_include_paths": {
+        "$chip": "build.include_paths_app"
+      },
       "c_misc_controls": "-Ospace",
       "scatter_file": "{{chip.build.proj_rel}}{{chip.build.sct_dir}}\\app.sct",
       "groups": [
         {
           "name": "Startup",
           "files": [
-            { "$chip": "build.startup_files" }
+            {
+              "$chip": "build.startup_files"
+            }
           ]
         },
         {
           "name": "App",
           "files": [
-            { "name": "main.c", "type": 1, "path": "{{chip.build.proj_rel}}{{chip.build.app_example_dir}}\\main.c" },
-            { "name": "app_request.c", "type": 1, "path": "{{chip.build.proj_rel}}{{chip.build.app_example_dir}}\\app_request.c" }
+            {
+              "name": "main.c",
+              "type": 1,
+              "path": "{{chip.build.proj_rel}}{{chip.build.app_example_dir}}\\main.c"
+            },
+            {
+              "name": "app_request.c",
+              "type": 1,
+              "path": "{{chip.build.proj_rel}}{{chip.build.app_example_dir}}\\app_request.c"
+            }
           ]
         },
         {
           "name": "Core",
           "files": [
-            { "name": "bl_metadata.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_metadata.c" },
-            { "name": "bl_crc.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_crc.c" }
+            {
+              "name": "bl_metadata.c",
+              "type": 1,
+              "path": "{{chip.build.proj_rel}}core\\bl_metadata.c"
+            },
+            {
+              "name": "bl_crc.c",
+              "type": 1,
+              "path": "{{chip.build.proj_rel}}core\\bl_crc.c"
+            }
           ]
         },
         {
           "name": "CMSIS",
           "files": [
-            { "$chip": "build.cmsis_sources" }
+            {
+              "$chip": "build.cmsis_sources"
+            }
           ]
         },
         {
           "name": "Port",
           "files": [
-            { "$chip": "build.port_files_app" }
+            {
+              "$chip": "build.port_files_app"
+            }
           ]
         },
         {
           "name": "BSP",
           "files": [
-            { "$chip": "build.bsp_files" }
+            {
+              "$chip": "build.bsp_files_app"
+            }
           ]
         }
       ]

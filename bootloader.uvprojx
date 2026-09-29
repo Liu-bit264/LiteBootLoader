@@ -435,9 +435,9 @@
           <GroupName>Services</GroupName>
           <Files>
             <File>
-              <FileName>bl_display_oled.c</FileName>
+              <FileName>bl_display_led.c</FileName>
               <FileType>1</FileType>
-              <FilePath>services\display_oled\bl_display_oled.c</FilePath>
+              <FilePath>services\display_led\bl_display_led.c</FilePath>
             </File>
             <File>
               <FileName>bl_debug_uart.c</FileName>
@@ -480,11 +480,6 @@
               <FilePath>port\stm32f1\f103c8t6\uart.c</FilePath>
             </File>
             <File>
-              <FileName>uart2.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>port\stm32f1\f103c8t6\uart2.c</FilePath>
-            </File>
-            <File>
               <FileName>wifi_stub.c</FileName>
               <FileType>1</FileType>
               <FilePath>port\wifi_stub.c</FilePath>
@@ -504,27 +499,11 @@
               <FileType>1</FileType>
               <FilePath>port\stm32f1\f103c8t6\flash.c</FilePath>
             </File>
-            <File>
-              <FileName>i2c.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>port\stm32f1\f103c8t6\i2c.c</FilePath>
-            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>BSP</GroupName>
-          <Files>
-            <File>
-              <FileName>ssd1306.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>bsp\oled_ssd1306\ssd1306.c</FilePath>
-            </File>
-            <File>
-              <FileName>ssd1306_font.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>bsp\oled_ssd1306\ssd1306_font.c</FilePath>
-            </File>
-          </Files>
+          <Files />
         </Group>
       </Groups>
     </Target>
