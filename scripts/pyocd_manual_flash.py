@@ -77,6 +77,10 @@ def main(argv=None) -> int:
             target_override="stm32f411ce",
             options={"pack": [args.pack], "frequency": args.frequency}) as session:
         t = session.target
+        # 冻结 IWDG 于调试停机（F4 DBGMCU_APB1FZ.DBG_IWDG_STOP=bit11）：板上旧
+        # BL 的看门狗会在停机期间照跑，编程到一半触发复位导致回读不一致
+        # （2026-09-29 实测踩坑）。F1 的 DBGMCU 基址不同（0xE0002008），本脚本限 F4。
+        t.write32(0xE0042008, t.read32(0xE0042008) | (1 << 11))
         t.halt()
         t.write32(FLASH_KEYR, KEY1)
         t.write32(FLASH_KEYR, KEY2)
@@ -100,9 +104,14 @@ def main(argv=None) -> int:
                 print(f"[flash] 编程错误 @0x{base + off:08X} SR=0x{sr:08X}", file=sys.stderr)
                 return 1
         t.write32(FLASH_CR, (t.read32(FLASH_CR) & ~(CR_PSIZE_X32 | CR_PG)) | CR_LOCK)
+        # 校验前必须先复位再停机：F4 的 ART 加速器会把 DAP 的 flash 读命中到
+        # 旧固件运行时填充的缓存行，直接回读会得到"回读不一致"的假失败
+        # （2026-09-29 实测踩坑，两次偶发成功只因板子刚断电重启、缓存为空）
+        t.reset_and_halt()
         back = bytes(t.read_memory_block8(base, len(data)))
         if back != data:
             print("[flash] 回读不一致！", file=sys.stderr)
+            t.reset()
             return 1
         print(f"[flash] 回读校验一致（sha256={hashlib.sha256(back).hexdigest()[:16]}…）")
         t.reset()
