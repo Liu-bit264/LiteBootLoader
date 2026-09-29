@@ -88,6 +88,9 @@
               "name": "bl_service_stub.c",
               "type": 1,
               "path": "{{chip.build.proj_rel}}core\\bl_service_stub.c"
+            },
+            {
+              "$chip": "build.sign_files_bl"
             }
           ]
         },

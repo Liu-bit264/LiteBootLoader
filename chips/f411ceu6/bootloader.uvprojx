@@ -327,9 +327,9 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Ospace</MiscControls>
-              <Define>STM32F411xE</Define>
+              <Define>STM32F411xE,uECC_PLATFORM=0,uECC_WORD_SIZE=4,uECC_SUPPORTS_secp160r1=0,uECC_SUPPORTS_secp192r1=0,uECC_SUPPORTS_secp224r1=0,uECC_SUPPORTS_secp256k1=0,uECC_SUPPORT_COMPRESSED_POINT=0</Define>
               <Undefine />
-              <IncludePath>..\..\core;..\..\port;..\..\port\stm32f4\f411ceu6;..\..\third_party\CMSIS</IncludePath>
+              <IncludePath>..\..\core;..\..\port;..\..\port\stm32f4\f411ceu6;..\..\third_party\CMSIS;..\..\third_party\micro-ecc</IncludePath>
             </VariousControls>
             <ScatterFile>..\..\linker\f411ceu6\bootloader.sct</ScatterFile>
           </Cads>
@@ -428,6 +428,21 @@
               <FileName>bl_service_stub.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\core\bl_service_stub.c</FilePath>
+            </File>
+            <File>
+              <FileName>uECC.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\third_party\micro-ecc\uECC.c</FilePath>
+            </File>
+            <File>
+              <FileName>bl_sha256.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\core\bl_sha256.c</FilePath>
+            </File>
+            <File>
+              <FileName>bl_sign.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\core\bl_sign.c</FilePath>
             </File>
           </Files>
         </Group>

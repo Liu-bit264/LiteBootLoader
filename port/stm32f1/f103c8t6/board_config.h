@@ -31,6 +31,8 @@
 #define BL_TRANSPORT_BT_EN     0       /* 0=蓝牙通道不进默认示例配置（ADR-019：BL 示例最小化，
                                           uart2.c 不在 chips/f103c8t6.json 构建清单）。启用方式见
                                           porting_guide.md §3.1：uart2.c 加回清单 + 本宏置 1 */
+#define BL_SIGN_EN             0       /* F103 不支持签名验签（ADR-020）：BL 16K 预算不容验签代码，
+                                          芯片清单不含签名源文件；认证能力差异见 porting_guide §3.1 */
 #define BL_USE_HSE             1       /* 1=HSE 8M->PLL 72M（默认：8MHz 晶振已由 ST 标准工程在本板实测 72M 可用）；
                                           0=HSI 8MHz 直驱（晶振异常时的调试回退，UART 115200 仍可用） */
 #define BL_BOOT_WAIT_MS        3000u   /* 启动等待窗口（ADR-004） */

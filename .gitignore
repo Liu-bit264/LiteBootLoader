@@ -48,3 +48,10 @@ Desktop.ini
 
 # ---- 评审过程记录（本地保留，不入库） ----
 docs/review/
+
+# ---- 签名公钥本地头（ADR-020：任何形态的密钥不入库，含测试公钥） ----
+bl_sign_pubkey_local.h
+**/bl_sign_pubkey_local.h
+
+# ---- 签名私钥（ADR-020：永不入库） ----
+*.pem

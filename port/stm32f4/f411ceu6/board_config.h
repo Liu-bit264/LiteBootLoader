@@ -33,6 +33,11 @@
 
 /* ---- 行为常量 ---- */
 #define BL_TRANSPORT_BT_EN     0       /* 本支持包未接蓝牙：通道 1 槽位保留（OTA_QUERY 通道号语义不变） */
+#define BL_SIGN_EN             0       /* 签名验签可选项（ADR-020）：默认关闭（主线构建与关闭态
+                                          行为/尺寸等价，签名源文件经未引用段剥离零开销）。启用 =
+                                          置 1 + 本地公钥头 bl_sign_pubkey_local.h（由
+                                          tools/sign_image.py --keygen 生成，不入库）；
+                                          开启态编译必弹 #pragma message 警告 */
 #define BL_USE_HSE             1       /* 1=HSE->PLL 100MHz（默认）；0=HSI 16MHz 直驱（调试回退） */
 #define BL_HSE_MHZ             25u     /* 板载晶振频率：8 或 25 两种均支持（编译期选择 PLL 参数，
                                           clock.c 内 #if 分支；8M: M=4/N=100，25M: M=25/N=200，
