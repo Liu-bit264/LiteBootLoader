@@ -6,6 +6,41 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
+F411 可选签名验签（ADR-020，ADR-017 接入点落地）：ECDSA P-256 + SHA-256。协议增量
+命令 `0x11 VERIFY_SIGNED`，VER 0x01 不变。
+
+### Added
+
+- **签名验签可选项（F411）**：`BL_SIGN_EN` 编译开关（默认 0，主线与 0.3.1 行为/尺寸
+  等价——签名源文件经未引用段剥离，实测两芯片主线仅 +252 B 为 auth 管线）；开启态
+  F411 BL 18 784 B ≤ 32 KiB（验签本体 +5 788 B），编译**必弹启用警告**（AC5 无
+  `#pragma message`/`#warning`——经未引用静态数组触发 #177-D，文本带上构建日志）。
+- **0x11 VERIFY_SIGNED**（protocol.md §5.11）：DATA = size+crc32+signature(64B，
+  r‖s 大端)；CRC+SHA-256 同一读透（块间喂狗）→ uECC 验签 → 通过才持久化 auth=1；
+  失败不落盘。新状态码 `SIGN_ERROR 0x06`。F103 不支持（16K 预算，清单不含签名源，
+  0x11 按未知命令回 STATE_ERROR）。
+- **认证标志**：参数区保留区 0x24 = auth 字节（partition.md §4，旧固件双向兼容）；
+  `bl_boot_app_valid` 在 BL_SIGN_EN=1 时要求 auth=1——启动期零密码运算，legacy
+  VERIFY 镜像不可跳转。`bl_storage_verify_app` 拆分为 check（不落盘）+ persist 两段。
+- **micro-ecc 第三方库**（`third_party/micro-ecc/`，BSD-2-Clause，上游 commit
+  `541b3a7`）：纯 C 路径（`uECC_PLATFORM=0` 编译定义，免 asm 捆绑）、仅 secp256r1；
+  来源/哈希/空白归一化说明见其 LICENSES.md。
+- **`tools/sign_image.py`**：测试密钥对生成（`--keygen`）与 0x11 帧组装（`--sign`），
+  uv 隔离运行（`--with cryptography`）；HIL/开发用，升级期签名集成待 LBU 后续迭代
+  （含密钥对生成器模块）。
+- **文档**：ADR-020；protocol.md §5.11 + §9.1 v1.4.0；partition.md §4 auth 字段回填；
+  architecture.md §10 验签链；external_interface.md 命令/状态码/签名能力行；
+  porting_guide §3.1 签名启用清单；user_manual 签名升级章节。
+
+### Security
+
+- **公钥/密钥任何形态不入库**（用户要求）：公钥为部署侧本地头
+  `bl_sign_pubkey_local.h`（gitignore，缺失时编译 `#error`），仓库只提交格式模板
+  `docs/dev/bl_sign_pubkey_local.template.h`；测试公钥同样不入库，密钥对本地生成。
+  威胁模型：无钥主机无法使 BL 接受镜像；不防物理/调试口攻击与回滚。
+
 ## [0.3.1] - 2026-09-30
 
 审计 2026-09-29（`docs/review/audit-2026-09-29.md`，本地文档）修复：1 项 P1 条件性

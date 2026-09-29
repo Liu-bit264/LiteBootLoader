@@ -291,3 +291,24 @@ init 内完成。
 | Flash：CRC32 常量表 | ≈ 1 KiB | ADR-001（在 RO-data 内） |
 | Flash：实测 bin | **12 180 B ≈ 11.9 KiB（0.3.0 默认最小集）✓ ≤ 16 KiB** | 0.3.0 最小集 `ac658278…`；同版本含 OLED+蓝牙的全功能变体 15 464 B（`ebb2f93f…`）、无显示变体 12 616 B；0.2.0 全功能基线 15 324 B `499de4bc…`；0.1.0 基线 13 728 B `ce41b1b6…`；AC6 -Oz 时为 8 824 B，供参考 |
 | APP .bin | **8 276 B，≤ 46 KiB（验收线）✓** | 0.3.0 重建（SHA `d1286297…`；0.2.0 为 8 152 B `534eb656…`） |
+
+## 10. 签名验签链（0.4.0 新增，ADR-020，可选能力）
+
+`BL_SIGN_EN=1` 的支持包（现仅 F411 可选；F103 BL 16K 预算不启用）在 storage 校验链中
+加入认证环节，命令为 `0x11 VERIFY_SIGNED`（protocol.md §5.11）：
+
+```text
+check_app(size, crc, sha_out)   纯校验不落盘：范围检查 + CRC32 + SHA-256 同一读透（块间喂狗）
+bl_sign_verify_digest(sha, sig) uECC P-256 验签（公钥 = 部署侧本地头，不入库）
+persist_app(size, crc, auth=1)  幂等持久化（matches_app_signed 跳过判定）+ auth 字节置 1
+```
+
+- **失败不落盘**：CRC 错 → CRC_ERROR、验签错 → SIGN_ERROR，均不持久化；legacy VERIFY
+  （0x05）持久化 auth=0，启用验签的固件拒绝跳转 auth=0 的镜像（`bl_boot_app_valid` 门禁，
+  启动期零密码运算）。
+- **关闭态零开销**：`BL_SIGN_EN=0` 时 SHA/验签代码经编译期裁剪 + armlink 未引用段剥离，
+  两芯片 0.4.0 主线相对 0.3.1 仅 +252 B（auth 字段贯通与 verify 拆分管线，签名本体 0 B）。
+- 开启态实测：F411 BL 18 784 B ≤ 32 KiB（验签本体 +5 788 B）；编译必弹启用警告
+  （#177-D 携带提示文本，AC5 无 `#pragma message`/`#warning`，实测绕行方案见 bl_sign.c）。
+- 密钥管理：公钥为部署侧本地头 `bl_sign_pubkey_local.h`（gitignore），测试密钥对由
+  `tools/sign_image.py --keygen` 本地生成；固件仓不含任何密钥（含测试公钥）。

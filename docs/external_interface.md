@@ -51,9 +51,10 @@ AT 配置**数据模式到 115200（USB-TTL + `AT+UART=115200,0,0`，AT 模式�
 | 帧格式 | `SOF(AA 55) VER CMD SEQ LEN(LE16) DATA(0..256) CRC16(LE16) EOF(55 AA)` |
 | 帧校验 | CRC-16/MODBUS（poly 0x8005/0xA001，init 0xFFFF，check 0x4B37），覆盖 VER…DATA |
 | 镜像校验 | CRC-32/ISO-HDLC（zlib 兼容，check 0xCBF43926），对 0xFF 填充至 4 字节对齐的镜像 |
-| 命令 | PING 0x01 / GET_INFO 0x02 / ERASE_APP 0x03 / WRITE_CHUNK 0x04 / VERIFY_APP 0x05 / SET_META 0x06 / GET_META 0x07 / JUMP_APP 0x08 / RESET 0x09 / OTA_QUERY 0x10；响应 = CMD\|0x80 |
-| 状态码 | OK 0x00 / CRC_ERROR 0x01 / FLASH_ERROR 0x02 / RANGE_ERROR 0x03 / STATE_ERROR 0x04 / TIMEOUT 0x05 |
-| 预留 | 命令 0x11–0x1F 预留 OTA 扩展（0x10 OTA_QUERY 已实现，ADR-016） |
+| 命令 | PING 0x01 / GET_INFO 0x02 / ERASE_APP 0x03 / WRITE_CHUNK 0x04 / VERIFY_APP 0x05 / SET_META 0x06 / GET_META 0x07 / JUMP_APP 0x08 / RESET 0x09 / OTA_QUERY 0x10 / VERIFY_SIGNED 0x11（可选，ADR-020）；响应 = CMD\|0x80 |
+| 状态码 | OK 0x00 / CRC_ERROR 0x01 / FLASH_ERROR 0x02 / RANGE_ERROR 0x03 / STATE_ERROR 0x04 / TIMEOUT 0x05 / SIGN_ERROR 0x06（0.4.0，ADR-020） |
+| 预留 | 命令 0x12–0x1F 预留 OTA 扩展（0x10 OTA_QUERY、0x11 VERIFY_SIGNED 已实现） |
+| 签名验签（可选） | ECDSA P-256 + SHA-256（ADR-020）：`BL_SIGN_EN=1` 的支持包实现 0x11，公钥为部署侧本地头 `bl_sign_pubkey_local.h`（不入库）；现仅 F411 可选（F103 BL 16K 预算不启用）。详见 [protocol.md](protocol.md) §5.11 |
 | 协议版本 | VER = 0x01 |
 
 ## 3. 软件抽象接口
@@ -129,8 +130,10 @@ APP 侧约定（阶段 2 示例已实现）：链接至 `0x08004000`、启动设
 1. **通道层（已实现）**：USART2 + HC-05 蓝牙为 transport 通道 1（`bl_uart_bt`）；WIFI 为
    同签名占位 stub（`bl_wifi`，规划书目标 2 只预留实现层与 API），protocol 与 storage 不变。
 2. **命令层（部分实现）**：0x10 OTA_QUERY 已实现（[protocol.md](protocol.md) §5.10，版本/
-   有效性/通道/蓝牙连接状态查询）；0x11–0x1F 继续预留（分块元数据、差分升级、密钥握手等）。
-3. **安全扩展位**：元数据 `flags` 高位保留可扩展"镜像签名有效"标志（配合外部校验器，本期不做）。
+   有效性/通道/蓝牙连接状态查询）；0x11 VERIFY_SIGNED 已实现（可选签名验签，ADR-020，
+   上节）；0x12–0x1F 继续预留（分块元数据、差分升级、密钥握手等）。
+3. **认证标志（0.4.0 起落地）**：`flags` 高位保持保留；认证状态由参数区保留区 0x24 的
+   auth 字节承载（partition.md §4），启动判定在 `BL_SIGN_EN=1` 时要求 auth=1。
 4. **安全边界（不变）**：OTA 路径只可达 APP 区；参数区仅 `bl_metadata` 内部可达
    （[partition.md](partition.md) §1，与通道无关）。
 
