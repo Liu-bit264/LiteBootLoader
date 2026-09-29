@@ -9,14 +9,28 @@ static volatile uint32_t s_head;   /* 写指针（IRQ） */
 static volatile uint32_t s_tail;   /* 读指针（主循环） */
 static volatile uint32_t s_rx_total;   /* 累计接收字节（含丢弃，接线诊断） */
 
+/* 引脚按 board_config 声明派生（实验：UART 引脚入板级声明，ADR-018 同规则）。
+   CR 配置与 gpio.c 同构（家族公共化是后续项）；nibble：MODE[1:0]+CNF[3:2] */
+static GPIO_TypeDef *const k_ports[] = { GPIOA, GPIOB, GPIOC };
+
+static void cr_cfg(GPIO_TypeDef *port, uint8_t num, uint8_t nibble)
+{
+    volatile uint32_t *cr = (num < 8u) ? &port->CRL : &port->CRH;
+    const uint32_t shift = (uint32_t)(num % 8u) * 4u;
+    *cr &= ~(0xFu << shift);
+    *cr |= (uint32_t)nibble << shift;
+}
+
+#define CR_AF_PP_50MHZ  0xBu   /* MODE=11 CNF=10：复用推挽 */
+#define CR_IN_FLOAT     0x4u   /* MODE=00 CNF=01：浮空输入 */
+
 void bl_uart_port_init(void)
 {
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN | RCC_APB2ENR_IOPAEN | RCC_APB2ENR_AFIOEN;
 
-    /* PA9 = USART1_TX 复用推挽 50MHz，PA10 = RX 浮空输入 */
-    GPIOA->CRH &= ~(GPIO_CRH_MODE9 | GPIO_CRH_CNF9 | GPIO_CRH_MODE10 | GPIO_CRH_CNF10);
-    GPIOA->CRH |= GPIO_CRH_MODE9_0 | GPIO_CRH_MODE9_1 | GPIO_CRH_CNF9_1;
-    GPIOA->CRH |= GPIO_CRH_CNF10_0;
+    /* TX 复用推挽 50MHz，RX 浮空输入（PA9/PA10 由 BL_UART_TX/RX_* 声明） */
+    cr_cfg(k_ports[BL_UART_TX_PORT], BL_UART_TX_NUM, CR_AF_PP_50MHZ);
+    cr_cfg(k_ports[BL_UART_RX_PORT], BL_UART_RX_NUM, CR_IN_FLOAT);
 
     uint32_t pclk2 = bl_clock_get_hz();
     USART1->BRR = (pclk2 + BL_UART_BAUD / 2u) / BL_UART_BAUD;
@@ -36,8 +50,9 @@ void bl_uart_port_deinit(void)
     USART1->CR1 = 0u;                        /* UE/TE/RE/RXNEIE 全关 */
     NVIC_DisableIRQ(USART1_IRQn);
     s_head = s_tail = 0u;
-    /* 引脚恢复浮空模拟态，交 APP 配置 */
-    GPIOA->CRH &= ~(GPIO_CRH_MODE9 | GPIO_CRH_CNF9 | GPIO_CRH_MODE10 | GPIO_CRH_CNF10);
+    /* TX/RX 恢复模拟输入态（nibble=0），交 APP 配置 */
+    cr_cfg(k_ports[BL_UART_TX_PORT], BL_UART_TX_NUM, 0u);
+    cr_cfg(k_ports[BL_UART_RX_PORT], BL_UART_RX_NUM, 0u);
     RCC->APB2ENR &= ~RCC_APB2ENR_USART1EN;
 }
 

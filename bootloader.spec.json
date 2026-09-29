@@ -93,6 +93,11 @@
               "name": "bl_crc.c",
               "type": 1,
               "path": "core\\bl_crc.c"
+            },
+            {
+              "name": "bl_service_stub.c",
+              "type": 1,
+              "path": "core\\bl_service_stub.c"
             }
           ]
         },

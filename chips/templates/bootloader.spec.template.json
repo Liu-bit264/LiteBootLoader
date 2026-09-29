@@ -49,7 +49,8 @@
             { "name": "bl_storage.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_storage.c" },
             { "name": "bl_metadata.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_metadata.c" },
             { "name": "bl_boot.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_boot.c" },
-            { "name": "bl_crc.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_crc.c" }
+            { "name": "bl_crc.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_crc.c" },
+            { "name": "bl_service_stub.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_service_stub.c" }
           ]
         },
         {

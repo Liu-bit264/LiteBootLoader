@@ -11,18 +11,28 @@ static volatile uint32_t s_head;   /* 写指针（IRQ） */
 static volatile uint32_t s_tail;   /* 读指针（主循环） */
 static volatile uint32_t s_rx_total;   /* 累计接收字节（含丢弃，接线诊断） */
 
+/* 引脚按 board_config 声明派生（实验：UART 引脚入板级声明，ADR-018 同规则） */
+static GPIO_TypeDef *const k_ports[] = { GPIOA, GPIOB, GPIOC };
+
 void bl_uart_port_init(void)
 {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 
-    /* PA9 = USART1_TX 复用 AF7（MODER=10），PA10 = RX 复用 AF7（浮空输入） */
-    GPIOA->MODER &= ~(GPIO_MODER_MODER9 | GPIO_MODER_MODER10);
-    GPIOA->MODER |= GPIO_MODER_MODER9_1 | GPIO_MODER_MODER10_1;
-    GPIOA->OSPEEDR |= GPIO_OSPEEDER_OSPEEDR9;   /* TX 高速 */
-    GPIOA->PUPDR &= ~(GPIO_PUPDR_PUPDR9 | GPIO_PUPDR_PUPDR10);
-    GPIOA->AFR[1] &= ~((0xFu << 4u) | (0xFu << 8u));
-    GPIOA->AFR[1] |= (7u << 4u) | (7u << 8u);   /* PA9/PA10 -> AFRH[7:4]/[11:8] = AF7 */
+    /* TX = 复用 AF7 高速，RX = 复用 AF7 浮空（PA9/PA10 由 BL_UART_TX/RX_* 声明） */
+    GPIO_TypeDef *tx = k_ports[BL_UART_TX_PORT];
+    GPIO_TypeDef *rx = k_ports[BL_UART_RX_PORT];
+    tx->MODER = (tx->MODER & ~(3u << (2u * BL_UART_TX_NUM))) | (2u << (2u * BL_UART_TX_NUM));
+    tx->OSPEEDR |= 3u << (2u * BL_UART_TX_NUM);            /* 高速 */
+    tx->PUPDR &= ~(3u << (2u * BL_UART_TX_NUM));
+    tx->AFR[BL_UART_TX_NUM / 8u] = (tx->AFR[BL_UART_TX_NUM / 8u] &
+                                    ~(0xFu << ((BL_UART_TX_NUM % 8u) * 4u))) |
+                                   (7u << ((BL_UART_TX_NUM % 8u) * 4u));
+    rx->MODER = (rx->MODER & ~(3u << (2u * BL_UART_RX_NUM))) | (2u << (2u * BL_UART_RX_NUM));
+    rx->PUPDR &= ~(3u << (2u * BL_UART_RX_NUM));
+    rx->AFR[BL_UART_RX_NUM / 8u] = (rx->AFR[BL_UART_RX_NUM / 8u] &
+                                    ~(0xFu << ((BL_UART_RX_NUM % 8u) * 4u))) |
+                                   (7u << ((BL_UART_RX_NUM % 8u) * 4u));
 
     uint32_t pclk2 = bl_clock_get_hz();   /* PPRE2=/1：APB2 = SYSCLK（HSI 回退时 16MHz） */
     USART1->BRR = (pclk2 + BL_UART_BAUD / 2u) / BL_UART_BAUD;
@@ -42,8 +52,9 @@ void bl_uart_port_deinit(void)
     USART1->CR1 = 0u;                        /* UE/TE/RE/RXNEIE 全关 */
     NVIC_DisableIRQ(USART1_IRQn);
     s_head = s_tail = 0u;
-    /* PA9/PA10 恢复输入态，交 APP 配置 */
-    GPIOA->MODER &= ~(GPIO_MODER_MODER9 | GPIO_MODER_MODER10);
+    /* TX/RX 恢复输入态，交 APP 配置 */
+    k_ports[BL_UART_TX_PORT]->MODER &= ~(3u << (2u * BL_UART_TX_NUM));
+    k_ports[BL_UART_RX_PORT]->MODER &= ~(3u << (2u * BL_UART_RX_NUM));
     RCC->APB2ENR &= ~RCC_APB2ENR_USART1EN;
 }
 
