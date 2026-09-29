@@ -48,10 +48,19 @@
 #define BL_VERIFY_CHUNK        1024u   /* VERIFY 分块（喂狗粒度） */
 #define BL_LOG_HEARTBEAT_MS    500u    /* 空闲心跳日志间隔（0=关闭；协议活跃期静默） */
 
-/* ---- 引脚编号（gpio.c 内映射实际端口） ---- */
-#define BL_PIN_LED             0u      /* PC13，低电平点亮（开漏灌电流，与 F103 方案一致） */
-#define BL_PIN_BT_STATE        1u      /* PC14，本包 NC：未接 HC-05，OTA_QUERY 该字段读值无意义
-                                          （协议 22B 响应结构保持不变，见 protocol.md §5.10） */
+/* ---- 板级引脚（ADR-018：本段为引脚事实唯一出处，gpio.c 仅消费） ----
+   逻辑 id（BL_PIN_*）供 core/services 引用；物理声明 *_PORT 为端口序号
+   （0=GPIOA 1=GPIOB 2=GPIOC…），*_NUM 为引脚号。chips/f411ceu6.json pins 段与
+   本段一致性由 chips/test_chip.py 强制。 */
+#define BL_PIN_LED             0u      /* 逻辑 id：LED，低电平点亮（ADR-008） */
+#define BL_PIN_LED_PORT        2u      /* PC13 */
+#define BL_PIN_LED_NUM         13u
+#define BL_PIN_LED_ACTIVE_LOW  1
+#define BL_PIN_BT_STATE        1u      /* 逻辑 id：HC-05 STATE 保留位——本包 NC：未接 HC-05，
+                                           读值无意义，仅为 OTA_QUERY 字段语义保留（接蓝牙的支持包
+                                           改声明为实际 STATE 引脚并配置输入下拉） */
+#define BL_PIN_BT_STATE_PORT   2u      /* PC14 */
+#define BL_PIN_BT_STATE_NUM    14u
 
 /* ---- F411 系统内存区（GET_INFO 用；RM0383/DS10697） ---- */
 #define BL_UID_ADDR            0x1FFF7A10u   /* 96 位 Unique device ID 基址 */

@@ -50,13 +50,27 @@
 #define BL_VERIFY_CHUNK        1024u   /* VERIFY 分块（喂狗粒度） */
 #define BL_LOG_HEARTBEAT_MS    500u    /* 空闲心跳日志间隔（0=关闭；协议活跃期静默；接线探针模式） */
 
-/* ---- 引脚编号（gpio.c 内映射实际端口） ---- */
-#define BL_PIN_LED             0u      /* PC13，低电平点亮 */
-#define BL_PIN_I2C_SCL         1u      /* PB8 */
-#define BL_PIN_I2C_SDA         2u      /* PB9 */
-#define BL_PIN_BT_STATE        3u      /* PB0，HC-05 STATE：SPP 连接指示（输入，下拉） */
-#define BL_PIN_BT_EN           4u      /* PB1，HC-05 EN：默认低=数据模式（bluetooth_notes.md §2，
-                                           运行时翻转进 AT 不可靠，仅预留） */
+/* ---- 板级引脚（ADR-018：本段为引脚事实唯一出处，gpio.c/i2c.c 仅消费） ----
+   逻辑 id（BL_PIN_*）供 core/services 引用；物理声明 *_PORT 为端口序号
+   （0=GPIOA 1=GPIOB 2=GPIOC…），*_NUM 为引脚号。chips/f103c8t6.json pins 段与
+   本段一致性由 chips/test_chip.py 强制。 */
+#define BL_PIN_LED             0u      /* 逻辑 id：LED，低电平点亮（ADR-008） */
+#define BL_PIN_LED_PORT        2u      /* PC13 */
+#define BL_PIN_LED_NUM         13u
+#define BL_PIN_LED_ACTIVE_LOW  1
+#define BL_PIN_I2C_SCL         1u      /* 逻辑 id：OLED 软件 I2C 时线（开漏配置在 i2c.c） */
+#define BL_PIN_I2C_SCL_PORT    1u      /* PB8 */
+#define BL_PIN_I2C_SCL_NUM     8u
+#define BL_PIN_I2C_SDA         2u      /* 逻辑 id：OLED 软件 I2C 数据线 */
+#define BL_PIN_I2C_SDA_PORT    1u      /* PB9 */
+#define BL_PIN_I2C_SDA_NUM     9u
+#define BL_PIN_BT_STATE        3u      /* 逻辑 id：HC-05 STATE 输入，高=SPP 已连接（输入下拉） */
+#define BL_PIN_BT_STATE_PORT   1u      /* PB0 */
+#define BL_PIN_BT_STATE_NUM    0u
+#define BL_PIN_BT_EN           4u      /* 逻辑 id：HC-05 EN 输出，默认低=数据模式
+                                           （bluetooth_notes.md §2，运行时翻转进 AT 不可靠，仅预留） */
+#define BL_PIN_BT_EN_PORT      1u      /* PB1 */
+#define BL_PIN_BT_EN_NUM       1u
 
 /* ---- F103 系统内存区（GET_INFO 用） ---- */
 #define BL_UID_ADDR            0x1FFFF7E8u

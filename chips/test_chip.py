@@ -164,6 +164,17 @@ def discover_chips():
     return chips
 
 
+_PIN_PORTS = {"A": 0, "B": 1, "C": 2, "D": 3, "E": 4, "H": 7}
+
+
+def parse_pin(name: str):
+    """'PC13' -> (端口序号 2, 引脚号 13)（与 board_config *_PORT/*_NUM 约定一致）。"""
+    m = re.fullmatch(r"P([A-H])(\d+)", name.strip())
+    if not m:
+        raise ValueError(f"引脚名不合法: {name!r}（期望 PA9/PC13 形式）")
+    return _PIN_PORTS[m.group(1)], int(m.group(2))
+
+
 def artifact_paths(chip: dict) -> dict:
     """按芯片清单定位产物：f103c8t6 等 legacy 芯片 artifact_dir=""（仓库根槽位），
     新芯片 artifact_dir="chips/<id>"；sct 统一在 build.sct_dir 下。"""
@@ -353,6 +364,36 @@ class BoardConfigConsistencyTest(unittest.TestCase):
                                      f"参数副本 0x{cbase:08X} 未完整落在单个擦除单元内")
                     home.append(hit[0])
                 self.assertNotEqual(home[0], home[1], "双副本必须位于不同擦除单元")
+
+    def test_pins(self):
+        """chip.json pins ↔ board_config 板级引脚声明一致（ADR-018）。
+
+        只校验 GPIO 管理的引脚（led/bt_state/bt_en/i2c_*）；uart_*/uart2_* 属
+        端口实现记录（uart.c/uart2.c 消费），不做宏级校验。清单里没写的键
+        （如 f411ceu6 无 bt_en/i2c_*）跳过。"""
+        checks = [
+            ("led", "BL_PIN_LED", True),
+            ("bt_state", "BL_PIN_BT_STATE", False),
+            ("bt_en", "BL_PIN_BT_EN", False),
+            ("i2c_scl", "BL_PIN_I2C_SCL", False),
+            ("i2c_sda", "BL_PIN_I2C_SDA", False),
+        ]
+        for chip, _ in self.data.values():
+            with self.subTest(chip=chip["id"]):
+                cid = chip["id"]
+                pins = chip["pins"]
+                for key, macro_base, check_polarity in checks:
+                    if key not in pins:
+                        continue
+                    port, num = parse_pin(pins[key])
+                    self.assertEqual(self.val(cid, f"{macro_base}_PORT"), port,
+                                     f"{key} 端口序号与 {macro_base}_PORT 不一致")
+                    self.assertEqual(self.val(cid, f"{macro_base}_NUM"), num,
+                                     f"{key} 引脚号与 {macro_base}_NUM 不一致")
+                    if check_polarity and "led_active_low" in pins:
+                        self.assertEqual(self.val(cid, "BL_PIN_LED_ACTIVE_LOW"),
+                                         1 if pins["led_active_low"] else 0,
+                                         "led_active_low 与 BL_PIN_LED_ACTIVE_LOW 不一致")
 
 
 if __name__ == "__main__":
