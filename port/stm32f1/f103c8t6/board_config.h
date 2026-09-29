@@ -41,7 +41,7 @@
 #define BL_PROTOCOL_ACTIVE_MS  10000u  /* 协议活跃判定（ADR-008/009） */
 #define BL_UI_REFRESH_MS       200u    /* OLED 最低刷新间隔 */
 #define BL_DISPLAY_USER_PAGE   0       /* 1=等待/升级模式下调用 bl_display_user_page()
-                                          弱钩子由用户绘制自检页（AGENTS §8.1）；0=标准页 */
+                                          弱钩子由用户绘制自检页（AGENTS §7.1）；0=标准页 */
 #define BL_RX_RING_SIZE        512u    /* architecture.md §6 */
 #define BL_FRAME_DATA_MAX      256u    /* protocol.md §4 */
 #define BL_FRAME_BYTE_TIMEOUT_MS 2000u /* 帧内字节间超时（protocol.md §4.2）。2026-09-26 定版：

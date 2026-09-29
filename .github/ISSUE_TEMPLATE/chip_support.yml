@@ -5,8 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        新增芯片支持的流程见 [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) 与
-        [docs/porting_guide.md](../blob/main/docs/porting_guide.md)。
+        新增芯片支持的流程见 [CONTRIBUTING.md](https://github.com/Liu-bit264/LiteBootLoader/blob/main/CONTRIBUTING.md) 与
+        [docs/porting_guide.md](https://github.com/Liu-bit264/LiteBootLoader/blob/main/docs/porting_guide.md)。
         有板子的请求可优先获得验证支持；也欢迎直接按清单提交移植 PR。
   - type: input
     id: chip

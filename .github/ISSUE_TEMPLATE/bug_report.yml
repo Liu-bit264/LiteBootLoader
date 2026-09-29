@@ -25,7 +25,7 @@ body:
     attributes:
       label: BL/APP 版本
       description: 上位机 `info` 命令返回值，或 core/bl_version.h 中的版本号
-      placeholder: "例如 BL 0.1.0 / APP 0.1.0"
+      placeholder: "例如 BL 0.3.0 / APP 0.3.0"
     validations:
       required: true
   - type: input

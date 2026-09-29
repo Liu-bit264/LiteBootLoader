@@ -144,7 +144,7 @@ static void display_tick(uint32_t now_ms)
     (void)ssd1306_flush_strips();
 }
 
-/* 用户自检页面弱符号（AGENTS §8.1），默认空 */
+/* 用户自检页面弱符号（AGENTS §7.1），默认空 */
 __weak void bl_display_user_page(void) {}
 
 /* ---- bl_display_ops（core/bl_display.h 统一 API） ---- */

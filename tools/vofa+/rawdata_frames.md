@@ -1,6 +1,6 @@
 # RawData 命令帧模板（LiteBootLoader）
 
-全部帧按 docs/protocol.md §2 帧格式生成，CRC16/MODBUS 已预计算，可直接复制到
+全部帧按 docs/protocol.md §4 帧格式生成，CRC16/MODBUS 已预计算，可直接复制到
 VOFA+ RawData 引擎发送区（HEX 格式）发送。
 
 帧格式：

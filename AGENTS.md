@@ -13,7 +13,8 @@ LiteBootLoader（简称 **BL**）是一个可编译、可测试、可移植的 S
 启动决策、APP 合法性校验、USART1 升级协议、Flash 与参数区管理、OLED/LED 状态显示、
 IWDG 看门狗与安全跳转。
 
-- **首个支持包**：STM32F103C8T6（已完成全链路硬件验证）；F4 / G0 / H7 端口目录预留
+- **支持包**：STM32F103C8T6（参考支持包，端口能力最全，已完成全链路硬件验证）；
+  STM32F411CEU6（最小包，仅有线串口升级 + 引导跳转，已上板 HIL）；G0 / H7 端口目录预留
 - **当前阶段**：开源协作——接收 Bug Issue 与芯片支持包（CSP）PR，流程见第 9 节
 - **不在范围内**：联网 OTA 技术栈、外部 Flash、双 APP 分区与自动回滚（接口可预留，不实现）
 
@@ -130,7 +131,7 @@ DATA(0..256B) | CRC16(LE16) | EOF(0x55AA)
 ### 5.2 命令
 
 `PING`、`GET_INFO`、`ERASE_APP`、`WRITE_CHUNK`（`DATA = offset(LE32) + payload`）、
-`VERIFY_APP`、`SET_META`、`GET_META`、`JUMP_APP`、`RESET`。
+`VERIFY_APP`、`SET_META`、`GET_META`、`JUMP_APP`、`RESET`、`OTA_QUERY`（0x10，0.2.0 起）。
 
 - 响应命令为 `CMD | 0x80`，响应数据必须包含状态码。
 - 最低错误码：`OK`、`CRC_ERROR`、`FLASH_ERROR`、`RANGE_ERROR`、`STATE_ERROR`、`TIMEOUT`。
@@ -147,20 +148,23 @@ DATA(0..256B) | CRC16(LE16) | EOF(0x55AA)
 ```text
 core/          状态机、协议、启动策略、元数据、CRC、版本（不依赖 HAL）
 services/
-  display_oled/  OLED+LED 显示服务实现
-  debug_uart/    USART1 日志服务实现
+  display_oled/  OLED 显示服务实现（可选能力，软件 I2C）
+  display_led/   LED 状态灯显示服务实现（默认最小集）
+  debug_uart/    USART1 日志服务实现（默认最小集）
 chips/
   <id>.json        CSP 芯片清单（ADR-015：构建侧事实源，chipfill 消费）
   templates/       per-chip spec 模板（本项目工程结构数据）
   test_chip.py     模板往返 + chip.json↔board_config 一致性测试
 port/
   bl_port.h      芯片抽象接口（ops 结构）
-  stm32f1/f103c8t6/  flash/uart/i2c/gpio/wdg/clock/systick 实现
-  stm32f4/ stm32g0/ stm32h7/  （预留）
+  stm32f1/f103c8t6/  flash/uart/uart2/i2c/gpio/wdg/clock/systick + bl_jump.s
+  stm32f4/f411ceu6/  最小包（flash/uart/gpio/wdg/clock/systick + bl_jump.s，无 i2c/uart2）
+  stm32g0/ stm32h7/  （预留）
 bsp/           板级器件驱动（oled_ssd1306 等）
 app/
   examples/f103c8t6_app/  APP 示例（链接到 0x08004000）
-linker/        链接脚本 / 分散加载文件（*.sct 为 chipfill 生成产物）
+  examples/f411ceu6_app/  APP 示例（链接到 0x08010000）
+linker/        链接脚本 / 分散加载文件（*.sct 为 chipfill 生成产物；新芯片在 linker/<id>/）
 tools/         vofa+/（RawData 调试帧模板；uvprojx/ico 工具在外部仓 LiteTools）
 docs/
   user_manual.md       用户手册
@@ -169,8 +173,8 @@ docs/
   partition.md         Flash 分区、参数区双副本状态机
   external_interface.md 外部接口清单
   porting_guide.md     移植指南（新增芯片支持包的入口文档）
-  dev/                 开发与代理工作文档（design / versioning / vofa_plus / test_plan）
-scripts/       check_toolchain.*、build_keil.sh、build_keil.md（build_gcc.sh 规划中未交付）
+  dev/                 开发与代理工作文档（design / versioning / vofa_plus / test_plan / bluetooth_notes）
+scripts/       check_toolchain.*、build_keil.sh、build_keil.md、pyocd_manual_flash.py、vendor_copy.py（build_gcc.sh 规划中未交付）
 third_party/   CMSIS / HAL 依赖（原样捆绑，许可见 third_party/CMSIS/LICENSES.md）
 ```
 
@@ -199,8 +203,10 @@ third_party/   CMSIS / HAL 依赖（原样捆绑，许可见 third_party/CMSIS/L
 显示：BL 版本、芯片型号、APP 状态、升级进度、CRC 状态、IWDG 状态。
 
 显示服务为**可选插件**（ADR-019）：默认 BL 示例配置为最小集（LED 状态灯 +
-串口日志，无 OLED）；OLED 能力由 `services/display_oled` 提供，启用方式见
-porting_guide.md §3.1。
+串口日志，无 OLED）；OLED 能力由 `services/display_oled` 提供——需在
+`chips/<id>.json` 的 `build.service_files` 用 `bl_display_oled.c` 替换默认
+`bl_display_led.c`（两者互斥），并在 `bsp_files_bl` 链入 `bsp/oled_ssd1306`，
+见 [README.md](README.md)「配置」表。
 
 - 非阻塞、限频刷新；Flash 擦写和升级接收期间不得因整屏刷新造成不可接受延迟
 - 提供空弱符号回调 `bl_display_user_page()`（ADR-014），供用户扩展自检页面

@@ -1,7 +1,7 @@
 # 贡献指南（CONTRIBUTING）
 
-感谢关注 LiteBootLoader！本页说明如何反馈问题与参与贡献。固件的工作方式见
-[docs/user_manual.md](docs/user_manual.md)，仓库现状见 [README.md](README.md)。
+感谢关注 LiteBootLoader！本页说明如何反馈问题与参与贡献，并承载仓库布局、现状与
+三仓联动等开发向说明。固件的使用方式见 [docs/user_manual.md](docs/user_manual.md)。
 
 ## 反馈 Bug
 
@@ -22,15 +22,120 @@ Keil DFP 包版本、时钟方案、硬件是否在手。有板子的请求可�
 
 也可以直接按下方「芯片支持包 PR」清单自行提交移植。
 
-## 贡献代码
+## 仓库布局
 
-### 开发环境
+| 目录 | 职责 |
+|---|---|
+| `core/` | 状态机、协议、启动策略、元数据与通用逻辑（不依赖 HAL） |
+| `services/` | 显示（默认 `display_led` LED 状态灯；`display_oled` OLED 可选）与调试（USART1 日志）服务——可选插件（ADR-019） |
+| `chips/` | CSP 芯片清单（构建侧事实源）+ spec 模板 + 一致性测试 |
+| `port/` | 芯片端口层（`stm32f1/f103c8t6` 端口能力最全、`stm32f4/f411ceu6` 最小包已实现；`stm32g0/h7` 预留） |
+| `bsp/` | 板级器件驱动（`oled_ssd1306` 等） |
+| `app/examples/` | APP 示例工程（F103 链到 `0x08004000`、F411 链到 `0x08010000`，链接地址由 `board_config.h` 的 `BL_APP_BASE` 给出） |
+| `linker/` | 链接脚本 / 分散加载文件（`*.sct` 为生成产物） |
+| `tools/` | VOFA+ 调试帧模板（uvprojx/ico 工程工具已迁至独立仓 [LiteTools](../LiteTools)） |
+| `docs/` | 架构 / 协议 / 分区 / 接口 / 用户手册 / 移植指南（`docs/dev/` 为开发与代理文档） |
+| `scripts/` | 工具链检查与构建脚本 |
+| `third_party/` | CMSIS / HAL 依赖（原样捆绑，许可见 `third_party/CMSIS/LICENSES.md`） |
+
+## 版本要点与路线
+
+芯片支持范围与验证状态以 [README.md](README.md) 的「支持的芯片」表为**唯一出处**；本节只记
+设计决策与后续计划，避免同一事实两处描述不一致。
+
+- **0.3.0（ADR-019）服务可选挂载与最小示例配置**：唯一强制服务 = 有线串口通道，显示/日志为
+  链接期可选插件（`core/bl_service_stub.c` 弱默认兜底）；默认 BL 示例收敛为最小集
+  （12 180 B ≤ 16K），蓝牙与 OLED 改为按需启用
+  （见 [docs/porting_guide.md](docs/porting_guide.md) §3.1）
+- **0.2.0（ADR-016）蓝牙空口升级**：HC-05（SPP）经 UART2 接入为 transport 通道 1，WIFI 仅
+  API 预留；OTA 状态查询命令 0x10；蓝牙真机在环已通过
+- **ADR-017 F411CEU6 最小支持包**：CSP 阶段 B 的落地实例（仅串口升级 + 引导跳转）
+- **ADR-015 多芯片基础设施**：芯片清单 + 模板化工程生成 + 擦除单元抽象 + IWDG 参数化，
+  设计见 [docs/dev/design.md](docs/dev/design.md)
+- 后续计划：F407ZGT6（f4 家族第二个复用点）、G0 / H7 骨架补全、`build_gcc.sh`（规划中，未交付）
+
+## 三仓布局与联动
+
+| 仓库 | 职责 | 耦合契约与联动规则 |
+|---|---|---|
+| **LiteBootLoader**（本仓） | 固件 + 协议契约 | `docs/protocol.md` 是协议唯一规范；协议/分区/跳转行为变更先改文档并升版本 |
+| [LiteBootUpgrader](../LiteBootUpgrader) | 上位机 CLI + GUI（串口升级/跳转/自检） | 实现本仓 protocol.md 当前版本（VER 0x01）；本仓协议或行为变更后，LBU 需同步并通过 `test_host_protocol.py` 与硬件 E2E 回归 |
+| [LiteTools](../LiteTools) | Keil uvprojx / ICO 工具 + chipfill | 消费本仓 `chips/<id>.json` schema 与 `chips/templates/` spec 模板；chipfill 的契约回归由本仓 `chips/test_chip.py` 承担（内嵌 chipfill 往返用例），LiteTools 侧 `test_uvprojx.py` 覆盖 parser / generator |
+
+三仓耦合关系图示：
+
+```mermaid
+flowchart LR
+    subgraph LBL["LiteBootLoader（本仓）"]
+        FW["固件 core/port/services<br/>协议契约 docs/protocol.md"]
+        CSP["CSP：chips/*.json<br/>+ spec 模板"]
+    end
+    subgraph LBU["LiteBootUpgrader"]
+        HOST["上位机 CLI + GUI<br/>协议栈唯一实现"]
+    end
+    subgraph LT["LiteTools"]
+        GEN["chipfill<br/>uvprojx / ICO 工具"]
+    end
+    BOARD["开发板<br/>BL @0x08000000<br/>APP @0x08004000"]
+
+    HOST -->|"实现 protocol.md（VER 0x01）<br/>协议变更 → LBU 同步回归"| FW
+    GEN -->|"消费 chip.json schema + 模板<br/>变更 → 双向回归"| CSP
+    GEN -.->|"生成 spec/sct/uvprojx"| FW
+    HOST -. "有线 USART1 / 蓝牙 UART2" .-> BOARD
+    FW --- BOARD
+```
+
+## 开发环境
 
 - 运行 `scripts/check_toolchain.sh`（Git Bash/Linux）或 `scripts/check_toolchain.bat`（CMD）
   检查 CMake、arm-none-eabi-gcc、Make/Ninja、OpenOCD、Python、Keil（UV4）
 - Python 依赖建议隔离运行：`uv run --with <pkg>` 或 venv；避免污染全局解释器
 - 主工具链为 Keil MDK（编译器 AC5）；注意 Windows 下 git autocrlf，勿让
   `.sct`/`.uvprojx` 混入异常换行符
+
+## 构建与验证
+
+一键构建（chip.json + 模板 → spec/sct → 生成工程 → UV4 全量重建 → 退出码判定 → 生成 bin）：
+
+```bash
+# CHIP 指定芯片清单（默认 f103c8t6）；TARGETS 默认 "bootloader app"
+CHIP=f103c8t6 bash scripts/build_keil.sh
+
+# 改了 chips/<id>.json 或模板后：重新生成全部产物（test_chip.py 强制往返一致）
+python chips/test_chip.py
+```
+
+手工等价流程与独立仓工具（LiteTools 位于 `../LiteTools`）：
+
+```bash
+python ../LiteTools/uvprojx/chipfill.py --chip chips/f103c8t6.json --target bootloader \
+    --spec-out bootloader.spec.json --sct-out linker/bootloader.sct   # 芯片清单 -> spec 与 scatter
+python ../LiteTools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx  # spec -> 工程
+"<Keil 安装目录>/UV4/UV4.exe" -r bootloader.uvprojx -j0 -o keil_build.log
+# 退出码：0=无警告无错误，1=有警告，≥2=有错误
+"<Keil 安装目录>/ARM/ARMCC/bin/fromelf.exe" --bin --output=bootloader.bin Objects/bootloader.axf
+
+# Keil 工程解析 / 生成（工具在独立仓 ../LiteTools）
+python ../LiteTools/uvprojx/parser.py <工程.uvprojx> -o spec.json
+python ../LiteTools/uvprojx/generator.py spec.json -o new.uvprojx        # 创建模式（结果需在 Keil 中人工验证）
+python ../LiteTools/uvprojx/generator.py spec.json --update old.uvprojx  # 更新模式（保留未知字段，自动备份）
+
+# ICO 图标解析 / 生成（同在 ../LiteTools）
+python ../LiteTools/ico/parser.py <文件.ico>
+python ../LiteTools/ico/generator.py --sizes 16,32,48,256 -o icon.ico icon.png
+```
+
+硬件在环验证（板子在线时；上位机与钻具在 `../LiteBootUpgrader`）：
+
+```bash
+# 15 步升级流程自检
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py selftest --port COMx
+
+# 参数区写入中断恢复钻具（需调试器）
+uv run --python 3.12 --with pyserial --with pyocd ../LiteBootUpgrader/bl_powerloss_drill.py --port COMx --rounds 10
+```
+
+## 贡献代码
 
 ### Bug 修复 PR
 
@@ -66,3 +171,14 @@ APP CRC 错误拒绝跳转、IWDG 接管无误复位。
   `refactor` / `perf` / `test` / `chore` / `port`（细则见 docs/dev/versioning.md）
 - 版本遵循 **SemVer 2.0.0**：`fix` → PATCH，`feat` → MINOR，`BREAKING CHANGE` → MAJOR
 - 一个 PR 聚焦一件事；大改动建议先开 Issue 讨论
+
+## 开发文档索引
+
+| 文档 | 内容 |
+|---|---|
+| [docs/dev/design.md](docs/dev/design.md) | 总体设计与固化决策记录（CRC 参数、升级模式、LED/日志策略等 ADR） |
+| [docs/dev/versioning.md](docs/dev/versioning.md) | SemVer 与 Conventional Commits 细则 |
+| [docs/dev/test_plan.md](docs/dev/test_plan.md) | 测试计划：四级测试、selftest 清单、验收对照表、实测教训索引 |
+| [docs/dev/bluetooth_notes.md](docs/dev/bluetooth_notes.md) | 蓝牙 HC-05 核实笔记：引脚语义、AT 一次性配置、来源引用 |
+| [docs/dev/vofa_plus.md](docs/dev/vofa_plus.md) | VOFA+ 定位与可行性说明 |
+| [AGENTS.md](AGENTS.md) | 代理/编码助手的仓库工作规范 |
