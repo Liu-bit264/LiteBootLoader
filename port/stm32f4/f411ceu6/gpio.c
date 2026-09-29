@@ -1,7 +1,7 @@
 #include "gpio.h"
 #include "board_config.h"
 #include "bl_port.h"
-#include "stm32f10x.h"
+#include "stm32f4xx.h"
 
 /* 板级引脚抽象（ADR-018）：物理引脚唯一出处为 board_config.h，本文件仅消费。
    端口序号 -> 寄存器基址（0=GPIOA 1=GPIOB 2=GPIOC，与声明端约定一致） */
@@ -14,50 +14,28 @@ typedef struct {
 
 static const pin_map_t k_pins[] = {
     [BL_PIN_LED]       = { BL_PIN_LED_PORT,      1u << BL_PIN_LED_NUM },
-    [BL_PIN_I2C_SCL]   = { BL_PIN_I2C_SCL_PORT,  1u << BL_PIN_I2C_SCL_NUM },
-    [BL_PIN_I2C_SDA]   = { BL_PIN_I2C_SDA_PORT,  1u << BL_PIN_I2C_SDA_NUM },
     [BL_PIN_BT_STATE]  = { BL_PIN_BT_STATE_PORT, 1u << BL_PIN_BT_STATE_NUM },
-    [BL_PIN_BT_EN]     = { BL_PIN_BT_EN_PORT,    1u << BL_PIN_BT_EN_NUM },
 };
 #define PIN_COUNT (sizeof(k_pins) / sizeof(k_pins[0]))
 #define PIN_PORT(m) (k_ports[(m).port_idx])
 #define PIN_MASK(m) ((m).mask)
 
-/* F1 CR 配置（每脚 4bit：MODE[1:0]+CNF[3:2]；CRL=pin0-7，CRH=pin8-15） */
-#define CR_OUT_PP_2MHZ  0x2u   /* MODE=10 CNF=00 */
-#define CR_OUT_OD_2MHZ  0x6u   /* MODE=10 CNF=01 */
-#define CR_IN_PUPD      0x8u   /* MODE=00 CNF=10（上/下拉由 ODR 选择） */
-
-static void cr_cfg(GPIO_TypeDef *port, uint8_t num, uint8_t nibble)
-{
-    volatile uint32_t *cr = (num < 8u) ? &port->CRL : &port->CRH;
-    const uint32_t shift = (uint32_t)(num % 8u) * 4u;
-    *cr &= ~(0xFu << shift);
-    *cr |= (uint32_t)nibble << shift;
-}
-
 void bl_gpio_port_init(void)
 {
-    RCC->APB2ENR |= RCC_APB2ENR_IOPBEN | RCC_APB2ENR_IOPCEN;
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOCEN;
 
-    /* F1 CR 配置（CRL=pin0-7/CRH=pin8-15，每脚 4bit：MODE[1:0]+CNF[3:2]），
-       按声明端 NUM 派生 */
+    /* LED：开漏输出（低电平点亮，灌电流；与 F103 方案一致），按声明端 NUM 派生位段 */
     const pin_map_t *led = &k_pins[BL_PIN_LED];
-    cr_cfg(PIN_PORT(*led), BL_PIN_LED_NUM, CR_OUT_OD_2MHZ);
-    PIN_PORT(*led)->BSRR = PIN_MASK(*led);              /* 高 = 灭 */
+    PIN_PORT(*led)->MODER = (PIN_PORT(*led)->MODER & ~(3u << (2u * BL_PIN_LED_NUM))) |
+                            (1u << (2u * BL_PIN_LED_NUM));   /* 输出 */
+    PIN_PORT(*led)->OTYPER |= PIN_MASK(*led);                /* 开漏 */
+    PIN_PORT(*led)->BSRR = PIN_MASK(*led);                   /* 高 = 灭 */
 
-    /* BT_STATE：输入下拉（MODE=00/CNF=10，ODR=0 选下拉）——模块未接或未连接时读 0 */
+    /* BT_STATE：浮空输入（本包 NC——未接 HC-05，读值无意义，
+       仅保持 OTA_QUERY 字段语义；接蓝牙的支持包改为输入下拉并接 STATE） */
     const pin_map_t *st = &k_pins[BL_PIN_BT_STATE];
-    cr_cfg(PIN_PORT(*st), BL_PIN_BT_STATE_NUM, CR_IN_PUPD);
-    PIN_PORT(*st)->BRR = PIN_MASK(*st);
-
-    /* BT_EN：输出推挽，默认低 = HC-05 上电进数据模式
-       （bluetooth_notes.md §2：AT 模式要求 KEY 上电时为高，固件不运行时切换） */
-    const pin_map_t *en = &k_pins[BL_PIN_BT_EN];
-    cr_cfg(PIN_PORT(*en), BL_PIN_BT_EN_NUM, CR_OUT_PP_2MHZ);
-    PIN_PORT(*en)->BRR = PIN_MASK(*en);
-
-    /* I2C 两线交由 bl_i2c 配置为开漏（i2c.c 自己初始化，声明见 board_config） */
+    PIN_PORT(*st)->MODER &= ~(3u << (2u * BL_PIN_BT_STATE_NUM));   /* 输入 */
+    PIN_PORT(*st)->PUPDR &= ~(3u << (2u * BL_PIN_BT_STATE_NUM));   /* 浮空 */
 }
 
 static void set_pin(const pin_map_t *m, bool level)
@@ -65,7 +43,7 @@ static void set_pin(const pin_map_t *m, bool level)
     if (level) {
         PIN_PORT(*m)->BSRR = PIN_MASK(*m);
     } else {
-        PIN_PORT(*m)->BRR = PIN_MASK(*m);
+        PIN_PORT(*m)->BSRR = PIN_MASK(*m) << 16u;   /* F4 无 BRR，BSRR 高 16 位复位 */
     }
 }
 
@@ -103,3 +81,9 @@ const bl_gpio_ops bl_gpio = {
     .toggle = ops_toggle,
     .read = ops_read,
 };
+
+/* F411 最小包无 I2C/OLED：bl_boot 九步第 6 步的释放钩子落为空实现
+   （F1 由 i2c.c 提供强符号，此处直接给出定义） */
+void bl_port_i2c_release(void)
+{
+}

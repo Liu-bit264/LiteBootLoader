@@ -7,6 +7,8 @@
 
 ### 1.1 引脚分配
 
+**F103C8T6（全功能参考包）**：
+
 | 引脚 | 功能 | 说明 | 出处 |
 |---|---|---|---|
 | PA9 | USART1_TX | 升级协议 + 日志（复用策略见 [dev/design.md](dev/design.md) ADR-009） | protocol.md §3 |
@@ -18,6 +20,11 @@
 | PC13 | LED | 低电平点亮，非阻塞模式见 dev/design.md ADR-008 | — |
 | PB9 | OLED_SDA | 软件 I2C | §1.2 |
 | PB8 | OLED_SCL | 软件 I2C | §1.2 |
+
+**F411CEU6（最小包，ADR-017）**：PA9/PA10 = USART1（115200 8N1，同上）、PC13 = LED
+（低电平点亮，开漏）、PC14 = BT_STATE 保留位（NC，未接 HC-05，读值无意义，仅为
+OTA_QUERY 字段语义保留）。无 USART2/OLED/BT 引脚；`BL_HSE_MHZ` 支持 8 或 25
+（100MHz/3WS，HSE 失败回退 HSI）。
 
 ### 1.2 I2C / OLED
 

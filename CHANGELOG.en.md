@@ -6,6 +6,64 @@ All notable changes to this project are documented in this file. The format is b
 
 中文版本：[CHANGELOG.md](CHANGELOG.md)
 
+## [Unreleased]
+
+Second chip support package: STM32F411CEU6 minimal implementation (ADR-017, CSP phase B).
+**Support-package-only change — core/protocol/firmware behavior untouched, BL version
+stays 0.2.0** (version policy per maintainer decision: bump only when core/protocol changes).
+
+### Added
+
+- **F411CEU6 support package** (`chips/f411ceu6.json` + `port/stm32f4/f411ceu6/`): UART
+  upgrade + boot/jump only — no OLED/Bluetooth/I2C. Partitions: BL 32K (sectors 0-1),
+  params 2×16K (sectors 2/3, independent erase units), APP 448K (sectors 4-7); clock
+  `BL_HSE_MHZ` supports both 8/25 MHz crystals (100MHz/3WS, PWR VOS Scale 1 first, HSI
+  fallback); IWDG 2000ms relaxed to 8000ms during upgrade (CPU stalls cannot feed during
+  128K sector erase; PR=/256 covers both levels); `BL_TRANSPORT_BT_EN=0` unregisters the
+  BT channel (slot reserved)
+- **LED-only display service** (`services/display_led/`): minimal display for OLED-less
+  packages, mode table per ADR-008
+- **Multi-chip build finishing**: `chips/test_chip.py` auto-discovers all chip manifests
+  and validates non-uniform erase units (F4 explicit sector table, both sides); spec
+  template Port/Services/BSP lists and include/scatter paths now chip.json-driven;
+  artifacts split per chip (`chips/<id>/`, `linker/<id>/`; f103c8t6 keeps its legacy
+  root slots with byte-identical renders)
+- **F4 CMSIS headers** (`third_party/CMSIS/`): Core(M) V5.6.0 + Device STM32F4xx (AC5
+  compatible, Apache-2.0), byte-identical copies from local STM32Cube_FW_F4_V1.28.3 with
+  SHA-256 records in LICENSES.md; new `scripts/vendor_copy.py` copy-and-verify tool
+- **F411 minimal APP example** (`app/examples/f411ceu6_app/`): breathing LED + upgrade
+  request responder
+
+### Changed
+
+- **Pins promoted to board-level declarations (ADR-018)**: `board_config.h` is now the
+  single source of pin facts (logical id + `*_PORT` port index + `*_NUM` pin number +
+  `BL_PIN_LED_ACTIVE_LOW` polarity); gpio.c only consumes them (map/ops paths are
+  macro-driven, F1 CRL/CRH config derived from NUM); `chips/test_chip.py` enforces
+  chip.json `pins` ↔ declarations (led/bt_state/bt_en/i2c_*; uart_* are port-record
+  only). Bins grew slightly from macro-driven init (see Verification)
+
+### Verification
+
+- `chips/test_chip.py` 12/12 passed (f103c8t6 + f411ceu6, including the pins section)
+- F103 regression: AC5 full rebuild 0 errors 0 warnings — **before** the pin abstraction,
+  byte-identical to the 0.2.0 baseline (BL 15 324 B `499de4bc…` / APP 8 152 B
+  `534eb656…`); **after**, behavior-equivalent with slight growth: BL 15 400 B
+  (SHA-256 `31dc570f…`), APP 8 228 B (SHA-256 `3d5301c4…`), within limits
+- F411 new: AC5 full rebuild 0 errors 0 warnings, BL 12 536 B ≤ 32K (SHA-256
+  `ebde0e74…`), APP 6 356 B (SHA-256 `46c711e4…`); the board was re-flashed from the
+  repo script and re-verified (GET_INFO OK, new APP upgraded/jumped, params seq
+  continuous across re-flash)
+- **F411 on-target HIL completed (2026-09-29)**: flash (register-level, see
+  `scripts/pyocd_manual_flash.py`) → GET_INFO (flash=512KB/UID correct) → upgrade
+  (448K erase 4.21s with no reset under the 8s IWDG relaxation, VERIFY CRC32 match) →
+  jump to breathing-LED APP → setmeta round-trip back to BL (monotonic seq) → reset
+  injected mid-erase recovered → auto-jump on valid APP at boot; selftest 15 steps:
+  14 PASS + 1 false-FAIL (LBU fixture hardcodes F103 `APP_SIZE=0xB800`, see
+  docs/dev/test_plan.md §5.1)
+- Signature/hash verification confirmed as a separate iteration (integration point
+  documented in docs/partition.md §4)
+
 ## [0.2.0] - 2026-09-27
 
 Landing of the "Bluetooth serial + OTA" plan (ADR-016): over-the-air upgrades via

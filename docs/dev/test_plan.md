@@ -79,6 +79,36 @@
 
 **汇总**：通过 14 项、部分 0 项、未通过 0 项（2026-09-26 全部关闭；#9/#7 的"真实拔电"为复位注入等效验证 + 人工拔电补充步骤已文档化）。
 
+### 5.1 F411CEU6 最小包验收对照（ADR-017）
+
+**2026-09-29 上板 HIL 实测完成**（板：F411CEU6 核心板 + DAPLink COM4；烧录走
+`scripts/pyocd_manual_flash.py`——该板 pyocd flash 算法路径一启动即 FAULT，寄存器级
+驱动全程稳定，CPUID=0x410FC241）：
+
+| 项 | 结论 | 证据 |
+|---|---|---|
+| `chips/test_chip.py` 全芯片一致性（含 F4 非均匀扇区表两侧比对、双副本独立单元、引脚声明段） | ✅ 通过 | 12/12（f103c8t6 + f411ceu6） |
+| BL 编译 0 错 0 警，bin ≤ 32K（本芯片分区） | ✅ 通过 | 12 536 B（SHA-256 `ebde0e74…`，引脚抽象 ADR-018 后），AC5 全量重建；烧录回读逐字节一致 |
+| APP 编译 0 错 0 警，bin ≤ 448K | ✅ 通过 | 6 356 B（SHA-256 `46c711e4…`） |
+| F103 回归不回退 | ✅ 通过 | 引脚抽象前与 0.2.0 基线逐字节一致（`499de4bc…`/`534eb656…`）；抽象后行为等价微增 BL 15 400 B（`31dc570f…`）/ APP 8 228 B（`3d5301c4…`），0 错 0 警限额内 |
+| GET_INFO（sysmem 地址实测） | ✅ 通过 | `BL v0.2.0 flash=512KB`（FLSIZE@0x1FFF7A22 正确）、UID 96bit 读出（0x1FFF7A10） |
+| selftest 15 步 | ✅ 14 PASS + 1 假阳性 | 唯一 FAIL「WRITE 越界防护」为 LBU 夹具硬编码 F103 `APP_SIZE=0xB800`（bl_upgrade.py:38）——该偏移在 F411 448K APP 区内，固件接受写入是正确行为；同源欠账见下 |
+| ERASE/WRITE/VERIFY 全链路（IWDG 8s 放宽实测） | ✅ 通过 | 448K APP 区擦除 4.21s（含 128K 扇区 CPU 停顿期）全程无复位；VERIFY CRC32 `0x61a5df89` 与镜像一致 |
+| JUMP + APP 运行 | ✅ 通过 | 呼吸灯目视 + 串口横幅 `A:F411 APP v0.1.0 running, breathing`（SysTick+USART1 中断运行） |
+| APP 请求回 BL 闭环 | ✅ 通过 | `setmeta 01 01` → 落盘复位 → BL 重启 `app_valid=1 seq=3`；GET_META seq 单调（3→7） |
+| 升级中断恢复（复位注入） | ✅ 通过 | 擦除进行中经 SWD 注入复位 → LBU 幂等重发（`erase 超时重发 2/3`）→ 同轮完成；随后完整重升成功；BL/参数区无恙 |
+| 上电自跳转（有效 APP） | ✅ 通过 | 复位 → `wait 3000ms` 心跳 5 拍 → 自动跳转 → APP 横幅（ADR-004 路径实测） |
+| 100MHz/3WS 时钟 | ✅ 通过（间接） | 心跳 500ms 节拍精准（SysTick 按 SystemCoreClock=100M 分频）、115200 帧全程零 CRC 失败 |
+| 蓝牙 / OLED / OTA_QUERY 蓝牙字段 | ➖ 不适用 | 最小包无蓝牙/OLED；`BL_TRANSPORT_BT_EN=0`，PC14 为 NC 保留位 |
+| 真实拔电演练（人工） | ⬜ 待办 | LBU 断电钻具 `--chip` 参数化（PYOCD_CMD 写死 stm32f103c8）属跨仓欠账；本表复位注入为其等效验证 |
+
+**跨仓欠账（LBU）**：selftest/断电钻具的芯片参数化——`APP_SIZE=0xB800`、
+`PYOCD_CMD` 目标名均硬编码 F103，需 LBU 侧 PR 支持 `--chip`/GET_INFO 派生。
+
+**板卡实测注意（本板）**：正反面丝印不一致（SWD 引脚以**背面**为准）；供电不足会
+导致 SWD 无应答（插 Type-C 供满后恢复）；pyocd flash 算法路径不可用，烧录用
+`scripts/pyocd_manual_flash.py`。
+
 ## 6. 常见问题与风险（实测教训索引）
 
 | 现象 | 根因 | 对策 |

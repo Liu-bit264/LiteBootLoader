@@ -4,6 +4,54 @@
 
 English version: [CHANGELOG.en.md](CHANGELOG.en.md)
 
+## [Unreleased]
+
+第二个芯片支持包：STM32F411CEU6 最小实现包（ADR-017，CSP 阶段 B）。**仅追加支持包、
+不触碰 core/协议/固件行为——BL 版本号保持 0.2.0 不变**（用户决定的版本策略：动 core/
+协议才升版）。
+
+### Added
+
+- **F411CEU6 支持包**（`chips/f411ceu6.json` + `port/stm32f4/f411ceu6/`）：仅串口升级 +
+  引导跳转，无 OLED/蓝牙/I2C。分区 BL 32K（扇区 0-1）/参数区 2×16K（扇区 2/3，独立
+  擦除单元）/APP 448K（扇区 4-7）；时钟 `BL_HSE_MHZ` 支持 8/25 两种晶振（100MHz/3WS，
+  PWR VOS Scale 1 前置，HSI 回退）；IWDG 2000/放宽 8000ms（128K 扇区擦除期 CPU 停顿
+  无法喂狗，PR/256 一档覆盖两档）；`BL_TRANSPORT_BT_EN=0` 关闭蓝牙通道（槽位保留）
+- **LED 状态显示服务**（`services/display_led/`）：无 OLED 支持包的最小显示方案，
+  模式表沿用 ADR-008
+- **多芯片构建收尾**：`chips/test_chip.py` 自动遍历全部芯片清单并支持非均匀擦除单元
+  （F4 显式扇区表两侧比对）；spec 模板 Port/Services/BSP 清单与 include/scatter 路径
+  改由 chip.json 驱动；产物按芯片分槽位（`chips/<id>/`、`linker/<id>/`，f103c8t6 保持
+  根目录 legacy 槽位且渲染产物逐字节不变）
+- **F4 CMSIS 头**（`third_party/CMSIS/`）：Core(M) V5.6.0 + Device STM32F4xx（AC5 兼容，
+  Apache-2.0），自本机 STM32Cube_FW_F4_V1.28.3 原样拷贝，SHA-256 核验记录见
+  LICENSES.md；新增 `scripts/vendor_copy.py` 拷贝核验工具
+- **F411 最小 APP 示例**（`app/examples/f411ceu6_app/`）：呼吸灯 + 升级口响应器
+
+### Changed
+
+- **引脚提升为板级声明（ADR-018）**：`board_config.h` 成为引脚事实唯一出处
+  （逻辑 id + `*_PORT` 端口序号 + `*_NUM` 引脚号 + `BL_PIN_LED_ACTIVE_LOW` 极性），
+  gpio.c 仅消费（映射表/ops 通路宏驱动，F1 CRL/CRH 配置按 NUM 派生）；
+  `chips/test_chip.py` 新增 chip.json `pins` 段与声明的强制一致（led/bt_state/
+  bt_en/i2c_*；uart_* 属端口实现记录不校验）。bin 因初始化宏化微增（见 Verification）
+
+### Verification
+
+- `chips/test_chip.py` 12/12 通过（f103c8t6 + f411ceu6 全芯片一致性，含引脚段）
+- F103 回归：AC5 全量重建 0 错 0 警——引脚抽象**之前**与 0.2.0 基线逐字节一致
+  （BL 15 324 B `499de4bc…` / APP 8 152 B `534eb656…`）；引脚抽象**之后**行为等价微增：
+  BL 15 400 B（SHA-256 `31dc570f…`）、APP 8 228 B（SHA-256 `3d5301c4…`），限额内
+- F411 新建：AC5 全量重建 0 错 0 警，BL 12 536 B ≤ 32K（SHA-256 `ebde0e74…`）、
+  APP 6 356 B（SHA-256 `46c711e4…`）；上板以仓库脚本重刷同步并复验
+  （GET_INFO 正常、新 APP 升级跳转运行，参数区跨重烧 seq 连续）
+- **F411 硬件在环完成（2026-09-29）**：上板烧录（寄存器级，见 `scripts/pyocd_manual_flash.py`）
+  → GET_INFO（flash=512KB/UID 正确）→ 升级（448K 擦除 4.21s，IWDG 8s 放宽实测无复位，
+  VERIFY CRC32 一致）→ 跳转 APP 呼吸灯 → setmeta 回 BL 闭环（seq 单调）→ 擦除中复位注入
+  恢复 → 有效 APP 上电自跳转；selftest 15 步 14 PASS + 1 假阳性（LBU 夹具硬编码 F103
+  `APP_SIZE=0xB800`，详见 docs/dev/test_plan.md §5.1）
+- 签名/哈希校验确认独立迭代（接入点见 docs/partition.md §4 预留说明）
+
 ## [0.2.0] - 2026-09-27
 
 规划书《空口蓝牙串口及OTA》落地（ADR-016）：蓝牙空口升级 + WIFI API 预留 + OTA 查询。

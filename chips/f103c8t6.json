@@ -15,17 +15,162 @@
     "sfd_file": "$$Device:STM32F103C8$SVD\\STM32F103xx.svd"
   },
   "build": {
-    "c_defines": ["STM32F10X_MD"],
+    "c_defines": [
+      "STM32F10X_MD"
+    ],
     "cmsis_dir": "third_party\\CMSIS",
     "cmsis_sources": [
-      { "name": "core_cm3.c", "type": 1, "path": "third_party\\CMSIS\\core_cm3.c" }
+      {
+        "name": "core_cm3.c",
+        "type": 1,
+        "path": "third_party\\CMSIS\\core_cm3.c"
+      }
     ],
     "port_dir": "port\\stm32f1\\f103c8t6",
     "startup_files": [
-      { "name": "startup_stm32f10x_md.s", "type": 2, "path": "port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s" }
+      {
+        "name": "startup_stm32f10x_md.s",
+        "type": 2,
+        "path": "port\\stm32f1\\f103c8t6\\startup_stm32f10x_md.s"
+      }
     ],
-    "bl_jump_file": { "name": "bl_jump.s", "type": 2, "path": "port\\stm32f1\\f103c8t6\\bl_jump.s" },
-    "app_example_dir": "app\\examples\\f103c8t6_app"
+    "bl_jump_file": {
+      "name": "bl_jump.s",
+      "type": 2,
+      "path": "port\\stm32f1\\f103c8t6\\bl_jump.s"
+    },
+    "app_example_dir": "app\\examples\\f103c8t6_app",
+    "artifact_dir": "",
+    "sct_dir": "linker",
+    "proj_rel": "",
+    "include_paths_bl": [
+      "core",
+      "port",
+      "port\\stm32f1\\f103c8t6",
+      "bsp\\oled_ssd1306",
+      "third_party\\CMSIS"
+    ],
+    "include_paths_app": [
+      "core",
+      "port",
+      "port\\stm32f1\\f103c8t6",
+      "bsp\\oled_ssd1306",
+      "third_party\\CMSIS",
+      "app\\examples\\f103c8t6_app"
+    ],
+    "service_files": [
+      {
+        "name": "bl_display_oled.c",
+        "type": 1,
+        "path": "services\\display_oled\\bl_display_oled.c"
+      },
+      {
+        "name": "bl_debug_uart.c",
+        "type": 1,
+        "path": "services\\debug_uart\\bl_debug_uart.c"
+      }
+    ],
+    "port_files_bl": [
+      {
+        "name": "main.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\main.c"
+      },
+      {
+        "name": "clock.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\clock.c"
+      },
+      {
+        "name": "systick.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\systick.c"
+      },
+      {
+        "name": "uart.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\uart.c"
+      },
+      {
+        "name": "uart2.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\uart2.c"
+      },
+      {
+        "name": "wifi_stub.c",
+        "type": 1,
+        "path": "port\\wifi_stub.c"
+      },
+      {
+        "name": "gpio.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\gpio.c"
+      },
+      {
+        "name": "wdg.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\wdg.c"
+      },
+      {
+        "name": "flash.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\flash.c"
+      },
+      {
+        "name": "i2c.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\i2c.c"
+      }
+    ],
+    "port_files_app": [
+      {
+        "name": "clock.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\clock.c"
+      },
+      {
+        "name": "systick.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\systick.c"
+      },
+      {
+        "name": "uart.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\uart.c"
+      },
+      {
+        "name": "gpio.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\gpio.c"
+      },
+      {
+        "name": "i2c.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\i2c.c"
+      },
+      {
+        "name": "wdg.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\wdg.c"
+      },
+      {
+        "name": "flash.c",
+        "type": 1,
+        "path": "port\\stm32f1\\f103c8t6\\flash.c"
+      }
+    ],
+    "bsp_files": [
+      {
+        "name": "ssd1306.c",
+        "type": 1,
+        "path": "bsp\\oled_ssd1306\\ssd1306.c"
+      },
+      {
+        "name": "ssd1306_font.c",
+        "type": 1,
+        "path": "bsp\\oled_ssd1306\\ssd1306_font.c"
+      }
+    ]
   },
   "memory": {
     "flash_base": "0x08000000",
@@ -34,14 +179,26 @@
     "sram_size": "0x00005000"
   },
   "partitions": {
-    "bootloader": { "base": "0x08000000", "size": "0x00004000" },
-    "app": { "base": "0x08004000", "size": "0x0000B800" },
+    "bootloader": {
+      "base": "0x08000000",
+      "size": "0x00004000"
+    },
+    "app": {
+      "base": "0x08004000",
+      "size": "0x0000B800"
+    },
     "params": {
       "base": "0x0800F800",
       "size": "0x00000800",
       "copies": [
-        { "base": "0x0800F800", "size": "0x00000400" },
-        { "base": "0x0800FC00", "size": "0x00000400" }
+        {
+          "base": "0x0800F800",
+          "size": "0x00000400"
+        },
+        {
+          "base": "0x0800FC00",
+          "size": "0x00000400"
+        }
       ]
     }
   },

@@ -20,6 +20,10 @@ Flash 分区：
 
 ## 2. 硬件准备
 
+以下为 **F103C8T6 参考包**（全功能）。**F411CEU6 最小包**（ADR-017）：串口同为
+PA9/PA10 115200 8N1、LED 同为 PC13 低电平点亮，无 OLED/蓝牙/I2C 引脚（OLED 行与蓝牙行
+不适用）；`BL_HSE_MHZ` 默认 25，8M 晶振板改 board_config 一处宏即可（其余流程相同）。
+
 | 项 | 连接/配置 |
 |---|---|
 | 串口 | USART1：PA9(TX)/PA10(RX)，115200，8N1，无流控；经 USB-TTL 或 DAPLink CDC 接电脑（本机为 COM4） |
