@@ -1,0 +1,216 @@
+{
+  "_note": "CSP 芯片清单（ADR-015）：构建侧事实源，由 tools/uvprojx/chipfill.py 消费生成 per-chip 的 .spec.json 与 .sct。C 侧常量唯一出处仍为 port/.../board_config.h，两侧一致性由 chips/test_chip.py 校验。加芯片 = 建本文件 + 实现 port ops（porting_guide.md §CSP）。F411CEU6 最小支持包（ADR-017）：仅串口升级 + 引导跳转，无 OLED/蓝牙/I2C。",
+  "id": "f411ceu6",
+  "family": "stm32f4",
+  "device": {
+    "name": "STM32F411CE",
+    "vendor": "STMicroelectronics",
+    "pack_id": "Keil.STM32F4xx_DFP.3.1.1",
+    "cputype": "Cortex-M4",
+    "cpu_clock": "CLOCK(25000000)",
+    "endianness": "ELITTLE",
+    "debug_dll_args": "-pCM4",
+    "flash_driver": "UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F4xx_512 -FS08000000 -FL080000 -FP0($$Device:STM32F411CE$Flash\\STM32F4xx_512.FLM))",
+    "register_file": "$$Device:STM32F411CE$Device\\Include\\stm32f4xx.h",
+    "sfd_file": "$$Device:STM32F411CE$SVD\\STM32F411.svd"
+  },
+  "build": {
+    "c_defines": [
+      "STM32F411xE"
+    ],
+    "cmsis_dir": "third_party\\CMSIS",
+    "cmsis_sources": [],
+    "port_dir": "port\\stm32f4\\f411ceu6",
+    "startup_files": [
+      {
+        "name": "startup_stm32f411xe.s",
+        "type": 2,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\startup_stm32f411xe.s"
+      }
+    ],
+    "bl_jump_file": {
+      "name": "bl_jump.s",
+      "type": 2,
+      "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\bl_jump.s"
+    },
+    "app_example_dir": "app\\examples\\f411ceu6_app",
+    "artifact_dir": "chips\\f411ceu6",
+    "sct_dir": "linker\\f411ceu6",
+    "proj_rel": "..\\..\\",
+    "include_paths_bl": [
+      "{{chip.build.proj_rel}}core",
+      "{{chip.build.proj_rel}}port",
+      "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6",
+      "{{chip.build.proj_rel}}third_party\\CMSIS"
+    ],
+    "include_paths_app": [
+      "{{chip.build.proj_rel}}core",
+      "{{chip.build.proj_rel}}port",
+      "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6",
+      "{{chip.build.proj_rel}}third_party\\CMSIS",
+      "{{chip.build.proj_rel}}app\\examples\\f411ceu6_app"
+    ],
+    "service_files": [
+      {
+        "name": "bl_display_led.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}services\\display_led\\bl_display_led.c"
+      },
+      {
+        "name": "bl_debug_uart.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}services\\debug_uart\\bl_debug_uart.c"
+      }
+    ],
+    "port_files_bl": [
+      {
+        "name": "main.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\main.c"
+      },
+      {
+        "name": "clock.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\clock.c"
+      },
+      {
+        "name": "systick.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\systick.c"
+      },
+      {
+        "name": "uart.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\uart.c"
+      },
+      {
+        "name": "wifi_stub.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\wifi_stub.c"
+      },
+      {
+        "name": "gpio.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\gpio.c"
+      },
+      {
+        "name": "wdg.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\wdg.c"
+      },
+      {
+        "name": "flash.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\flash.c"
+      }
+    ],
+    "port_files_app": [
+      {
+        "name": "clock.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\clock.c"
+      },
+      {
+        "name": "systick.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\systick.c"
+      },
+      {
+        "name": "uart.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\uart.c"
+      },
+      {
+        "name": "gpio.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\gpio.c"
+      },
+      {
+        "name": "wdg.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\wdg.c"
+      },
+      {
+        "name": "flash.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\flash.c"
+      }
+    ],
+    "bsp_files": []
+  },
+  "memory": {
+    "flash_base": "0x08000000",
+    "flash_size": "0x00080000",
+    "sram_base": "0x20000000",
+    "sram_size": "0x00020000"
+  },
+  "partitions": {
+    "bootloader": {
+      "base": "0x08000000",
+      "size": "0x00008000"
+    },
+    "app": {
+      "base": "0x08010000",
+      "size": "0x00070000"
+    },
+    "params": {
+      "base": "0x08008000",
+      "size": "0x00008000",
+      "copies": [
+        {
+          "base": "0x08008000",
+          "size": "0x00004000"
+        },
+        {
+          "base": "0x0800C000",
+          "size": "0x00004000"
+        }
+      ]
+    }
+  },
+  "erase_units": {
+    "uniform": false,
+    "base": "0x08000000",
+    "units": [
+      {
+        "size": "0x4000",
+        "count": 4,
+        "typical_erase_ms": 230
+      },
+      {
+        "size": "0x10000",
+        "count": 1,
+        "typical_erase_ms": 490
+      },
+      {
+        "size": "0x20000",
+        "count": 3,
+        "typical_erase_ms": 875
+      }
+    ],
+    "_note": "RM0383 §3.3：512K 器件 = 扇区 0-3 各 16K + 扇区 4 64K + 扇区 5-7 各 128K；典型擦除时间按 DS10697 数量级（最大可翻倍，IWDG 放宽 8s 覆盖）"
+  },
+  "clock": {
+    "hse_mhz": 25,
+    "hse_mhz_alt": 8,
+    "target_hz": 100000000,
+    "hsi_mhz": 16,
+    "wait_states": 3
+  },
+  "pins": {
+    "uart_tx": "PA9",
+    "uart_rx": "PA10",
+    "led": "PC13",
+    "led_active_low": true,
+    "bt_state": "PC14",
+    "bt_state_note": "NC：本包未接 HC-05（ADR-017），字段仅为 OTA_QUERY 语义保留"
+  },
+  "iwdg": {
+    "normal_ms": 2000,
+    "upgrade_relaxed_ms": 8000
+  },
+  "sysmem": {
+    "uid_addr": "0x1FFF7A10",
+    "flsize_addr": "0x1FFF7A22"
+  }
+}
