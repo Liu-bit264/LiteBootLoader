@@ -31,7 +31,7 @@
       "c_defines": "{{chip.build.c_defines}}",
       "c_include_paths": { "$chip": "build.include_paths_app" },
       "c_misc_controls": "-Ospace",
-      "scatter_file": "{{chip.build.sct_dir}}\\app.sct",
+      "scatter_file": "{{chip.build.proj_rel}}{{chip.build.sct_dir}}\\app.sct",
       "groups": [
         {
           "name": "Startup",
@@ -42,15 +42,15 @@
         {
           "name": "App",
           "files": [
-            { "name": "main.c", "type": 1, "path": "{{chip.build.app_example_dir}}\\main.c" },
-            { "name": "app_request.c", "type": 1, "path": "{{chip.build.app_example_dir}}\\app_request.c" }
+            { "name": "main.c", "type": 1, "path": "{{chip.build.proj_rel}}{{chip.build.app_example_dir}}\\main.c" },
+            { "name": "app_request.c", "type": 1, "path": "{{chip.build.proj_rel}}{{chip.build.app_example_dir}}\\app_request.c" }
           ]
         },
         {
           "name": "Core",
           "files": [
-            { "name": "bl_metadata.c", "type": 1, "path": "core\\bl_metadata.c" },
-            { "name": "bl_crc.c", "type": 1, "path": "core\\bl_crc.c" }
+            { "name": "bl_metadata.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_metadata.c" },
+            { "name": "bl_crc.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_crc.c" }
           ]
         },
         {

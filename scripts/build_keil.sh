@@ -22,10 +22,10 @@ LOG="${LOG:-keil_build.log}"
 [ -f "$CHIPS" ] || { echo "[build] 芯片清单不存在: $CHIPS"; exit 2; }
 [ -f "$UVTOOLS/chipfill.py" ] || { echo "[build] LiteTools 不存在: $UVTOOLS（克隆 https 位置后与主仓并列放置，或用 LITETOOLS_UVPROJX 指向）"; exit 2; }
 # 产物槽位与 APP 目录均由芯片清单给出（反斜杠转正斜杠供 bash 使用）
-read -r ARTDIR SCTDIR <<< "$(python - "$CHIPS" <<'EOF'
+IFS='|' read -r ARTDIR SCTDIR <<< "$(python - "$CHIPS" <<'EOF'
 import json, sys
 b = json.load(open(sys.argv[1], encoding='utf-8'))['build']
-print(b.get('artifact_dir', '').replace('\\', '/'), b['sct_dir'].replace('\\', '/'))
+print(b.get('artifact_dir', '').replace('\\', '/') + '|' + b['sct_dir'].replace('\\', '/'))
 EOF
 )"
 APP_DIR=$(python -c "import json;print(json.load(open('$CHIPS',encoding='utf-8'))['build']['app_example_dir'].replace(chr(92),'/'))")
@@ -50,8 +50,9 @@ for TGT in $TARGETS; do
   python "$UVTOOLS/generator.py" "$SPEC_OUT" -o "$PRJ_OUT" || exit 1
 
   # 3) 全量重建（-r），避开增量构建的旧产物干扰
+  #    UV4 -o 的日志路径相对工程文件目录解析——传绝对路径保证始终在仓库根可读
   rm -f "$LOG"
-  "$UV4" -r "$PRJ_OUT" -j0 -o "$LOG"
+  "$UV4" -r "$PRJ_OUT" -j0 -o "$(pwd)/$LOG"
   rc=$?
   tail -n 4 "$LOG"
   case $rc in

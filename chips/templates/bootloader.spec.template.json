@@ -31,7 +31,7 @@
       "c_defines": "{{chip.build.c_defines}}",
       "c_include_paths": { "$chip": "build.include_paths_bl" },
       "c_misc_controls": "-Ospace",
-      "scatter_file": "{{chip.build.sct_dir}}\\bootloader.sct",
+      "scatter_file": "{{chip.build.proj_rel}}{{chip.build.sct_dir}}\\bootloader.sct",
       "groups": [
         {
           "name": "Startup",
@@ -43,13 +43,13 @@
         {
           "name": "Core",
           "files": [
-            { "name": "bl_core.c", "type": 1, "path": "core\\bl_core.c" },
-            { "name": "bl_protocol.c", "type": 1, "path": "core\\bl_protocol.c" },
-            { "name": "bl_transport.c", "type": 1, "path": "core\\bl_transport.c" },
-            { "name": "bl_storage.c", "type": 1, "path": "core\\bl_storage.c" },
-            { "name": "bl_metadata.c", "type": 1, "path": "core\\bl_metadata.c" },
-            { "name": "bl_boot.c", "type": 1, "path": "core\\bl_boot.c" },
-            { "name": "bl_crc.c", "type": 1, "path": "core\\bl_crc.c" }
+            { "name": "bl_core.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_core.c" },
+            { "name": "bl_protocol.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_protocol.c" },
+            { "name": "bl_transport.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_transport.c" },
+            { "name": "bl_storage.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_storage.c" },
+            { "name": "bl_metadata.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_metadata.c" },
+            { "name": "bl_boot.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_boot.c" },
+            { "name": "bl_crc.c", "type": 1, "path": "{{chip.build.proj_rel}}core\\bl_crc.c" }
           ]
         },
         {
