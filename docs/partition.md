@@ -157,7 +157,7 @@ flowchart TD
 
 F103 页擦写寿命 ≥1 万次；按每天完整升级 + 10 次 bl_request 计算，参数区年擦写约 7,300 次，寿命约 1.4 年（极端假设）；实际升级频率远低，**预期寿命 > 10 年**。若后续出现高频写场景，应扩展 seq 字段为日志式追加（不在本期范围）。
 
-## 10. 阶段 1 落地接口预览（`core/bl_metadata.h`，签名先行，非代码交付）
+## 10. 接口清单（`core/bl_metadata.h`，已交付，与实现同步）
 
 ```c
 typedef struct {
@@ -171,6 +171,7 @@ typedef struct {
 
 bool bl_meta_load(bl_meta_t *out);                       /* §6.1 读取规则 */
 bool bl_meta_commit_app(uint32_t size, uint32_t crc32);  /* VERIFY 持久化 */
+bool bl_meta_matches_app(uint32_t size, uint32_t crc32); /* VERIFY 持久化幂等判定 */
 bool bl_meta_set_bl_request(bool set);                   /* 置位/清除，含掉电安全写 */
 bool bl_meta_set_app_version(uint16_t ma, uint16_t mi, uint16_t pa);
 ```

@@ -166,6 +166,9 @@ static void handle_write(uint8_t seq, const uint8_t *data, uint32_t len)
     }
     bl_display.set_progress((uint8_t)((done * 100u) / BL_APP_SIZE));
     s_app_valid_dirty = true;   /* 写入改变内容，有效性待 VERIFY 确定 */
+    wdg_widen_for_upgrade();   /* ADR-015：写前自动擦除路径同样先放宽（审计
+                                  2026-09-29 P2-1）——F4 128K 扇区擦除 ~1.75s
+                                  可超 2s 常规窗口，主机免发 ERASE_APP 时受影响 */
     resp_status(BL_CMD_WRITE_CHUNK, seq,
                 bl_storage_write_chunk(offset, data + 4u, len - 4u));
 }
@@ -325,6 +328,20 @@ static void handle_reset(uint8_t seq, const uint8_t *data, uint32_t len)
 
 void bl_core_frame_received(uint8_t cmd, uint8_t seq, const uint8_t *data, uint32_t len)
 {
+    /* FAULT = 几何自检失败，存储/元数据不可信：仅放行只读/复位诊断命令，
+       升级命令一律回 STATE_ERROR——防止带病 CSP 经命令路径擦到 BootLoader
+       区（审计 2026-09-29 P1-1；AGENTS §12 禁止升级路径擦写 BL 自身） */
+    if (s_state == BL_STATE_FAULT) {
+        switch (cmd) {
+        case BL_CMD_PING:
+        case BL_CMD_GET_INFO:
+        case BL_CMD_RESET:
+            break;
+        default:
+            resp_status(cmd, seq, BL_STATUS_STATE_ERROR);
+            return;
+        }
+    }
     /* 任意有效帧使 WAIT_HOST 转入升级模式（ADR-004） */
     if (s_state == BL_STATE_WAIT_HOST) {
         s_state = BL_STATE_UPGRADE_WAIT;

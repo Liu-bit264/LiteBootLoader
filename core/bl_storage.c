@@ -17,6 +17,9 @@ static uint8_t s_erased_map[(BL_APP_UNITS_MAX + 7u) / 8u];
 
 static uint16_t s_app_first_unit;   /* 第一个覆盖 APP 区的全局单元号 */
 static uint16_t s_app_unit_total;   /* 覆盖 APP 区的单元数（现实分区下全局序号连续） */
+static bool s_geom_ok;   /* init 几何自检结果（审计 2026-09-29 P1-1）：false 时
+                            拒绝一切升级擦写——FAULT 命令白名单之外的第二道
+                            防线，新命令路径漏检也擦不到 BL/参数区 */
 
 static void erased_map_set(uint32_t rel_unit)
 {
@@ -32,6 +35,7 @@ bool bl_storage_init(void)
 {
     bl_flash.init();
     memset(s_erased_map, 0, sizeof(s_erased_map));
+    s_geom_ok = false;
 
     /* 校验单元表几何完整（各单元等大且拼满 Flash 由端口层保证的正确性入口），
        并定位覆盖 APP 区的单元区间（F1 均匀页退化为 16..61 连续区间）。
@@ -61,9 +65,10 @@ bool bl_storage_init(void)
             s_app_unit_total++;
         }
     }
-    return covered == BL_FLASH_SIZE && s_app_unit_total > 0u &&
-           s_app_unit_total <= BL_APP_UNITS_MAX &&
-           first_addr == BL_APP_BASE && last_end == end_addr;
+    s_geom_ok = covered == BL_FLASH_SIZE && s_app_unit_total > 0u &&
+                s_app_unit_total <= BL_APP_UNITS_MAX &&
+                first_addr == BL_APP_BASE && last_end == end_addr;
+    return s_geom_ok;
 }
 
 /* APP 内第 rel 个覆盖单元的几何（依赖覆盖单元全局序号连续，现实分区恒成立） */
@@ -107,6 +112,9 @@ static bool unit_needs_erase(uint32_t addr, uint32_t size)
 
 bl_status_t bl_storage_erase_app(void)
 {
+    if (!s_geom_ok) {
+        return BL_STATUS_FLASH_ERROR;   /* 几何自检未通过（FAULT）：拒绝升级擦写 */
+    }
     for (uint32_t r = 0; r < s_app_unit_total; r++) {
         bl_wdg.refresh();   /* 喂狗点：每擦除单元之间（architecture.md §7） */
         if (!bl_flash.erase_unit(s_app_first_unit + r)) {
@@ -119,6 +127,9 @@ bl_status_t bl_storage_erase_app(void)
 
 bl_status_t bl_storage_write_chunk(uint32_t offset, const uint8_t *data, uint32_t len)
 {
+    if (!s_geom_ok) {
+        return BL_STATUS_FLASH_ERROR;   /* 几何自检未通过（FAULT）：拒绝升级擦写 */
+    }
     if (len == 0u || len > (BL_FRAME_DATA_MAX - 4u)) {
         return BL_STATUS_RANGE_ERROR;
     }
@@ -165,6 +176,9 @@ bl_status_t bl_storage_write_chunk(uint32_t offset, const uint8_t *data, uint32_
 bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
                                   uint32_t *calc_crc, uint32_t *calc_size)
 {
+    if (!s_geom_ok) {
+        return BL_STATUS_FLASH_ERROR;   /* 几何自检未通过（FAULT）：拒绝升级擦写 */
+    }
     /* 下界 8 = 向量表最少 2 字（初始 MSP + Reset Handler）：更小的 size 无法
        覆盖跳转判定所需向量，持久化会让有效性判定依赖未校验的旧内容
        （review 2026-09-27 P1） */

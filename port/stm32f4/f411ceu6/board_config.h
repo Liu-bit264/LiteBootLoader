@@ -28,6 +28,9 @@
 #define BL_SRAM_BASE           0x20000000u
 #define BL_SRAM_SIZE           0x00020000u   /* 128 KiB */
 
+/* ---- 板级标识（显示服务消费，服务层不携带芯片事实——审计 2026-09-29 P2-4） ---- */
+#define BL_CHIP_NAME           "F411CE"
+
 /* ---- 行为常量 ---- */
 #define BL_TRANSPORT_BT_EN     0       /* 本支持包未接蓝牙：通道 1 槽位保留（OTA_QUERY 通道号语义不变） */
 #define BL_USE_HSE             1       /* 1=HSE->PLL 100MHz（默认）；0=HSI 16MHz 直驱（调试回退） */

@@ -7,7 +7,7 @@
     "vendor": "STMicroelectronics",
     "pack_id": "Keil.STM32F1xx_DFP.2.4.1",
     "cputype": "Cortex-M3",
-    "cpu_clock": "CLOCK(12000000)",
+    "cpu_clock": "CLOCK(8000000)",
     "endianness": "ELITTLE",
     "debug_dll_args": "-pCM3",
     "flash_driver": "UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_128 -FS08000000 -FL020000 -FP0($$Device:STM32F103C8$Flash\\STM32F10x_128.FLM))",

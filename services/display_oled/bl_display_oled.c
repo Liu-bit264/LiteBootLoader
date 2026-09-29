@@ -79,7 +79,23 @@ static void refresh_screen(void)
     char line[24];
 
     ssd1306_puts(0, 0, "LiteBL " BL_VERSION_STRING);
-    ssd1306_puts(0, 1, bl_clock_hse_active() ? "F103C8  CLK:72M" : "F103C8  CLK:8M(HSI)");
+    /* 型号取 board_config（审计 2026-09-29 P2-4：服务层不携带芯片事实）；
+       主频显示运行时实测值（MHz 取整），'*' = HSI 回退而非 HSE */
+    {
+        char top[24];
+        uint8_t k = 0;
+        const char *p = BL_CHIP_NAME;
+        uint32_t mhz = (bl_clock_get_hz() + 500000u) / 1000000u;
+        while (*p) { top[k++] = *p++; }
+        top[k++] = ' '; top[k++] = 'C'; top[k++] = 'L'; top[k++] = 'K'; top[k++] = ':';
+        if (mhz >= 100u) { top[k++] = (char)('0' + mhz / 100u); }
+        if (mhz >= 10u) { top[k++] = (char)('0' + (mhz / 10u) % 10u); }
+        top[k++] = (char)('0' + mhz % 10u);
+        top[k++] = 'M';
+        if (!bl_clock_hse_active()) { top[k++] = '*'; }
+        top[k] = '\0';
+        ssd1306_puts(0, 1, top);
+    }
 
     switch (s_state) {
     case BL_DISPLAY_UPGRADING:
