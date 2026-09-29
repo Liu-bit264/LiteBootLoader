@@ -29,6 +29,13 @@ bool bl_boot_app_valid(void)
     if (meta.app_size == 0u || meta.app_size > BL_APP_SIZE) {
         return false;
     }
+#if BL_SIGN_EN
+    /* ADR-020：启用验签的支持包要求 auth 标志（启动期零密码运算；
+       legacy VERIFY 持久化的镜像 auth=0，不构成有效可跳转 APP） */
+    if (meta.app_auth != 1u) {
+        return false;
+    }
+#endif
     if (!vectors_ok(BL_APP_BASE)) {
         return false;
     }
