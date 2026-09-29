@@ -76,12 +76,13 @@ flowchart TB
 | 目录 | 职责 | 说明 |
 |---|---|---|
 | `core/` | 状态机、协议、启动策略、元数据、CRC、UI 调度、日志 | 纯逻辑，可被主机侧单元测试编译（`BL_HOST_TEST` 分支 mock ops） |
-| `port/stm32f1/f103c8t6/` | 首个端口实现 | `port/stm32f4、stm32g0、stm32h7/` 预留空目录 |
+| `port/stm32f1/f103c8t6/` | 首个端口实现（全功能：OLED+蓝牙） | `port/stm32g0、stm32h7/` 预留空目录 |
+| `port/stm32f4/f411ceu6/` | 第二个端口实现（ADR-017 最小包：串口+引导） | 无 I2C/uart2；显示走 `services/display_led` |
 | `bsp/oled_ssd1306/` | SSD1306 初始化/绘字/分片刷新 | 经 `bl_i2c_ops`，非阻塞 |
-| `app/examples/f103c8t6_app/` | APP 示例（阶段 2） | 链接 `0x08004000`、设 VTOR、接管 IWDG、可请求进 BL |
-| `linker/` | `bootloader.ld` / `app.ld` / `bootloader.sct` | 阶段 1 交付 |
+| `app/examples/f103c8t6_app/`、`app/examples/f411ceu6_app/` | APP 示例 | 各自链接本芯片 APP 基址、设 VTOR、接管 IWDG、可请求进 BL |
+| `linker/`、`linker/<id>/` | 散布加载文件（chipfill 生成产物） | f103c8t6 在 `linker/`（legacy 槽位），新芯片在 `linker/<id>/` |
 | `tools/` | 主机侧工具 | 已交付 uvprojx/ico；python 升级器与 vofa+ 配置为阶段 3 |
-| `docs/`、`scripts/`、`third_party/` | 文档、构建脚本、CMSIS | — |
+| `docs/`、`scripts/`、`third_party/` | 文档、构建脚本、CMSIS | F1/F4 CMSIS 平铺混放（文件名不冲突，ADR-015） |
 
 ## 3. 端口层 ops 接口
 
@@ -222,6 +223,8 @@ stateDiagram-v2
 
 - **注册条件**：实现 `bl_uart_ops` 三方法 + 两个接收统计函数并登记进 `s_chans[]`；统计
   缺席的占位通道（WIFI stub）在 init 时被跳过——预留真能编译、真能被选路识别。
+  未接蓝牙的支持包以 `BL_TRANSPORT_BT_EN=0`（board_config.h，ADR-017，如 f411ceu6）
+  关闭通道 1 注册，槽位保留、通道号语义不变。
 - **活动通道仲裁**：某通道收到首个字节即锁定（记录最后字节时刻），锁定期间只从该通道
   取字节；静默超过 `BL_FRAME_BYTE_TIMEOUT_MS`（与协议帧内字节超时同窗口）释放回轮询。
   半帧在途期间两路字节不会交错进同一全局解析器，protocol 层无感切换；响应经 `send`

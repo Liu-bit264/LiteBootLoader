@@ -21,7 +21,10 @@ Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
 - **Bluetooth over-the-air upgrades (0.2.0)**: HC-05 (SPP) attached via UART2 as
   transport channel 1, WIFI reserved at the API level; OTA status query command 0x10
   (ADR-016); on-target Bluetooth validation is in progress
-- STM32F4 / G0 / H7 port directories are reserved (skeletons only); the full workflow for
+- **STM32F411CEU6 minimal support package (in progress, ADR-017)**: UART upgrade +
+  boot/jump only (no OLED/Bluetooth); compile and consistency tests pass, on-target
+  validation pending; F407ZGT6 is planned as the second f4-family reuse point
+- STM32G0 / H7 port directories are reserved (skeletons only); the full workflow for
   adding a new chip is described in [docs/porting_guide.md](docs/porting_guide.md)
 - Multi-chip infrastructure (CSP: chip manifest + template-driven project generation +
   erase-unit abstraction + parameterized IWDG) is in place — see
@@ -34,7 +37,7 @@ Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
 | `core/` | State machines, protocol, boot policy, metadata, common logic (no HAL dependency) |
 | `services/` | Display (OLED+LED) and debug (USART1 log) services |
 | `chips/` | CSP chip manifests (build-side source of truth) + spec templates + consistency tests |
-| `port/` | Chip port layer (`stm32f1/f103c8t6` implemented; `stm32f4/g0/h7` reserved) |
+| `port/` | Chip port layer (`stm32f1/f103c8t6` full-featured and `stm32f4/f411ceu6` minimal implemented; `stm32g0/h7` reserved) |
 | `bsp/` | Board-level device drivers (`oled_ssd1306`, etc.) |
 | `app/examples/` | Example APP project (linked at `0x08004000`) |
 | `linker/` | Linker scripts / scatter files (`*.sct` are generated artifacts) |

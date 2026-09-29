@@ -19,6 +19,7 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 | 启动决策与 APP 校验（§5.1） | `core/bl_boot.c` + `core/bl_metadata.c` | ../architecture.md §5、../partition.md |
 | USART1 升级协议（§6） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | ../protocol.md |
 | 蓝牙空口升级 + OTA 查询（规划书《空口蓝牙串口及OTA》2026-09-27，ADR-016） | F103 端口 `uart2.c` + `core/bl_transport.c` 通道注册表 + `core/bl_core.c` OTA_QUERY | ../architecture.md §6.1、../protocol.md §5.10、[bluetooth_notes.md](bluetooth_notes.md) |
+| F411CEU6 最小支持包（ADR-017，仅串口+引导） | `chips/f411ceu6.json` + `port/stm32f4/f411ceu6/` + 服务 `services/display_led/` | ../porting_guide.md §2、../architecture.md §6.1、../partition.md §1 |
 | Flash 读写/擦除与地址防护（§5） | `core/bl_storage.c` + F103 端口 `flash.c` | ../partition.md §2 |
 | 参数区双副本（§5） | `core/bl_metadata.c` | ../partition.md §4–§8 |
 | OLED/LED 状态显示（§8） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | ../architecture.md §8 |
@@ -126,6 +127,39 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 - 用户自检页扩展点落地为 `bl_display_user_page()` 弱符号（AGENTS §8.1），
   `BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
 - 备选实现（LED-only 显示、RTT 日志）换 services 目录即可，core 不动。
+
+### ADR-017 F411CEU6 最小支持包（用户确认，2026-09-29）
+
+第二个芯片支持包（CSP 阶段 B，阶段 A 见 ADR-015），**仅串口升级 + 引导跳转**：
+
+- **最小包边界**：无 OLED/I2C/蓝牙/签名。显示走新服务 `services/display_led`
+  （LED-only，模式表沿用 ADR-008）；transport 通道 1 经 `BL_TRANSPORT_BT_EN=0`
+  关闭注册（槽位保留，OTA_QUERY 通道号语义不变，见 b14ed08）；OTA_QUERY 等核心
+  命令随 main 自带不裁剪。
+- **分区**（512K = 4×16K + 64K + 3×128K，RM0383 §3.3）：BL=扇区 0-1（32K）、参数区=
+  扇区 2/3（双副本各 16K 独立擦除单元）、APP=扇区 4-7（448K @ 0x08010000）。
+  BL 取 32K 而非 16K：F103 BL 已 15.3K，F4 版留足余量。
+- **时钟**：`BL_HSE_MHZ` 编译期支持 8 与 25 两种晶振（均 →100MHz、3WS）；100MHz
+  前置 PWR VOS=Scale 1（默认 Scale 2 上限 84MHz）；HSE 失败回退 HSI 16MHz。
+- **IWDG**：2000ms/放宽 **8000ms**——128K 扇区擦除典型 ~875ms（最大可翻倍）且单
+  bank 擦除期间 CPU 停顿无法喂狗，是 F4 移植头号设计点；wdg.c 以 PR=/256 一档覆盖
+  两档（reload 250/1000 ≤4095）。
+- **CMSIS F4**：Core(M) V5.6.0（保留 cmsis_armcc.h，AC5 兼容）+ Device STM32F4xx，
+  均自本机 STM32Cube_FW_F4_V1.28.3 原样拷贝（Apache-2.0，SHA-256 见
+  ../third_party/CMSIS/LICENSES.md）；F1 侧 V1.30 不动。startup 改编件放 port 目录
+  （去堆，与 F1 同处置）。新增 `scripts/vendor_copy.py` 支撑原样拷贝+哈希核验。
+- **产物槽位**：新芯片 spec/sct/uvprojx 入 `chips/<id>/` 与 `linker/<id>/`
+  （`build.artifact_dir/sct_dir`），工程路径经 `build.proj_rel` 前缀相对工程目录
+  解析；f103c8t6 保持仓库根 legacy 槽位，渲染产物逐字节不变（roundtrip 强制）。
+- **版本策略（用户决定）**：仅追加 CSP、不触碰 core/协议/固件行为 → **不升 BL
+  版本号**（不改 bl_version.h），CHANGELOG 走 `[Unreleased]`；动 core/协议的迭代
+  （如下述签名）才升版。
+- **签名/哈希校验**（用户确认独立迭代）：本期不做。验签链属 core 级特性（元数据
+  结构+启动决策链+协议+上位机+签名工具），接入点见 ../partition.md §4；F411 参数区
+  每副本 16K、BL 32K（现 12 452 B）预算充足，后加无需改分区；F103 BL 16K 装不下，
+  届时以编译开关裁剪并文档明示无认证能力。
+- **验证深度**：编译 + 一致性测试通过即交付（用户确认）；蓝牙 N/A、OLED N/A，
+  硬件在环（烧录/升级/跳转/断电演练）未执行，见 dev/test_plan.md。
 
 ### ADR-016 多通道 transport + OTA_QUERY（用户确认，2026-09-27）
 

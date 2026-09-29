@@ -16,7 +16,10 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 
 - core 禁止 `#include` 任何芯片/CMSIS 头（architecture.md §2）。
 - 所有引脚、分区、超时、波特率常量唯一出处为 `board_config.h`，禁止散落硬编码。
-- `third_party/CMSIS` 按目标芯片更换；注意编译器支持（本项目用 AC5，CMSIS 6 已弃 AC5，故使用 V1.30 自包含内核头——见 third_party/CMSIS/LICENSES.md）。
+- `third_party/CMSIS` 按目标芯片更换并续记 LICENSES.md（原样拷贝，可用 `scripts/vendor_copy.py`
+  拷入并出 SHA-256 核验）；注意编译器支持——本项目固定 AC5：CMSIS 6 已弃 AC5，F1（M3）用
+  V1.30 自包含内核头，F4（M4）用 Core(M) V5.6.0（保留 `cmsis_armcc.h`）+ 对应器件头，
+  详见 third_party/CMSIS/LICENSES.md 选型说明。
 
 ## 2. 加一颗芯片的标准流程（CSP，ADR-015）
 
@@ -28,15 +31,21 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
    LICENSES.md 原样拷贝记录）；确认 `RESET` 段仍被 scatter 以 `*.o (RESET, +First)` 置于镜像首。
 3. 写 `chips/<id>.json`：device（含 DFP flash_driver/register_file/sfd_file——可先在
    Keil GUI 配好设备再用 LiteTools 仓的 `uvprojx/parser.py` 解析现成工程提取）、memory、partitions
-   （含参数双副本单元）、erase_units（F1 均匀页紧凑描述 / F4 显式扇区表）、clock、pins、
+   （含参数双副本单元）、erase_units（**F1 均匀页**：`uniform:true, base, unit_size, count`；
+   **F4 非均匀扇区**：`uniform:false, base, units:[{size,count,typical_erase_ms}]`，C 侧
+   `BL_ERASE_UNIT_TABLE` 显式表，两侧由 test_chip.py 展开比对）、clock、pins、
    iwdg（normal_ms + upgrade_relaxed_ms，**F4 建议 8000 ms**）、sysmem。
+   构建段还需声明产物槽位：`artifact_dir`/`sct_dir`（f103c8t6 保持仓库根 legacy 槽位、
+   `""`；新芯片用 `chips/<id>` / `linker/<id>`）与 `proj_rel`（uvprojx 相对仓库根的
+   深度前缀，根槽位 `""`，子目录槽位 `"..\\..\\"`——Keil 以工程文件所在目录解析全部
+   相对路径）。F411CEU6 实例见 `chips/f411ceu6.json`。
 4. 实现 `board_config.h`：与 chip.json 四类常量（分区/SRAM/擦除单元/IWDG）保持一致——
    `chips/test_chip.py` 会强制校验两侧。
 5. 实现 6 个 ops（§3，Flash 用 unit_* 语义）。
 6. 实现 `clock.c` 的 `SystemInit`（§4，**必须包含跳转进入路径**）与 `bl_clock_ops`。
 7. 实现 `bl_jump.s`（§6，逐字照搬，只换汇编器语法）。
 8. 构建：`CHIP=<id> bash scripts/build_keil.sh`——chipfill 自动从 chip.json+模板生成
-   `.spec.json`/`.sct`/工程文件，全量构建 0 错 0 警即过（uvprojx 零手工）。
+   `.spec.json`/`.sct`/工程文件到清单声明的产物槽位，全量构建 0 错 0 警即过（uvprojx 零手工）。
 9. 烧录 BL（调试探针，如 `pyocd flash -t <目标> --pack <DFP> bootloader.bin`）→ 用独立
    上位机仓跑 15 步硬件在环检验：`uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py selftest --port COM4`（在主仓根目录运行）。
 10. 用 `upgrade` 子命令写入一份真 APP → `jump` 验证九步跳转；断电恢复钻具
