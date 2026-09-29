@@ -81,6 +81,15 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 5. 九步跳转第 6 步经 `bl_port_uart_deinit` 反初始化所有 BL 使用过的 UART：不含某通道的
    目标（如 APP 示例）链接 uart.c 内的 `__weak` 空实现即可，无需链入该通道实现。
 
+**启用 OLED 显示服务（`services/display_oled`，ADR-019 可选能力）**：
+
+1. `chips/<id>.json` 的 `build.service_files` 将 `bl_display_led.c` 替换为
+   `bl_display_oled.c`（两者互斥），`bsp_files_bl` 链入 `bsp/oled_ssd1306` 两个源。
+2. `port_files_bl` 必须同时加入 `i2c.c`（软件 I2C 端口实现）——显示服务自举
+   `bl_i2c.init()`，缺它即 `L6218E: Undefined symbol bl_i2c`（2026-09-30 实测）。
+3. 重新生成工程；OLED 状态行的芯片名取自 `board_config.h` 的 `BL_CHIP_NAME`
+   （新增 CSP 必须定义该宏）。
+
 ## 4. 时钟与 SystemInit——两条进入路径
 
 `SystemInit` 有两种进入方式，**必须区分处理**（F103 实测教训：跳转进入时把 Flash 等待周期降到 0WS，72MHz 下取指损坏，APP 静默硬fault）：
