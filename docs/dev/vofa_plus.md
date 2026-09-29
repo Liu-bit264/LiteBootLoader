@@ -1,11 +1,11 @@
 # VOFA+ 可行性与定位说明（vofa_plus）
 
-> 版本 0.1.0 · 2026-09-25 · 状态：阶段 3 已交付（工具目录 tools/vofa+/）
-> 关联：[../protocol.md](../protocol.md) §9.2（RawData 帧模板） · ../AGENTS.md §9.4
+> 版本 0.3.0 · 2026-09-25 初版 · 2026-09-29 修订 · 状态：阶段 3 已交付（工具目录 tools/vofa+/）
+> 关联：[../protocol.md](../protocol.md) §9.2（RawData 帧模板） · [../../AGENTS.md](../../AGENTS.md) §9.4
 
 ## 1. 定位声明（防混淆）
 
-**VOFA+ 不是本项目的正式升级工具**。正式升级工具为独立仓库 `LiteBootUpgrader` 的 `bl_upgrade.py`（v1.1.0，pyserial 实现，含 tkinter GUI）。VOFA+ 的角色严格限定为：
+**VOFA+ 不是本项目的正式升级工具**。正式升级工具为独立仓库 `LiteBootUpgrader` 的 `bl_upgrade.py`（v1.3.0，pyserial 实现，含 tkinter GUI）。VOFA+ 的角色严格限定为：
 
 1. **日志观察**：USART1（115200 8N1）文本流查看 BL 运行日志；
 2. **RawData 手动发帧**：十六进制手工发送协议帧，用于调试与联调演示。
@@ -20,7 +20,7 @@
 | 完成整流程升级 | **不采用** | 需要分帧、CRC 计算、进度与重试编排——这正是 bl_upgrade.py 的职责；VOFA+ 手工操作易出错且不可重复 |
 | FireWater/JustFloat 波形协议 | 不适用 | 本项目日志为文本行，非浮点帧流；不启用 VOFA+ 波形协议 |
 
-## 3. 配置要点（已交付 `tools/vofa+/../README.md` 首跑指南）
+## 3. 配置要点（已交付 `tools/vofa+/README.md` 首跑指南）
 
 - 串口：`COMx`（本机 COM4，以设备管理器实际为准），115200，8N1，无流控；
 - 引擎：**RawData**（非 JustFloat/FireWater 波形协议；官方定位即"当串口调试助手用务必选它"）；
@@ -37,4 +37,4 @@
 | 完整镜像升级 | ✘（易错、不可重复） | ✔ |
 | 升级中断恢复测试 | ✘ | ✔（阶段 3 测试项） |
 
-阶段 3 实际交付物（2026-09-26）：`tools/vofa+/../README.md`（定位声明、本机安装位置、首跑配置步骤）与 `tools/vofa+/rawdata_frames.md`（全命令 RawData 帧速查表，CRC 预计算）。未提供 `.vofa` 配置文件——本机 VOFA+ 从未运行、无历史配置，凭空发明配置格式不可验证；首跑后如有值得固化的界面配置再回填本目录。[../protocol.md](../protocol.md) §9.2 的帧模板保持同步。
+阶段 3 实际交付物（2026-09-26）：`tools/vofa+/README.md`（定位声明、本机安装位置、首跑配置步骤）与 `tools/vofa+/rawdata_frames.md`（全命令 RawData 帧速查表，CRC 预计算）。未提供 `.vofa` 配置文件——本机 VOFA+ 从未运行、无历史配置，凭空发明配置格式不可验证；首跑后如有值得固化的界面配置再回填本目录。[../protocol.md](../protocol.md) §9.2 的帧模板保持同步。

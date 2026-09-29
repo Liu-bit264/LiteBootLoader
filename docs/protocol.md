@@ -164,16 +164,16 @@ USART1（有线）与 UART2（蓝牙）共用同一个协议解析器实例。tr
 
 ### 5.3 ERASE_APP（0x03）
 
-整片擦除 APP 区（页 16–61），擦除单元间喂狗。幂等：重复调用返回 OK。DATA 必须为空，否则 `RANGE_ERROR`。
+整片擦除 APP 区（F103C8T6 为页 16–61），擦除单元间喂狗。幂等：重复调用返回 OK。DATA 必须为空，否则 `RANGE_ERROR`。
 BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR-015；F1 与常规值同为 2 s，行为不变；F4 建议 8 s——大扇区擦除期间无法喂狗），VERIFY 完成或 JUMP 前恢复。对协议透明，不改变任何帧语义。
 
 ### 5.4 WRITE_CHUNK（0x04）
 
 `DATA = offset(LE32) + payload`，`payload ≤ 252 B`（保证 LEN ≤ 256）。
 
-- `offset` 为相对 **APP 基址（0x08004000）** 的偏移，必须 4 字节对齐。
+- `offset` 为相对 **APP 基址（F103C8T6 为 0x08004000，其余芯片以 `chips/<id>.json` 分区表为准）** 的偏移，必须 4 字节对齐。
 - 写前自动擦除：目标擦除单元内存在非 0xFF 字节则先擦该单元（单元间喂狗）。
-- 越界（`offset + payload > 46 KiB`）或不对齐 → `RANGE_ERROR`。
+- 越界（`offset + payload > APP 区大小`，F103C8T6 为 46 KiB）或不对齐 → `RANGE_ERROR`。
 - 幂等：同 offset 重复写直接覆盖。
 - 镜像必须先以 0xFF 填充至 4 字节对齐（主机工具负责），全部 chunk 总长 = `app_size`。
 
@@ -183,7 +183,7 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 
 处理：BL 按 1 KiB 块计算 `[APP_BASE, APP_BASE+app_size)` 的 CRC-32/ISO-HDLC（块间喂狗），与 `app_crc32` 比较：
 
-- `app_size < 8`（向量表最少 2 字：初始 MSP + Reset Handler，更小镜像无法支撑跳转判定）、`app_size == 0` 或 `> 46 KiB` → `RANGE_ERROR`。
+- `app_size < 8`（向量表最少 2 字：初始 MSP + Reset Handler，更小镜像无法支撑跳转判定）、`app_size == 0` 或 `> APP 区大小`（F103C8T6 为 46 KiB）→ `RANGE_ERROR`。
 - 匹配 → 回 `OK + calc_crc32 + calc_size`，并以新 seq 将 `app_size/app_crc32` **自动持久化**到参数区（partition.md §6.3）。**持久化幂等**：当前元数据已记录相同 `app_size/app_crc32` 且无待消费 `bl_request` 时跳过重写——VERIFY 超时重发/重验不产生额外参数区擦写。
 - 不匹配 → 回 `CRC_ERROR + calc_crc32 + calc_size`，不持久化。
 
@@ -217,7 +217,7 @@ BL 内部在执行擦除前将 IWDG 放宽至 `BL_IWDG_UPGRADE_TIMEOUT_MS`（ADR
 按 [partition.md](partition.md) 元数据 + 实时重算执行完整校验（MSP 范围、Reset Handler 范围与 Thumb 位、app_size、CRC32）：
 
 - 任一失败 → `STATE_ERROR`，不跳转。
-- 全部通过 → 回 `OK`，延时 ~50 ms（保证主机收到响应）后执行 AGENTS.md §5.1 九步跳转（IWDG 不关，跳转前喂狗一次）。
+- 全部通过 → 回 `OK`，延时 ~50 ms（保证主机收到响应）后执行 AGENTS.md §4.2 九步跳转（IWDG 不关，跳转前喂狗一次）。
 
 ### 5.9 RESET（0x09）
 
@@ -339,7 +339,7 @@ AA 55 01 10 01 00 00 4C C0 55 AA
 ### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.3.0 含 tkinter GUI 基础/高级双模式）
 
 ```bash
-# 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §3）
+# 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §8）
 # 一键升级（从任意状态：对端是 BL 直接升；是 APP 则自动"请求回 BL"再升级）
 uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     upgrade app.bin --port COM4

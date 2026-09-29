@@ -1,8 +1,8 @@
 # LiteBootLoader 总体设计（design）
 
-> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
+> 版本 0.3.0 · 2026-09-25 初版 · 2026-09-29 修订 · 状态：与实现同步
 > 关联文档：[../architecture.md](../architecture.md) · [../partition.md](../partition.md) · [../protocol.md](../protocol.md) · [../external_interface.md](../external_interface.md) · [versioning.md](versioning.md) · [vofa_plus.md](vofa_plus.md)
-> 上位规则：本文件为 ../AGENTS.md（项目指令）阶段 0 交付物；与 ../AGENTS.md 冲突时以 ../AGENTS.md 为准。
+> 上位规则：本文件为 [../../AGENTS.md](../../AGENTS.md)（项目指令）阶段 0 交付物；与其冲突时以 AGENTS.md 为准。
 
 ## 1. 目标与范围
 
@@ -14,19 +14,19 @@ LiteBootLoader（BL）是一个面向 STM32F103C8T6 的可编译、可测试、�
 
 ## 2. 需求到模块映射
 
-| 需求（../AGENTS.md 出处） | 承载模块 | 文档 |
+| 需求（../../AGENTS.md 出处） | 承载模块 | 文档 |
 |---|---|---|
-| 启动决策与 APP 校验（§5.1） | `core/bl_boot.c` + `core/bl_metadata.c` | ../architecture.md §5、../partition.md |
-| USART1 升级协议（§6） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | ../protocol.md |
+| 启动决策与 APP 校验（§4） | `core/bl_boot.c` + `core/bl_metadata.c` | ../architecture.md §5、../partition.md |
+| USART1 升级协议（§5） | `core/bl_protocol.c` + `core/bl_transport.c` + F103 端口 `uart.c` | ../protocol.md |
 | 蓝牙空口升级 + OTA 查询（规划书《空口蓝牙串口及OTA》2026-09-27，ADR-016） | F103 端口 `uart2.c` + `core/bl_transport.c` 通道注册表 + `core/bl_core.c` OTA_QUERY | ../architecture.md §6.1、../protocol.md §5.10、[bluetooth_notes.md](bluetooth_notes.md) |
 | F411CEU6 最小支持包（ADR-017，仅串口+引导） | `chips/f411ceu6.json` + `port/stm32f4/f411ceu6/` + 服务 `services/display_led/` | ../porting_guide.md §2、../architecture.md §6.1、../partition.md §1 |
-| Flash 读写/擦除与地址防护（§5） | `core/bl_storage.c` + F103 端口 `flash.c` | ../partition.md §2 |
-| 参数区双副本（§5） | `core/bl_metadata.c` | ../partition.md §4–§8 |
-| OLED/LED 状态显示（§8） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | ../architecture.md §8 |
-| IWDG（§8.4） | 端口 `wdg.c` + 各耗时操作的喂狗点 | ../architecture.md §7 |
-| 日志（§8.3） | 服务 `services/debug_uart/`（ADR-014，编译期开关） | design.md ADR-009 |
-| 版本（§11） | `core/bl_version.h` | versioning.md |
-| 上位机工具（§9.4） | 独立仓 `LiteBootUpgrader`（`../LiteBootUpgrader/`，v1.1.0 含 GUI） | ../protocol.md §9 |
+| Flash 读写/擦除与地址防护（§4） | `core/bl_storage.c` + F103 端口 `flash.c` | ../partition.md §2 |
+| 参数区双副本（§4） | `core/bl_metadata.c` | ../partition.md §4–§8 |
+| OLED/LED 状态显示（§7） | 服务 `services/display_oled/`（ADR-014）+ `bsp/oled_ssd1306/` + 端口 `gpio.c`/`i2c.c` | ../architecture.md §8 |
+| IWDG（§7.4） | 端口 `wdg.c` + 各耗时操作的喂狗点 | ../architecture.md §7 |
+| 日志（§7.3） | 服务 `services/debug_uart/`（ADR-014，编译期开关） | design.md ADR-009 |
+| 版本（§10） | `core/bl_version.h` | versioning.md |
+| 上位机工具（§9.3） | 独立仓 `LiteBootUpgrader`（`../LiteBootUpgrader/`，v1.3.0 含 GUI） | ../protocol.md §9 |
 
 ## 3. 固化决策记录（ADR）
 
@@ -58,7 +58,7 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 1. `bl_request == 1` → 消费并清除该标志（一次掉电安全写，见 ../partition.md §8）→ 进入升级模式。
 2. 否则校验 APP：初始 MSP 在 `[0x20000000, 0x20005000)` 内、Reset Handler 在 APP 区且 Thumb 位（bit0）为 1、`app_size > 0`、CRC32 与参数区一致。
-3. APP 有效 → 3 s 等待窗口（`BL_BOOT_WAIT_MS`，默认 3000，集中配置）：LED 慢闪，收到任意 CRC 有效帧即转入升级模式；窗口结束执行 §5.1 九步跳转。
+3. APP 有效 → 3 s 等待窗口（`BL_BOOT_WAIT_MS`，默认 3000，集中配置）：LED 慢闪，收到任意 CRC 有效帧即转入升级模式；窗口结束执行 AGENTS.md §4.2 九步跳转。
 4. APP 无效 → 进入升级模式（停留等待，ADR-003）。
 
 ### ADR-005 参数区双副本与掉电安全
@@ -91,7 +91,7 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 ### ADR-009 日志与协议复用 USART1
 
-日志默认与协议共用 USART1。规则：`protocol_active == 0` 时允许日志输出；收到 SOF 即静音，会话结束（跳转/复位/超 10 s 无帧）恢复；启动横幅仅在等待窗口输出。编译期控制：`BL_LOG_LEVEL`（ERROR/WARN/INFO/DEBUG，默认 INFO）、`BL_LOG_DISABLE=1` 全关。上位机解析不受影响：帧由 SOF/EOF 包裹并有 CRC 保护，混入的日志字节被解析器帧同步丢弃。另有**空闲心跳日志**（`BL_LOG_HEARTBEAT_MS`，调试期 500 ms，0 关闭）：协议空闲期周期输出 `I:hb <毫秒>`，用作 PA9 接线探针（逐脚轻触适配器 RXD，工具出现心跳文本即命中）与串口链路自检（干净文本=TX 与波特率正常；乱码=波特率/时钟异常；无输出=TX 路径或芯片被复位），协议活跃期同样静默。
+日志默认与协议共用 USART1。规则：`protocol_active == 0` 时允许日志输出；收到 SOF 即静音，会话结束（跳转/复位/超 10 s 无帧）恢复；启动横幅仅在等待窗口输出。编译期控制：`BL_LOG_LEVEL_DEFAULT`（ERROR/WARN/INFO/DEBUG，默认 INFO）、`BL_LOG_DISABLE=1` 全关。上位机解析不受影响：帧由 SOF/EOF 包裹并有 CRC 保护，混入的日志字节被解析器帧同步丢弃。另有**空闲心跳日志**（`BL_LOG_HEARTBEAT_MS`，调试期 500 ms，0 关闭）：协议空闲期周期输出 `I:hb <毫秒>`，用作 PA9 接线探针（逐脚轻触适配器 RXD，工具出现心跳文本即命中）与串口链路自检（干净文本=TX 与波特率正常；乱码=波特率/时钟异常；无输出=TX 路径或芯片被复位），协议活跃期同样静默。
 
 ### ADR-010 时钟与回退
 
@@ -99,7 +99,7 @@ poly 0x8005（反射 0xA001），初值 0xFFFF，输入/输出反射，无终异
 
 ### ADR-011 IWDG 策略
 
-IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即开启且**永不关闭**。喂狗点固定为：主循环顶部、ERASE 每页之间、VERIFY 每 1 KiB 块之间、OLED 每帧分片之间、JUMP 执行前。跳转后由 APP 接管喂狗（阶段 2 验证接管窗口，验收 §13.10）。
+IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即开启且**永不关闭**。喂狗点固定为：主循环顶部、ERASE 每页之间、VERIFY 每 1 KiB 块之间、OLED 每帧分片之间、JUMP 执行前。跳转后由 APP 接管喂狗（阶段 2 验证接管窗口，验收 §9.4）。
 
 ### ADR-012 端口抽象与 OTA 接入点
 
@@ -124,7 +124,7 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 - 实现：`services/display_oled/`（OLED 页渲染 + LED 模式表，语义沿用 ADR-008）与
   `services/debug_uart/`（USART1 日志，ADR-009 静音策略在实现内）。
 - 依赖方向：services → core/port/bsp 允许；core 禁止 include services/bsp。
-- 用户自检页扩展点落地为 `bl_display_user_page()` 弱符号（AGENTS §8.1），
+- 用户自检页扩展点落地为 `bl_display_user_page()` 弱符号（AGENTS §7.1），
   `BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
 - 备选实现（LED-only 显示、RTT 日志）换 services 目录即可，core 不动。
 
@@ -156,7 +156,7 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
   （如下述签名）才升版。
 - **签名/哈希校验**（用户确认独立迭代）：本期不做。验签链属 core 级特性（元数据
   结构+启动决策链+协议+上位机+签名工具），接入点见 ../partition.md §4；F411 参数区
-  每副本 16K、BL 32K（现 12 452 B）预算充足，后加无需改分区；F103 BL 16K 装不下，
+  每副本 16K、BL 32K（现 12 584 B）预算充足，后加无需改分区；F103 BL 16K 装不下，
   届时以编译开关裁剪并文档明示无认证能力。
 - **验证深度**：编译 + 一致性测试通过即交付（用户确认）；蓝牙 N/A、OLED N/A，
   硬件在环（烧录/升级/跳转/断电演练）未执行，见 dev/test_plan.md。
@@ -198,7 +198,9 @@ F103 16KB 预算实验（exp/optional-services 分支，双板真机验证）定
   （f103c8t6.json 删除原全功能清单：uart2.c/i2c.c/bsp ssd1306 移出构建，
   `BL_TRANSPORT_BT_EN=0`）。**APP 示例配置不变**（F103 APP 保留 OLED 呼吸演示，
   BSP 清单拆分为 `bsp_files_bl`/`bsp_files_app`）。OLED/蓝牙作为可选能力保留：
-  启用方式见 porting_guide.md §3.1。
+  蓝牙启用见 porting_guide.md §3.1；OLED 需把 `build.service_files` 里的
+  `bl_display_led.c` 换成 `bl_display_oled.c`（两者互斥）并在 `bsp_files_bl` 链入
+  `bsp/oled_ssd1306/ssd1306.c` + `ssd1306_font.c`，见 README.md「配置」表。
 - **尺寸实测**（AC5 全量重建，0 错 0 警）：F103 全功能变体 15 464 B ≤16K（弱桩代价
   +64B）；F103 默认最小 12 180 B；F411 12 584 B ≤32K。
 - **真机验证**：F103 selftest 15/15（含越界防护步真 PASS，反向坐实 F411 夹具
@@ -259,7 +261,7 @@ F103 16KB 预算实验（exp/optional-services 分支，双板真机验证）定
   include 路径表达。
 - 迁移顺序：F411CEU6 先行（验证 CSP 流程，硬件在位）→ F407ZGT6 复用 f4 家族层。
 
-## 4. 默认假设确认表（../AGENTS.md §15）
+## 4. 默认假设确认表（../../AGENTS.md §3 固定技术约束）
 
 | # | 假设 | 状态 | 固化位置 |
 |---|---|---|---|
@@ -288,5 +290,5 @@ F103 16KB 预算实验（exp/optional-services 分支，双板真机验证）定
 | `BL_PARAM_BASE` / `BL_PARAM_SIZE` | 0x0800F800 / 0x00000800 | 参数区 |
 | `BL_PROTOCOL_ACTIVE_MS` | 10000 | 协议活跃判定窗口 |
 | `BL_UI_REFRESH_MS` | 200 | OLED 最低刷新间隔 |
-| `BL_LOG_LEVEL` / `BL_LOG_DISABLE` | INFO / 0 | 日志编译期控制 |
+| `BL_LOG_LEVEL_DEFAULT` / `BL_LOG_DISABLE` | INFO / 0 | 日志编译期控制 |
 | `BL_LOG_HEARTBEAT_MS` | 500 | 空闲心跳日志间隔（0=关闭；调试期探针值） |

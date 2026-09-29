@@ -1,6 +1,6 @@
 # LiteBootLoader 用户手册
 
-> 适用版本：BL 0.2.0 · 2026-09-27 · 面向使用者（非移植开发者）
+> 适用版本：BL 0.3.0 · 2026-09-27 初版 · 2026-09-29 修订 · 面向使用者（非移植开发者）
 > 开发/设计细节见文末「深入阅读」；本手册只讲"怎么用"。
 
 ## 1. 这是什么
@@ -37,8 +37,11 @@ PA9/PA10 115200 8N1、LED 同为 PC13 低电平点亮，无 OLED/蓝牙/I2C 引�
 
 BL 本体用调试器烧一次即可，之后升级 APP 全走串口。当前交付二进制：
 
-- `bootloader.bin`：15,324 B，SHA-256 `499de4bc…1c8861`（0.2.0 蓝牙通道 + OTA_QUERY 版；完整值以交付记录为准）
-- APP 示例 `app/examples/f103c8t6_app/app.bin`：8,152 B，SHA-256 `534eb656…ff2dd81`
+- `bootloader.bin`（F103C8T6）：**12,180 B**，SHA-256 `ac658278…175d59`
+  （0.3.0 默认最小集：LED 状态灯 + 串口日志；含 OLED/蓝牙的全功能变体 15,464 B，见 CHANGELOG）
+- APP 示例 `app/examples/f103c8t6_app/app.bin`：**8,276 B**，SHA-256 `d1286297…c89a7a`
+- F411CEU6 最小包：`chips/f411ceu6/bootloader.bin` **12,584 B**（`4277840d…49d4d5`）、
+  `app/examples/f411ceu6_app/app.bin` **6,384 B**（`fe11b440…6a37e`）
 
 ```bash
 # pyocd 烧录 BL：flash 与 reset 必须分开调用（pyocd 的 reset 是独立子命令，
@@ -52,8 +55,14 @@ uv run --python 3.12 --with pyocd pyocd reset \
     --pack "E:/Hardware/Keil/Arm/Packs/Keil/STM32F1xx_DFP/2.4.1"
 ```
 
-验证：打开串口（COM4，115200），按一下复位键，应看到启动横幅
-`LiteBL v0.2.0 … upgrade mode`（首次无 APP 时），LED 1 Hz 慢闪。
+验证：打开串口（COM4，115200），按一下复位键，应看到日志
+`I:APP invalid -> upgrade mode`（首次无 APP 时；OLED 配置下另显示 `LiteBL 0.3.0`），LED 1 Hz 慢闪。
+版本号可随时用上位机 `info` 命令查询。
+
+> **F411CEU6 板**：pyocd 的 flash 算法路径在该板不可用（擦除中段 FAULT ACK，见
+> `docs/dev/test_plan.md` §5.1），改用仓内寄存器级脚本——烧录后复位再回读校验
+> （避开 F4 ART 缓存读到旧数据）：
+> `uv run --python 3.12 --with pyocd python scripts/pyocd_manual_flash.py chips/f411ceu6/bootloader.bin`
 
 ## 4. 上电后发生什么
 
@@ -91,7 +100,7 @@ flowchart TD
 BL 模式（上电 3 秒窗口 / 升级等待期）：
 
 ```text
-LiteBL 0.2.0          ← BL 版本
+LiteBL 0.3.0          ← BL 版本
 F103C8  CLK:72M       ← 芯片与时钟（HSE 失败时显示 CLK:8M(HSI)）
 MODE:WAIT/HOST        ← 当前状态；升级中显示 UPG:xx%
 CRC:OK / CRC:--       ← 最近一次 APP CRC 校验结果
@@ -111,7 +120,7 @@ B[##################--] ← 呼吸亮度条（4 秒一个呼吸周期）
 
 ### 串口日志
 
-与协议共用 USART1，默认 INFO 级，编译期可用 `BL_LOG_DISABLE`/`BL_LOG_LEVEL` 关闭/调级。
+与协议共用 USART1，默认 INFO 级，编译期可用 `BL_LOG_DISABLE`/`BL_LOG_LEVEL_DEFAULT` 关闭/调级。
 协议活跃期间（最近 10 s 有合法帧）日志自动静音，属正常。
 
 ## 6. 日常操作：升级 APP
@@ -183,7 +192,7 @@ uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
 
 | 症状 | 可能原因 | 处理 |
 |---|---|---|
-| 工具全部"无响应" | 串口被别的程序占用；DAPLink 会话遗留暂停态 | 关闭占用者；pyocd 命令补 `-c "reset"` 后再试 |
+| 工具全部"无响应" | 串口被别的程序占用；DAPLink 会话遗留暂停态 | 关闭占用者；用 `pyocd reset`（独立子命令）复位芯片后再试 |
 | 蓝牙口打不开/反复断 | 模块未上电/未配对；SPP 重连窗口 | 重新配对（PIN 1234）；`--conn bt` 已含打开重试，仍失败重插模块 |
 | 蓝牙口刚配对打不开（FileNotFoundError） | 模块刚上电 RFCOMM 未就绪 | 重试打开即可（实测出现，2 秒后即恢复） |
 | 蓝牙口全"无响应" | 模块数据模式不是 115200；或板子在 APP 态 | 前者按 bluetooth_notes.md §5 重新 AT 配置；后者是设计边界——蓝牙只在 BL 升级模式应答（见上「通道边界」），有线 PING 后 `upgrade` 请求回 BL 即可 |
