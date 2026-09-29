@@ -262,13 +262,21 @@ flowchart TD
 
 禁止在以外的位置随意加喂狗掩盖长阻塞；新增耗时操作必须先在此清单登记喂狗点。
 
-## 8. 显示/调试服务模型（ADR-014）
+## 8. 显示/调试服务模型（ADR-014/ADR-019：可选插件）
+
+服务是**可选插件**（ADR-019）：core 对 `bl_display`/`bl_debug` 的依赖由
+`core/bl_service_stub.c` 的 `__weak` 空实现兜底——工程不链任何显示/调试服务时
+core 照常链接（日志静默、无状态指示），链了真实服务则强符号覆盖、弱段被裁剪。
+唯一强制挂载的是有线串口通道；main.c 只装配强制链路，服务硬件自举在各服务
+init 内完成。
 
 - `bl_display.tick(now_ms)` 每次主循环调用，内部按 `BL_UI_REFRESH_MS`（默认 200 ms）限频。
-- 显示服务实现于 `services/display_oled/`（`bl_display_ops`，OLED+LED 状态指示），语义状态由 core 注入（`set_state/set_progress/set_crc_ok`）。
+- 显示服务实现于 `services/display_led/`（LED 状态灯，默认示例配置所用）与
+  `services/display_oled/`（OLED+LED，可选启用），语义状态由 core 注入
+  （`set_state/set_progress/set_crc_ok`）。
 - LED：由 BL 状态 + 协议活跃标志查 ADR-008 模式表驱动，无阻塞延时。
-- OLED：显示 BL 版本、芯片型号、APP 状态（有效/无效/大小/CRC）、升级进度（ERASE/WRITE/VERIFY 百分比）、CRC 状态、IWDG 状态（运行中时钟源）；刷新按竖向条带分片（如 8 列/片）经 `bl_i2c_ops` 发送，分片间返回。
-- 用户自检页面：`bl_display_user_page()` **弱符号**（空实现，`bl_display.h` 声明），`BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页。
+- OLED（可选启用 display_oled 时）：显示 BL 版本、芯片型号、APP 状态（有效/无效/大小/CRC）、升级进度（ERASE/WRITE/VERIFY 百分比）、CRC 状态、IWDG 状态（运行中时钟源）；刷新按竖向条带分片（如 8 列/片）经 `bl_i2c_ops` 发送，分片间返回。
+- 用户自检页面：`bl_display_user_page()` **弱符号**（空实现，`bl_display.h` 声明），`BL_DISPLAY_USER_PAGE=1` 时在等待/升级模式替代标准页（display_oled 消费）。
 - 调试服务实现于 `services/debug_uart/`（`bl_debug_ops`，USART1，协议活跃期静音）；core 侧仅用 `BL_LOGx` 宏，换通道只换实现。
 
 ## 9. 内存预算（2026-09-26 AC5 实测回填，ARMCC V5.06u7 `-Ospace`，ADR-014 服务化后）

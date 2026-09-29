@@ -198,6 +198,10 @@ third_party/   CMSIS / HAL 依赖（原样捆绑，许可见 third_party/CMSIS/L
 
 显示：BL 版本、芯片型号、APP 状态、升级进度、CRC 状态、IWDG 状态。
 
+显示服务为**可选插件**（ADR-019）：默认 BL 示例配置为最小集（LED 状态灯 +
+串口日志，无 OLED）；OLED 能力由 `services/display_oled` 提供，启用方式见
+porting_guide.md §3.1。
+
 - 非阻塞、限频刷新；Flash 擦写和升级接收期间不得因整屏刷新造成不可接受延迟
 - 提供空弱符号回调 `bl_display_user_page()`（ADR-014），供用户扩展自检页面
 
@@ -275,7 +279,9 @@ APP 无效或校验失败、即将跳转 APP、致命错误。
 2. APP 实际编译通过，`.bin` 不超过 46 KiB（同上）。
 3. 正常升级后可跳转 APP，APP 中断正常。
 4. PC13 LED 和串口日志符合状态定义。
-5. OLED 显示版本、芯片、APP 状态、进度、CRC 和 IWDG 状态。
+5. OLED 显示版本、芯片、APP 状态、进度、CRC 和 IWDG 状态（适用范围：启用
+   display_oled 的配置；默认 BL 示例配置为最小集——LED 状态灯 + 串口日志，
+   见 design.md ADR-019）。
 6. APP CRC 错误时拒绝跳转并进入升级模式。
 7. 升级中断或复位后可重新升级，不误写 BL 与参数区。
 8. APP 可主动请求进入 BL，且请求标志生命周期有文档与测试。

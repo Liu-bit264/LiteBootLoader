@@ -27,9 +27,9 @@ PA9/PA10 115200 8N1、LED 同为 PC13 低电平点亮，无 OLED/蓝牙/I2C 引�
 | 项 | 连接/配置 |
 |---|---|
 | 串口 | USART1：PA9(TX)/PA10(RX)，115200，8N1，无流控；经 USB-TTL 或 DAPLink CDC 接电脑（本机为 COM4） |
-| 蓝牙（可选，0.2.0 起） | HC-05：VCC 5V 共地，RXD←PA2、TXD→PA3，STATE→PB0、EN→PB1；需**一次性 AT 配置**数据模式到 115200（[dev/bluetooth_notes.md](dev/bluetooth_notes.md) §5），配对 PIN 默认 1234 |
+| 蓝牙（可选能力，默认 BL 配置未启用） | HC-05：VCC 5V 共地，RXD←PA2、TXD→PA3，STATE→PB0、EN→PB1；需**一次性 AT 配置**数据模式到 115200（[dev/bluetooth_notes.md](dev/bluetooth_notes.md) §5），配对 PIN 默认 1234；启用方式见 porting_guide.md §3.1（ADR-019：默认 BL 示例为最小集） |
 | LED | PC13，低电平点亮（核心板板载） |
-| OLED | 0.96" SSD1306，软件 I2C：SCL=PB8，SDA=PB9（可选，不影响升级） |
+| OLED | 0.96" SSD1306，软件 I2C：SCL=PB8，SDA=PB9——默认 BL 配置不点亮（最小集，ADR-019），APP 示例展示 OLED；不影响升级 |
 | 调试器 | DAPLink/ST-Link 接 SWD，仅首次烧录 BL 或救砖时需要 |
 | 供电 | 常规 3.3 V；IWDG 约 2 s，正常固件都会自动喂狗，无需关心 |
 
