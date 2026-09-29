@@ -15,7 +15,12 @@ typedef struct {
 
 static chan_t s_chans[] = {
     /* [0] WIRED */ { &bl_uart,    bl_uart_port_rx_total,    bl_uart_port_rx_pending,    false, 0u },
+#if BL_TRANSPORT_BT_EN
     /* [1] BT    */ { &bl_uart_bt, bl_uart_bt_port_rx_total, bl_uart_bt_port_rx_pending, false, 0u },
+#else
+    /* [1] BT    */ { 0, 0, 0, false, 0u },   /* 本支持包未接蓝牙：通道 1 槽位保留，
+                                                通道号语义（OTA_QUERY 字节 20）不变 */
+#endif
     /* [2] WIFI  */ { &bl_wifi,    0,                        0,                          false, 0u },
 };
 #define CHAN_COUNT (sizeof(s_chans) / sizeof(s_chans[0]))

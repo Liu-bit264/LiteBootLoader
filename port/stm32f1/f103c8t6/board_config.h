@@ -25,6 +25,8 @@
 #define BL_SRAM_SIZE           0x00005000u   /* 20 KiB */
 
 /* ---- 行为常量 ---- */
+#define BL_TRANSPORT_BT_EN     1       /* 1=注册蓝牙通道 1（本板接 HC-05，uart2.c 提供 bl_uart_bt）；
+                                          0=通道 1 槽位保留（不支持包未接蓝牙，如 f411ceu6 最小包） */
 #define BL_USE_HSE             1       /* 1=HSE 8M->PLL 72M（默认：8MHz 晶振已由 ST 标准工程在本板实测 72M 可用）；
                                           0=HSI 8MHz 直驱（晶振异常时的调试回退，UART 115200 仍可用） */
 #define BL_BOOT_WAIT_MS        3000u   /* 启动等待窗口（ADR-004） */
