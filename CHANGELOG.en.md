@@ -8,11 +8,59 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
-This section will be released as **BL 0.3.0** (optional-services change touches core and
-default firmware behavior, feat→MINOR).
+## [0.3.1] - 2026-09-30
 
-Second chip support package: STM32F411CEU6 minimal implementation (ADR-017, CSP phase B);
-optional-service model and minimized BL example config (ADR-019).
+Fixes from the 2026-09-29 audit (`docs/review/audit-2026-09-29.md`, local document):
+one P1 conditional guard bypass + four P2 robustness items + P3 consistency gaps.
+No protocol frame or command changes (VER 0x01 unchanged).
+
+### Fixed
+
+- **FAULT-state command whitelist (P1-1)**: after a geometry self-check failure
+  (FAULT) only PING/GET_INFO/RESET diagnostics are served, everything else answers
+  `STATE_ERROR` — previously FAULT still answered ERASE_APP, and the covering-unit
+  table filled by `bl_storage_init` before failing would let the erase reach the
+  BL/parameter region (requires a CSP with wrong geometry; released F103/F411
+  configs are unaffected); `bl_meta_load` sets its checked flag only after the
+  check passes (was set before, letting later calls skip it); `bl_storage_*`
+  erase/write entry points gained a second `s_geom_ok` defence line
+- **WRITE_CHUNK auto-erase widens IWDG (P2-1)**: `handle_write` now calls
+  `wdg_widen_for_upgrade()` symmetrically with `handle_erase` — third-party hosts
+  that skip ERASE_APP no longer risk a 128K sector erase (~1.75 s) hitting the
+  2 s normal watchdog window on F4; protocol.md §5.3 updated
+- **APP example frame buffer +3B (P2-2)**: `APP_FRAME_MAX` now computed from the
+  11-byte frame overhead (`11u + BL_FRAME_DATA_MAX`) — the old 8+256=264 made
+  frames with LEN ≥ 254 (incl. the 256B protocol maximum) impossible to frame,
+  silently dropped; fixed in both chip APP examples
+- **IWDG runtime reconfig waits RVU before writing (P3-3)**: both chip `wdg.c`
+  `set_timeout_ms` wait for RVU clear before writing RLR (RM0008 §20.4.5 /
+  RM0390), removing the "widened but actually ignored" race
+- **OLED chip facts centralized (P2-4)**: `board_config.h` gains `BL_CHIP_NAME`
+  (F103C8/F411CE); the display_oled service consumes the macro plus the runtime
+  measured clock (HSI fallback shown as `*`), no chip facts left in the service
+- **i2c.c consumes board macros (audit addendum)**: PB8/PB9 hardcoding replaced
+  by `BL_PIN_I2C_*_PORT/NUM` derivation (port clock enable / CRL / CRH selected
+  at compile time), making "change the central config to change the pins" hold
+  for the I2C pair too
+
+### Changed
+
+- `chips/f103c8t6.json` `device.cpu_clock` corrected `CLOCK(12000000)` →
+  `CLOCK(8000000)` (on-board 8 MHz crystal; Keil simulation display only),
+  spec/sct/uvprojx regenerated
+- `scripts/build_keil.sh` compares the produced bin against the
+  `chips/<id>.json` partition limit and fails the build on overflow (AGENTS §9.4
+  baseline automation)
+- Doc/implementation alignment: protocol.md §5.5 documents the VERIFY 4-byte
+  alignment rejection, §6 retry wording corrected to "3 attempts total" with the
+  actual 8.0 s single-shot / 5.0 s retry-layer erase timeouts; partition.md §10
+  adds `bl_meta_matches_app` and switches to the "delivered" wording;
+  tools/vofa+/README.md cross-repo path fixed
+
+## [0.3.0] - 2026-09-29
+
+Second chip support package: STM32F411CEU6 minimal implementation (ADR-017, CSP
+phase B); optional-service model and minimized BL example config (ADR-019).
 
 ### Added
 

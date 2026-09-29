@@ -6,7 +6,44 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
 
 ## [Unreleased]
 
-本段将随合并发布为 **BL 0.3.0**（服务可选挂载改动 core 与默认固件行为，feat→MINOR）。
+## [0.3.1] - 2026-09-30
+
+审计 2026-09-29（`docs/review/audit-2026-09-29.md`，本地文档）修复：1 项 P1 条件性
+守卫旁路 + 4 项 P2 健壮性 + P3 一致性缺口。协议帧格式与命令无变更（VER 0x01 不变）。
+
+### Fixed
+
+- **FAULT 态命令白名单（P1-1）**：几何自检失败（FAULT）后仅放行 PING/GET_INFO/RESET
+  诊断命令，其余回 `STATE_ERROR`——此前 FAULT 下仍可应答 ERASE_APP，且
+  `bl_storage_init` 失败前已填好的覆盖单元表会把擦除波及 BL/参数区（需几何声明
+  错误的 CSP 才触发，已发布 F103/F411 配置不受影响）；`bl_meta_load` 几何检查标记
+  改为通过后置位（此前一次性放行）；`bl_storage_*` 擦写入口增加 `s_geom_ok`
+  第二道防线
+- **WRITE_CHUNK 写前擦除放宽 IWDG（P2-1）**：`handle_write` 与 `handle_erase` 对称
+  调用 `wdg_widen_for_upgrade()`——免发 ERASE_APP 的第三方主机在 F4 上不再有
+  128K 扇区擦除（~1.75 s）撞 2 s 常规看门狗窗口的中断路径；protocol.md §5.3 同步
+- **APP 示例帧缓冲 +3B（P2-2）**：`APP_FRAME_MAX` 改按帧开销 11 B 计算
+  （`11u + BL_FRAME_DATA_MAX`）——此前表达式 8+256=264，LEN ≥ 254 的帧（含协议
+  上限 256 B）永远无法成帧被静默丢弃；两芯片 APP 示例同修
+- **IWDG 运行时重配写前等 RVU（P3-3）**：两芯片 `wdg.c` `set_timeout_ms` 先等
+  RVU 清零再写 RLR（RM0008 §20.4.5 / RM0390），消除「以为已放宽实则写入被忽略」竞态
+- **OLED 芯片事实收敛（P2-4）**：`board_config.h` 新增 `BL_CHIP_NAME`
+  （F103C8/F411CE），display_oled 服务改消费宏 + 运行时实测主频（HSI 回退显示 `*`），
+  服务层不再携带芯片型号
+- **i2c.c 消费板级宏（审计补充项）**：PB8/PB9 硬编码改经 `BL_PIN_I2C_*_PORT/NUM`
+  派生（端口时钟使能/CRL/CRH 编译期选择），「改集中配置即改引脚」对 I2C 两线成立
+
+### Changed
+
+- `chips/f103c8t6.json` `device.cpu_clock` 修正 `CLOCK(12000000)` → `CLOCK(8000000)`
+  （板载 8 MHz 晶振；Keil 仿真显示用），spec/sct/uvprojx 重生成
+- `scripts/build_keil.sh` 生成 bin 后与 `chips/<id>.json` 分区限额比对，超限判失败
+  （AGENTS §9.4 基线自动化）
+- 文档与实现对齐：protocol.md §5.5 补 VERIFY 非 4 字节对齐拒绝、§6 重试口径改
+  「共 3 次尝试」并如实记录单发 8.0 s / 重试层 5.0 s 两档；partition.md §10 增补
+  `bl_meta_matches_app` 并改为「已交付」口径；tools/vofa+/README.md 跨仓路径修正
+
+## [0.3.0] - 2026-09-29
 
 第二芯片支持包：STM32F411CEU6 最小实现包（ADR-017，CSP 阶段 B）；服务可选挂载与
 BL 示例配置最小化（ADR-019）。
