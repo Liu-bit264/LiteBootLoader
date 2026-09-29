@@ -15,7 +15,7 @@
 #define APP_CMD_PING         0x01u
 #define APP_CMD_SET_META     0x06u
 #define APP_META_BL_REQUEST  0x01u
-#define APP_FRAME_MAX        (8u + BL_FRAME_DATA_MAX)   /* SOF2+头5+DATA256+CRC2+EOF2 = 267 */
+#define APP_FRAME_MAX        (11u + BL_FRAME_DATA_MAX)  /* 帧开销 11B：SOF2+VER+CMD+SEQ+LEN2+CRC2+EOF2，+DATA256 = 267 */
 
 static uint8_t  s_buf[APP_FRAME_MAX];
 static uint32_t s_len;
