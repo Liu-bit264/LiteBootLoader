@@ -368,10 +368,12 @@ class BoardConfigConsistencyTest(unittest.TestCase):
     def test_pins(self):
         """chip.json pins ↔ board_config 板级引脚声明一致（ADR-018）。
 
-        只校验 GPIO 管理的引脚（led/bt_state/bt_en/i2c_*）；uart_*/uart2_* 属
-        端口实现记录（uart.c/uart2.c 消费），不做宏级校验。清单里没写的键
+        校验 GPIO 管理的引脚与升级串口引脚（led/bt_state/bt_en/i2c_*/uart_tx/
+        uart_rx）；uart2_* 属蓝牙端口实现记录，不做宏级校验。清单里没写的键
         （如 f411ceu6 无 bt_en/i2c_*）跳过。"""
         checks = [
+            ("uart_tx", "BL_UART_TX", False),
+            ("uart_rx", "BL_UART_RX", False),
             ("led", "BL_PIN_LED", True),
             ("bt_state", "BL_PIN_BT_STATE", False),
             ("bt_en", "BL_PIN_BT_EN", False),

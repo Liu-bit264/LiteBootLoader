@@ -13,7 +13,7 @@
 |---|---|---|---|
 | PA9 | USART1_TX | 升级协议 + 日志（复用策略见 [dev/design.md](dev/design.md) ADR-009） | protocol.md §3 |
 | PA10 | USART1_RX | 升级协议 | protocol.md §3 |
-| PA2 | USART2_TX | 蓝牙通道（HC-05 RXD，0.2.0 起） | §1.4 |
+| PA2 | USART2_TX | 蓝牙通道（HC-05 RXD）——可选能力，默认示例配置未启用（ADR-019，启用见 porting_guide §3.1） | §1.4 |
 | PA3 | USART2_RX | 蓝牙通道（HC-05 TXD） | §1.4 |
 | PB0 | BT_STATE | HC-05 STATE 输入：高 = SPP 已连接（输入下拉） | §1.4 |
 | PB1 | BT_EN | HC-05 EN 输出：默认低 = 数据模式（运行时翻转进 AT 不可靠，仅预留） | §1.4 |

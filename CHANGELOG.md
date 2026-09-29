@@ -6,9 +6,10 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
 
 ## [Unreleased]
 
-第二个芯片支持包：STM32F411CEU6 最小实现包（ADR-017，CSP 阶段 B）。**仅追加支持包、
-不触碰 core/协议/固件行为——BL 版本号保持 0.2.0 不变**（用户决定的版本策略：动 core/
-协议才升版）。
+本段将随合并发布为 **BL 0.3.0**（服务可选挂载改动 core 与默认固件行为，feat→MINOR）。
+
+第二芯片支持包：STM32F411CEU6 最小实现包（ADR-017，CSP 阶段 B）；服务可选挂载与
+BL 示例配置最小化（ADR-019）。
 
 ### Added
 
@@ -27,29 +28,38 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
   Apache-2.0），自本机 STM32Cube_FW_F4_V1.28.3 原样拷贝，SHA-256 核验记录见
   LICENSES.md；新增 `scripts/vendor_copy.py` 拷贝核验工具
 - **F411 最小 APP 示例**（`app/examples/f411ceu6_app/`）：呼吸灯 + 升级口响应器
+- **`scripts/pyocd_manual_flash.py`**：F411 板寄存器级烧录工具（该板 pyocd 算法路径
+  异常的实测解法；校验前先复位清 F4 ART 缓存）
 
 ### Changed
 
+- **服务可选挂载（ADR-019）**：唯一强制挂载的服务 = 有线串口通道。
+  `core/bl_service_stub.c` 提供 `bl_display`/`bl_debug`/`bl_port_i2c_release` 弱默认
+  实现，显示/调试成为链接期可选插件；服务硬件自举移入各服务 init（main.c 只装配
+  强制链路）。双板真机验证：F103 selftest 15/15、无显示变体纯串口全流程、F411
+  升级/跳转复验
+- **BL 示例配置最小化**：F103 默认 BL 配置删除原全功能清单（OLED/蓝牙/I2C 移出构建，
+  `BL_TRANSPORT_BT_EN=0`），统一为「最小可用」= `display_led`（LED 状态灯）+
+  `debug_uart`（串口日志），与 F411 最小包同型；**APP 示例配置不变**（F103 APP 保留
+  OLED 演示，BSP 清单拆分 `bsp_files_bl`/`bsp_files_app`）。OLED/蓝牙作为可选能力
+  保留，启用方式见 porting_guide §3.1
 - **引脚提升为板级声明（ADR-018）**：`board_config.h` 成为引脚事实唯一出处
   （逻辑 id + `*_PORT` 端口序号 + `*_NUM` 引脚号 + `BL_PIN_LED_ACTIVE_LOW` 极性），
   gpio.c 仅消费（映射表/ops 通路宏驱动，F1 CRL/CRH 配置按 NUM 派生）；
-  `chips/test_chip.py` 新增 chip.json `pins` 段与声明的强制一致（led/bt_state/
-  bt_en/i2c_*；uart_* 属端口实现记录不校验）。bin 因初始化宏化微增（见 Verification）
+  `chips/test_chip.py` 强制 chip.json `pins` 段与声明一致（含 uart_tx/uart_rx）
 
 ### Verification
 
 - `chips/test_chip.py` 12/12 通过（f103c8t6 + f411ceu6 全芯片一致性，含引脚段）
-- F103 回归：AC5 全量重建 0 错 0 警——引脚抽象**之前**与 0.2.0 基线逐字节一致
-  （BL 15 324 B `499de4bc…` / APP 8 152 B `534eb656…`）；引脚抽象**之后**行为等价微增：
-  BL 15 400 B（SHA-256 `31dc570f…`）、APP 8 228 B（SHA-256 `3d5301c4…`），限额内
-- F411 新建：AC5 全量重建 0 错 0 警，BL 12 536 B ≤ 32K（SHA-256 `ebde0e74…`）、
-  APP 6 356 B（SHA-256 `46c711e4…`）；上板以仓库脚本重刷同步并复验
-  （GET_INFO 正常、新 APP 升级跳转运行，参数区跨重烧 seq 连续）
-- **F411 硬件在环完成（2026-09-29）**：上板烧录（寄存器级，见 `scripts/pyocd_manual_flash.py`）
-  → GET_INFO（flash=512KB/UID 正确）→ 升级（448K 擦除 4.21s，IWDG 8s 放宽实测无复位，
-  VERIFY CRC32 一致）→ 跳转 APP 呼吸灯 → setmeta 回 BL 闭环（seq 单调）→ 擦除中复位注入
-  恢复 → 有效 APP 上电自跳转；selftest 15 步 14 PASS + 1 假阳性（LBU 夹具硬编码 F103
-  `APP_SIZE=0xB800`，详见 docs/dev/test_plan.md §5.1）
+- F103：默认最小 BL 12 180 B ≤ 16K（SHA-256 `ac658278…`）、APP 8 276 B（`d1286297…`）；
+  上板 selftest 15/15、升级跳转、无显示变体（12 616 B）纯串口全流程；全功能变体
+  15 464 B ≤ 16K（弱桩代价 +64B，`ebb2f93f…`）
+- F411：BL 12 584 B ≤ 32K（SHA-256 `4277840d…`，0.3.0）、APP 6 384 B（`fe11b440…`）；上板
+  寄存器级烧录（`scripts/pyocd_manual_flash.py`）→ GET_INFO（flash=512KB/UID 正确）→
+  升级（448K 擦除 4.21s，IWDG 8s 放宽实测无复位）→ 跳转呼吸灯 → setmeta 回 BL 闭环 →
+  擦除中复位注入恢复 → 有效 APP 上电自跳转
+- F103 产物基线：引脚抽象前与 0.2.0 基线逐字节一致（`499de4bc…`/`534eb656…`）；
+  此后随服务模型/引脚/配置演进，行为等价、尺寸见上
 - 签名/哈希校验确认独立迭代（接入点见 docs/partition.md §4 预留说明）
 
 ## [0.2.0] - 2026-09-27

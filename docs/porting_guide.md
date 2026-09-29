@@ -67,13 +67,14 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 
 ### 3.1 多通道 transport（0.2.0 起，ADR-016）
 
-每颗芯片可提供多个 UART 通道单例（F103：`bl_uart`=USART1 有线、`bl_uart_bt`=USART2 蓝牙）：
+默认 BL 示例配置为最小集（ADR-019：仅 LED 状态灯 + 串口日志，无蓝牙）。**启用蓝牙
+通道（HC-05，transport 通道 1）**：
 
-1. 新通道 = 实现 `uart2.c`（与 uart.c 同构：RX 中断 + 独立环形缓冲 + 两个统计函数 +
-   ops 单例）+ `uart2.h`；USART2 类外设注意所在 APB 总线时钟（F1 的 USART2 挂 APB1 =
-   SYSCLK/2，与 USART1 的 APB2 不同）。
-2. `board_config.h` 加常量（如 `BL_BT_UART_BAUD`、`BL_PIN_BT_STATE/EN`），`chips/<id>.json`
-   的 `pins` 同步登记，spec 模板 Port 组加源文件（构建零手工）。
+1. `chips/<id>.json` 的 `build.port_files_bl` 加回 `uart2.c`（与 uart.c 同构：RX 中断 +
+   独立环形缓冲 + 两个统计函数 + ops 单例；USART2 类外设注意所在 APB 总线时钟——F1 的
+   USART2 挂 APB1 = SYSCLK/2，与 USART1 的 APB2 不同），重新生成工程。
+2. `board_config.h` 置 `BL_TRANSPORT_BT_EN=1`，并声明蓝牙引脚（`BL_PIN_BT_STATE/EN`
+   及 `*_PORT/_NUM`）与 `BL_BT_UART_BAUD`，`chips/<id>.json` 的 `pins` 同步登记。
 3. 通道登记进 `core/bl_transport.c` 的 `s_chans[]`（ops + 统计函数指针）。
 4. WIFI 等未实现通道放 `port/wifi_stub.c` 占位（无统计符号，core 自动跳过——真能编译、
    真能被选路识别）。

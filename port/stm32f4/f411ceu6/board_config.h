@@ -52,6 +52,10 @@
    逻辑 id（BL_PIN_*）供 core/services 引用；物理声明 *_PORT 为端口序号
    （0=GPIOA 1=GPIOB 2=GPIOC…），*_NUM 为引脚号。chips/f411ceu6.json pins 段与
    本段一致性由 chips/test_chip.py 强制。 */
+#define BL_UART_TX_PORT        0u      /* 升级串口 TX（实验：UART 引脚同入板级声明） */
+#define BL_UART_TX_NUM         9u      /* PA9 */
+#define BL_UART_RX_PORT        0u
+#define BL_UART_RX_NUM         10u     /* PA10 */
 #define BL_PIN_LED             0u      /* 逻辑 id：LED，低电平点亮（ADR-008） */
 #define BL_PIN_LED_PORT        2u      /* PC13 */
 #define BL_PIN_LED_NUM         13u

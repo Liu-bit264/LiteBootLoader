@@ -43,6 +43,9 @@ static void display_init(void)
     s_crc_ok = false;
     s_next_refresh = 0u;
     bl_gpio.write(BL_PIN_LED, true);   /* 高电平 = 灭 */
+    /* 显示自举（实验：main 不再强制 i2c/ssd1306，服务自含） */
+    bl_i2c.init();
+    ssd1306_init();
     ssd1306_clear();
 }
 

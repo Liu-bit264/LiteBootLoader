@@ -93,6 +93,11 @@
               "name": "bl_crc.c",
               "type": 1,
               "path": "core\\bl_crc.c"
+            },
+            {
+              "name": "bl_service_stub.c",
+              "type": 1,
+              "path": "core\\bl_service_stub.c"
             }
           ]
         },
@@ -100,9 +105,9 @@
           "name": "Services",
           "files": [
             {
-              "name": "bl_display_oled.c",
+              "name": "bl_display_led.c",
               "type": 1,
-              "path": "services\\display_oled\\bl_display_oled.c"
+              "path": "services\\display_led\\bl_display_led.c"
             },
             {
               "name": "bl_debug_uart.c",
@@ -145,11 +150,6 @@
               "path": "port\\stm32f1\\f103c8t6\\uart.c"
             },
             {
-              "name": "uart2.c",
-              "type": 1,
-              "path": "port\\stm32f1\\f103c8t6\\uart2.c"
-            },
-            {
               "name": "wifi_stub.c",
               "type": 1,
               "path": "port\\wifi_stub.c"
@@ -168,28 +168,12 @@
               "name": "flash.c",
               "type": 1,
               "path": "port\\stm32f1\\f103c8t6\\flash.c"
-            },
-            {
-              "name": "i2c.c",
-              "type": 1,
-              "path": "port\\stm32f1\\f103c8t6\\i2c.c"
             }
           ]
         },
         {
           "name": "BSP",
-          "files": [
-            {
-              "name": "ssd1306.c",
-              "type": 1,
-              "path": "bsp\\oled_ssd1306\\ssd1306.c"
-            },
-            {
-              "name": "ssd1306_font.c",
-              "type": 1,
-              "path": "bsp\\oled_ssd1306\\ssd1306_font.c"
-            }
-          ]
+          "files": []
         }
       ]
     }

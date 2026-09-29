@@ -176,11 +176,36 @@ F411 移植的服务复用审计（display_oled 的 F103 端口头耦合、引�
 - 一致性三方闭环：`chips/<id>.json` 的 `pins` 段 ↔ board_config 声明由
   `chips/test_chip.py` 强制（led/bt_state/bt_en/i2c_*；uart_*/uart2_* 属端口实现
   记录，不做宏级校验）。
-- 边界（v1）：`i2c.c` 的位序初始化与 uart.c/uart2.c 的引脚复用配置未宏化（F1 软件
-  I2C 时序与引脚耦合深、UART 引脚选择与 AF 能力强相关）——物理事实已声明并测试，
-  消费宏化留待需要时做。
+- 边界（v1）：`i2c.c` 的位序初始化未宏化（F1 软件 I2C 时序与引脚耦合深）——物理事实
+  已声明并测试，消费宏化留待需要时做。~~uart 引脚未宏化~~ → 已由 ADR-019 完成
+  （`BL_UART_TX/RX_PORT/_NUM` 声明 + uart.c 按 NUM 派生 + test_chip 校验）。
 - 效果：换板 = 改 board_config 引脚段（+chip.json pins）零改 C 代码；bin 微增
   （F103 BL +76B / F411 BL +84B，初始化表达式宏化所致），行为等价。
+
+### ADR-019 服务可选挂载 + BL 示例配置最小化（用户决定，2026-09-29）
+
+F103 16KB 预算实验（exp/optional-services 分支，双板真机验证）定版：
+
+- **唯一强制挂载的服务 = 有线串口通道**。`core/bl_service_stub.c` 提供
+  `bl_display`/`bl_debug`/`bl_port_i2c_release` 的 `__weak` 空实现：工程不链显示/
+  调试服务时兜底，链了真实服务则强符号覆盖、弱段被未用段裁剪（零开销，沿用
+  `bl_uart_bt_port_deinit` 既有弱符号模式）。
+- **服务自含自举**：显示服务的 init 负责自己的硬件初始化（display_oled 内含
+  i2c.init + ssd1306_init），main.c 只装配强制链路（wdg→clock→systick→uart→gpio
+  →core），不再引用任何服务硬件。
+- **BL 示例配置最小化**：F103 与 F411 的默认 BL 示例配置统一为「最小可用」——
+  `display_led`（LED 状态灯）+ `debug_uart`（串口日志），无 OLED/蓝牙/I2C
+  （f103c8t6.json 删除原全功能清单：uart2.c/i2c.c/bsp ssd1306 移出构建，
+  `BL_TRANSPORT_BT_EN=0`）。**APP 示例配置不变**（F103 APP 保留 OLED 呼吸演示，
+  BSP 清单拆分为 `bsp_files_bl`/`bsp_files_app`）。OLED/蓝牙作为可选能力保留：
+  启用方式见 porting_guide.md §3.1。
+- **尺寸实测**（AC5 全量重建，0 错 0 警）：F103 全功能变体 15 464 B ≤16K（弱桩代价
+  +64B）；F103 默认最小 12 180 B；F411 12 584 B ≤32K。
+- **真机验证**：F103 selftest 15/15（含越界防护步真 PASS，反向坐实 F411 夹具
+  假阳性——LBU `APP_SIZE=0xB800` 硬编码，见 dev/test_plan.md §5.1）；F103 无显示
+  变体纯串口完成回 BL+升级+跳转；F411 升级/跳转/呼吸灯复验。
+- **版本**：本 ADR 动 core（服务模型）且改变 F103 默认固件行为 → BL 0.2.0 →
+  **0.3.0**（feat→MINOR）。
 
 ### ADR-016 多通道 transport + OTA_QUERY（用户确认，2026-09-27）
 

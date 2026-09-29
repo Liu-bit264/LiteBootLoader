@@ -424,6 +424,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\core\bl_crc.c</FilePath>
             </File>
+            <File>
+              <FileName>bl_service_stub.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\core\bl_service_stub.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

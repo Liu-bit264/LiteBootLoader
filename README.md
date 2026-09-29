@@ -3,10 +3,10 @@
 简体中文 | [English](README.en.md)
 
 可编译、可测试、可移植的 STM32 BootLoader 框架（BL）：启动决策、APP 合法性校验、
-USART1 有线 + 蓝牙（HC-05）双通道升级协议、OTA 状态查询、Flash 与参数区管理、
-OLED/LED 状态显示、IWDG 看门狗与安全跳转。
+串口升级协议与 OTA 状态查询（有线 USART1 为强制通道，蓝牙 HC-05 为可选能力）、
+Flash 与参数区管理、状态显示（默认 LED 状态灯，OLED 可选）、IWDG 看门狗与安全跳转。
 通过 core/port 分层与**芯片支持包（CSP，`chips/*.json` + `port/<family>/<chip>/`）**
-支持多芯片移植。
+支持多芯片移植；显示/日志为**链接期可选插件**（唯一强制服务 = 有线串口，见 ADR-019）。
 
 - **用户手册（怎么用看这里）**：[docs/user_manual.md](docs/user_manual.md)
 - **问题反馈与贡献**：[CONTRIBUTING.md](CONTRIBUTING.md) · 版本历史：[CHANGELOG.md](CHANGELOG.md)
@@ -16,12 +16,17 @@ OLED/LED 状态显示、IWDG 看门狗与安全跳转。
 - **当前支持包：STM32F103C8T6**（Cortex-M3，64 KiB Flash / 20 KiB RAM）——目前唯一完成
   全链路硬件验证的支持包：14/14 验收项通过、上位机升级 E2E、断电恢复演练；
   产物尺寸与 SHA 见 [CHANGELOG.md](CHANGELOG.md)
-- **蓝牙空口升级（0.2.0）**：HC-05（SPP）经 UART2 接入为 transport 通道 1，WIFI 仅 API
-  预留；OTA 状态查询命令 0x10（ADR-016）；蓝牙真机在环验证进行中
-- **STM32F411CEU6 最小支持包（ADR-017）**：仅串口升级 + 引导跳转（无 OLED/蓝牙），
+- **服务可选挂载与最小示例配置（0.3.0，ADR-019）**：唯一强制服务 = 有线串口通道；
+  显示/日志为链接期可选插件（`core/bl_service_stub.c` 弱默认兜底）。默认 BL 示例配置
+  为最小集（LED 状态灯 + 串口日志，12 180 B ≤ 16K），OLED/蓝牙/I2C 作为可选能力保留
+  （启用方式见 [docs/porting_guide.md](docs/porting_guide.md) §3.1）
+- **蓝牙空口升级（0.2.0，可选能力）**：HC-05（SPP）经 UART2 接入为 transport 通道 1，
+  WIFI 仅 API 预留；OTA 状态查询命令 0x10（ADR-016）；蓝牙真机在环已通过——默认配置
+  未启用，启用方式见 porting_guide §3.1
+- **STM32F411CEU6 最小支持包（ADR-017）**：仅串口升级 + 引导跳转（无 OLED/蓝牙/I2C），
   编译/一致性/上板 HIL 均已通过（升级-跳转-回环-复位注入实测，见 CHANGELOG）；
   F407ZGT6 规划为 f4 家族第二个复用点
-- STM32F4 / G0 / H7 端口目录已预留（仅骨架）；新增芯片支持的完整流程见
+- STM32G0 / H7 端口目录已预留（仅骨架）；新增芯片支持的完整流程见
   [docs/porting_guide.md](docs/porting_guide.md)
 - 多芯片基础设施（CSP：芯片清单 + 模板化工程生成 + 擦除单元抽象 + IWDG 参数化）已落地，
   设计见 [docs/dev/design.md](docs/dev/design.md) ADR-015
@@ -31,7 +36,7 @@ OLED/LED 状态显示、IWDG 看门狗与安全跳转。
 | 目录 | 职责 |
 |---|---|
 | `core/` | 状态机、协议、启动策略、元数据与通用逻辑（不依赖 HAL） |
-| `services/` | 显示（OLED+LED）与调试（USART1 日志）服务 |
+| `services/` | 显示（默认 `display_led` LED 状态灯；`display_oled` OLED 可选）与调试（USART1 日志）服务——可选插件（ADR-019） |
 | `chips/` | CSP 芯片清单（构建侧事实源）+ spec 模板 + 一致性测试 |
 | `port/` | 芯片端口层（`stm32f1/f103c8t6` 全功能、`stm32f4/f411ceu6` 最小包已实现；`stm32g0/h7` 预留） |
 | `bsp/` | 板级器件驱动（`oled_ssd1306` 等） |
