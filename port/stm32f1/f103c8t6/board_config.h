@@ -24,6 +24,9 @@
 #define BL_SRAM_BASE           0x20000000u
 #define BL_SRAM_SIZE           0x00005000u   /* 20 KiB */
 
+/* ---- 板级标识（显示服务消费，服务层不携带芯片事实——审计 2026-09-29 P2-4） ---- */
+#define BL_CHIP_NAME           "F103C8"
+
 /* ---- 行为常量 ---- */
 #define BL_TRANSPORT_BT_EN     0       /* 0=蓝牙通道不进默认示例配置（ADR-019：BL 示例最小化，
                                           uart2.c 不在 chips/f103c8t6.json 构建清单）。启用方式见
