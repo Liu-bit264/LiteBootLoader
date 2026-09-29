@@ -5,150 +5,91 @@
 可编译、可测试、可移植的 STM32 BootLoader 框架（BL）：启动决策、APP 合法性校验、
 串口升级协议与 OTA 状态查询（有线 USART1 为强制通道，蓝牙 HC-05 为可选能力）、
 Flash 与参数区管理、状态显示（默认 LED 状态灯，OLED 可选）、IWDG 看门狗与安全跳转。
-通过 core/port 分层与**芯片支持包（CSP，`chips/*.json` + `port/<family>/<chip>/`）**
-支持多芯片移植；显示/日志为**链接期可选插件**（唯一强制服务 = 有线串口，见 ADR-019）。
 
-- **用户手册（怎么用看这里）**：[docs/user_manual.md](docs/user_manual.md)
-- **问题反馈与贡献**：[CONTRIBUTING.md](CONTRIBUTING.md) · 版本历史：[CHANGELOG.md](CHANGELOG.md)
+代码按「芯片无关 / 芯片相关」分两层：`core/` 放状态机、协议、存储与启动决策，
+`port/<家族>/<型号>/` 放时钟、Flash、UART、GPIO、IWDG、SysTick 与跳转原子序列，
+两层之间只经 `port/bl_port.h` 的 ops 抽象通信；`chips/<id>.json` 是构建侧事实源，
+负责生成 spec / scatter / Keil 工程。加一颗芯片 = 新建 `port/` 目录 + 填 `chips/<id>.json`
++ 实现 ops（流程见 [docs/porting_guide.md](docs/porting_guide.md)）。
 
-## 仓库现状
+**板级配置的统一入口是 `board_config.h`**：引脚、晶振与主频、分区与擦除单元、IWDG 超时、
+可选服务开关全部集中在这里。`port/<家族>/<型号>/board_config.h` 是 C 侧常量唯一出处，
+必须与构建侧 `chips/<id>.json` 保持一致——改完任一侧跑 `python chips/test_chip.py`
+强制校验（逐项对照见下文「配置」）。
 
-- **当前支持包：STM32F103C8T6**（Cortex-M3，64 KiB Flash / 20 KiB RAM）——目前唯一完成
-  全链路硬件验证的支持包：14/14 验收项通过、上位机升级 E2E、断电恢复演练；
-  产物尺寸与 SHA 见 [CHANGELOG.md](CHANGELOG.md)
-- **服务可选挂载与最小示例配置（0.3.0，ADR-019）**：唯一强制服务 = 有线串口通道；
-  显示/日志为链接期可选插件（`core/bl_service_stub.c` 弱默认兜底）。默认 BL 示例配置
-  为最小集（LED 状态灯 + 串口日志，12 180 B ≤ 16K），OLED/蓝牙/I2C 作为可选能力保留
-  （启用方式见 [docs/porting_guide.md](docs/porting_guide.md) §3.1）
-- **蓝牙空口升级（0.2.0，可选能力）**：HC-05（SPP）经 UART2 接入为 transport 通道 1，
-  WIFI 仅 API 预留；OTA 状态查询命令 0x10（ADR-016）；蓝牙真机在环已通过——默认配置
-  未启用，启用方式见 porting_guide §3.1
-- **STM32F411CEU6 最小支持包（ADR-017）**：仅串口升级 + 引导跳转（无 OLED/蓝牙/I2C），
-  编译/一致性/上板 HIL 均已通过（升级-跳转-回环-复位注入实测，见 CHANGELOG）；
-  F407ZGT6 规划为 f4 家族第二个复用点
-- STM32G0 / H7 端口目录已预留（仅骨架）；新增芯片支持的完整流程见
-  [docs/porting_guide.md](docs/porting_guide.md)
-- 多芯片基础设施（CSP：芯片清单 + 模板化工程生成 + 擦除单元抽象 + IWDG 参数化）已落地，
-  设计见 [docs/dev/design.md](docs/dev/design.md) ADR-015
+## 支持的芯片
 
-## 仓库布局
+| 芯片 | 状态 | 说明 |
+|---|---|---|
+| STM32F103C8T6 | 全功能 | 唯一完成 14/14 验收项、上位机升级 E2E 与断电恢复演练的支持包 |
+| STM32F411CEU6 | 最小包 | 仅串口升级 + 引导跳转（无 OLED / 蓝牙 / I2C）；升级、跳转、setmeta 回环、复位注入已上板实测 |
+| STM32G0 / H7 | 预留目录 | 仅骨架，可自行按移植指南补齐 |
+| STM32F407ZGT6 | 规划中 | f4 家族第二个复用点 |
 
-| 目录 | 职责 |
-|---|---|
-| `core/` | 状态机、协议、启动策略、元数据与通用逻辑（不依赖 HAL） |
-| `services/` | 显示（默认 `display_led` LED 状态灯；`display_oled` OLED 可选）与调试（USART1 日志）服务——可选插件（ADR-019） |
-| `chips/` | CSP 芯片清单（构建侧事实源）+ spec 模板 + 一致性测试 |
-| `port/` | 芯片端口层（`stm32f1/f103c8t6` 全功能、`stm32f4/f411ceu6` 最小包已实现；`stm32g0/h7` 预留） |
-| `bsp/` | 板级器件驱动（`oled_ssd1306` 等） |
-| `app/examples/` | APP 示例工程（链接到 `0x08004000`） |
-| `linker/` | 链接脚本 / 分散加载文件（`*.sct` 为生成产物） |
-| `tools/` | VOFA+ 调试帧模板（uvprojx/ico 工程工具已迁至独立仓 [LiteTools](../LiteTools)） |
-| `docs/` | 架构 / 协议 / 分区 / 接口 / 用户手册 / 移植指南（`docs/dev/` 为开发与代理文档） |
-| `scripts/` | 工具链检查与构建脚本 |
-| `third_party/` | CMSIS / HAL 依赖（原样捆绑，许可见 `third_party/CMSIS/LICENSES.md`） |
+产物尺寸、SHA-256 与逐项验收结论见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 快速开始
+
+完整步骤见**用户手册** [docs/user_manual.md](docs/user_manual.md)（硬件连接、首次烧录、
+日常升级、指示说明、故障排查）；下面是命令速览。
 
 ```bash
 # 1) 工具链检查（Git Bash / Linux；CMD 用 scripts\check_toolchain.bat）
 bash scripts/check_toolchain.sh
 
-# 2) Keil 工程解析 / 生成（工具在独立仓 ../LiteTools）
-python ../LiteTools/uvprojx/parser.py <工程.uvprojx> -o spec.json
-python ../LiteTools/uvprojx/generator.py spec.json -o new.uvprojx        # 创建模式（结果需在 Keil 中人工验证）
-python ../LiteTools/uvprojx/generator.py spec.json --update old.uvprojx  # 更新模式（保留未知字段，自动备份）
-
-# 3) ICO 图标解析 / 生成（同在 ../LiteTools）
-python ../LiteTools/ico/parser.py <文件.ico>
-python ../LiteTools/ico/generator.py --sizes 16,32,48,256 -o icon.ico icon.png
-```
-
-> **依赖隔离建议**：Python 依赖建议用隔离环境运行（`uv run --with <pkg> <脚本>` 或
-> venv + pip 安装 pyserial/Pillow），避免污染全局解释器。下文示例按 uv 书写，替换为
-> `python` 直跑亦可（前提是依赖已装在当前环境）。
-
-## 构建（CSP 流程）
-
-```bash
-# 一键构建（chip.json+模板 -> spec/sct -> 生成工程 -> UV4 全量重建 -> 退出码判定 -> 生成 bin）
-# CHIP 指定芯片清单（默认 f103c8t6）；TARGETS 默认 "bootloader app"
+# 2) 构建 BL + APP（chip.json + 模板 -> spec/sct -> 工程 -> UV4 全量重建 -> bin）
 CHIP=f103c8t6 bash scripts/build_keil.sh
 
-# 手工等价流程：
-python ../LiteTools/uvprojx/chipfill.py --chip chips/f103c8t6.json --target bootloader \
-    --spec-out bootloader.spec.json --sct-out linker/bootloader.sct   # 芯片清单 -> spec 与 scatter
-python ../LiteTools/uvprojx/generator.py bootloader.spec.json -o bootloader.uvprojx  # spec -> 工程
-"<Keil 安装目录>/UV4/UV4.exe" -r bootloader.uvprojx -j0 -o keil_build.log
-# 退出码：0=无警告无错误，1=有警告，≥2=有错误
-"<Keil 安装目录>/ARM/ARMCC/bin/fromelf.exe" --bin --output=bootloader.bin Objects/bootloader.axf
-
-# 改了 chips/<id>.json 或模板后：重新生成全部产物（test_chip.py 强制往返一致）
-python chips/test_chip.py
-
-# 经 BL 协议升级 APP 并跳转（上位机在独立仓 ../LiteBootUpgrader，用法见 docs/protocol.md）
-uv run --with pyserial ../LiteBootUpgrader/bl_upgrade.py upgrade app/examples/f103c8t6_app/app.bin --port COMx
-uv run --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COMx
+# 3) 用上位机升级 APP 并跳转（上位机在独立仓 ../LiteBootUpgrader）
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py upgrade 你的APP.bin --port COMx
+uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py jump --port COMx
 ```
 
-> 编译器固定为 **AC5**（V5.06u7，ADR-013）；CMSIS 内核头为 V1.30（详见
-> `third_party/CMSIS/LICENSES.md`）。`<Keil 安装目录>` 按本机安装位置替换（Windows
-> 典型为 `C:\Keil_v5`，或用 `KEIL_UV4` 环境变量指向 UV4.exe）。
+BL 本体用调试器烧一次即可（用户手册 §3 给出 pyocd 逐条命令），之后升级 APP 全走串口；
+图形界面双击 `../LiteBootUpgrader/bl_upgrade_gui.bat`。
 
-## 三仓布局与联动
+> 编译器固定 **AC5**（V5.06u7，ADR-013），CMSIS 内核头 V1.30（见
+> `third_party/CMSIS/LICENSES.md`）；Keil 非标准安装用 `KEIL_UV4` 环境变量指向 UV4.exe，
+> 构建按退出码判定：0 = 无警告无错误、1 = 有警告、≥2 = 有错误。Python 工具建议隔离运行
+> （`uv run --with <pkg>` 或 venv），避免污染全局解释器。
 
-| 仓库 | 职责 | 耦合契约与联动规则 |
-|---|---|---|
-| **LiteBootLoader**（本仓） | 固件 + 协议契约 | `docs/protocol.md` 是协议唯一规范；协议/分区/跳转行为变更先改文档并升版本 |
-| [LiteBootUpgrader](../LiteBootUpgrader) | 上位机 CLI + GUI（串口升级/跳转/自检） | 实现本仓 protocol.md 当前版本（VER 0x01）；本仓协议或行为变更后，LBU 需同步并通过 `test_host_protocol.py` 与硬件 E2E 回归 |
-| [LiteTools](../LiteTools) | Keil uvprojx / ICO 工具 + chipfill | 消费本仓 `chips/<id>.json` schema 与 `chips/templates/` spec 模板；schema 或模板变更需 LiteTools 单测 + 本仓 `chips/test_chip.py` 双向回归 |
+## 配置：board_config.h
 
-三仓耦合关系图示：
+| 想改什么 | 改哪里 |
+|---|---|
+| 引脚：USART TX/RX、LED、蓝牙 STATE/EN、软件 I2C SCL/SDA | `board_config.h` 的 `BL_UART_TX_PORT`/`_NUM`、`BL_UART_RX_*`、`BL_PIN_LED*`、`BL_PIN_BT_*`、`BL_PIN_I2C_*`；并同步 `chips/<id>.json` 的 `pins` |
+| 晶振与主频（如 8 MHz ↔ 25 MHz 晶振） | `board_config.h` 的 `BL_HSE_MHZ`；PLL 参数在 `port/<家族>/<型号>/clock.c` 按该宏选取 |
+| 分区与擦除单元（BL / APP / 参数区） | `board_config.h` 的 `BL_FLASH_*` 与 `BL_ERASE_UNIT_TABLE`；并同步 `chips/<id>.json` 的 `partitions`/`erase_units` |
+| IWDG 超时与升级期放宽值 | `board_config.h` 的 IWDG 宏（F103 2000 / 8000 ms 等） |
+| 可选服务：蓝牙通道、OLED、日志级别 | `board_config.h` 的服务开关（如 `BL_TRANSPORT_BT_EN`、`BL_LOG_*`）；未启用的服务由 `core/bl_service_stub.c` 弱默认兜底，启用步骤见 [porting_guide §3.1](docs/porting_guide.md) |
 
-```mermaid
-flowchart LR
-    subgraph LBL["LiteBootLoader（本仓）"]
-        FW["固件 core/port/services<br/>协议契约 docs/protocol.md"]
-        CSP["CSP：chips/*.json<br/>+ spec 模板"]
-    end
-    subgraph LBU["LiteBootUpgrader"]
-        HOST["上位机 CLI + GUI<br/>协议栈唯一实现"]
-    end
-    subgraph LT["LiteTools"]
-        GEN["chipfill<br/>uvprojx / ICO 工具"]
-    end
-    BOARD["开发板<br/>BL @0x08000000<br/>APP @0x08004000"]
-
-    HOST -->|"实现 protocol.md（VER 0x01）<br/>协议变更 → LBU 同步回归"| FW
-    GEN -->|"消费 chip.json schema + 模板<br/>变更 → 双向回归"| CSP
-    GEN -.->|"生成 spec/sct/uvprojx"| FW
-    HOST -. "有线 USART1 / 蓝牙 UART2" .-> BOARD
-    FW --- BOARD
-```
+改动任一侧后：`python chips/test_chip.py`（强制 chip.json ↔ board_config.h 一致 +
+产物模板往返）→ `CHIP=<id> bash scripts/build_keil.sh`（重新生成产物并全量构建）。
 
 ## 文档
 
 | 文档 | 内容 |
 |---|---|
 | [docs/user_manual.md](docs/user_manual.md) | **用户手册**：硬件连接、首次烧录、日常升级、指示说明、故障排查 |
-| [docs/architecture.md](docs/architecture.md) | 分层架构、ops 接口、运行时模型、状态机、内存预算 |
 | [docs/protocol.md](docs/protocol.md) | 通信协议规范（帧格式、命令、示例帧、工具用法）——协议契约唯一出处 |
 | [docs/partition.md](docs/partition.md) | Flash 分区、参数区双副本状态机与断电恢复 |
 | [docs/external_interface.md](docs/external_interface.md) | 外部接口清单（引脚、协议摘要、抽象接口、OTA 接入点） |
-| [docs/porting_guide.md](docs/porting_guide.md) | 移植指南：ops 实现要求、时钟双路径、跳转原子性、移植陷阱 |
-| [docs/dev/bluetooth_notes.md](docs/dev/bluetooth_notes.md) | 蓝牙 HC-05 核实笔记：引脚语义、AT 一次性配置、来源引用 |
-| [docs/dev/design.md](docs/dev/design.md) | 总体设计与固化决策记录（CRC 参数、升级模式、LED/日志策略等 ADR） |
-| [docs/dev/versioning.md](docs/dev/versioning.md) | SemVer 与 Conventional Commits 细则 |
-| [docs/dev/vofa_plus.md](docs/dev/vofa_plus.md) | VOFA+ 定位与可行性说明 |
-| [docs/dev/test_plan.md](docs/dev/test_plan.md) | 测试计划：四级测试、selftest 清单、验收对照表、实测教训索引 |
+| [docs/architecture.md](docs/architecture.md) | 分层架构、ops 接口、运行时模型、状态机、内存预算 |
+| [docs/porting_guide.md](docs/porting_guide.md) | 移植指南：新增芯片支持包、ops 实现要求、配置开关、移植陷阱 |
 
-## 问题反馈与贡献
+开发与贡献向文档（设计 ADR、版本细则、测试计划、蓝牙核实笔记、VOFA+）见
+[docs/dev/](docs/dev/) 与 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-- Bug 反馈与芯片支持请求：GitHub Issues（提供 `bug_report` 与 `chip_support` 模板）
-- 贡献流程、芯片支持包（CSP）PR 清单与验收基线：[CONTRIBUTING.md](CONTRIBUTING.md)
+## 参与贡献
+
+- Bug 反馈与芯片支持请求：GitHub Issues（`bug_report` / `chip_support` 模板）
+- 贡献流程（开发环境、仓库布局、三仓联动、CSP PR 清单、质量基线）：[CONTRIBUTING.md](CONTRIBUTING.md)
 - 代理/编码助手的仓库工作规范：[AGENTS.md](AGENTS.md)
 
 ## 许可
 
-本项目原创代码（`core/`、`port/`、`services/`、`bsp/`、`app/`、`linker/`、`tools/`、`scripts/`、`docs/`）以 [MIT](LICENSE) 许可证发布（© 2026 Qingc）。
+本项目原创代码（`core/`、`port/`、`services/`、`bsp/`、`app/`、`linker/`、`tools/`、
+`scripts/`、`docs/`）以 [MIT](LICENSE) 许可证发布（© 2026 Qingc）。
 
-`third_party/` 下捆绑的第三方文件为**原样拷贝**（未做任何修改），保留其原始许可与版权声明；来源、许可条款与逐字节核验记录见 [third_party/CMSIS/LICENSES.md](third_party/CMSIS/LICENSES.md)。
+`third_party/` 下捆绑的第三方文件为**原样拷贝**（未做任何修改），保留其原始许可与版权
+声明；来源、许可条款与逐字节核验记录见 [third_party/CMSIS/LICENSES.md](third_party/CMSIS/LICENSES.md)。
