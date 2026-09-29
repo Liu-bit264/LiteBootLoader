@@ -136,7 +136,8 @@
         "path": "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6\\flash.c"
       }
     ],
-    "bsp_files": []
+    "bsp_files_bl": [],
+    "bsp_files_app": []
   },
   "memory": {
     "flash_base": "0x08000000",
