@@ -57,7 +57,8 @@ for TGT in $TARGETS; do
   tail -n 4 "$LOG"
   case $rc in
     0) echo "[build] ${TGT} 成功：无警告无错误" ;;
-    1) echo "[build] ${TGT} 成功但有警告，请检查日志" ;;
+    1) echo "[build] ${TGT} 成功但有警告："
+       grep -iE "warning" "$LOG" | head -n 20 ;;
     *) echo "[build] ${TGT} 失败（退出码 $rc），错误摘要："
        grep -iE "error" "$LOG" | head -n 20
        rm -f "$LOG"
@@ -72,7 +73,14 @@ for TGT in $TARGETS; do
   esac
   AXF=$(out "$ARTDIR" "Objects/${TGT}.axf")
   "$FROMELF" --bin --output="$BIN" "$AXF" || exit 1
-  echo "[build] $BIN: $(stat -c %s "$BIN") 字节"
+  # 5) 分区限额校验（AGENTS §9.4 基线；审计 2026-09-29 P3-4）：超限判失败
+  LIMIT=$(python -c "import json,sys; print(int(json.load(open(sys.argv[1], encoding='utf-8'))['partitions'][sys.argv[2]]['size'], 16))" "$CHIPS" "$TGT")
+  SIZE=$(stat -c %s "$BIN")
+  if [ "$SIZE" -gt "$LIMIT" ]; then
+    echo "[build] $BIN: $SIZE 字节，超过 $TGT 分区限额 $LIMIT 字节——判失败"
+    exit 1
+  fi
+  echo "[build] $BIN: $SIZE 字节（限额 $LIMIT）"
   sha256sum "$BIN"
 
   rm -f "$PRJ_OUT.bak-"*
