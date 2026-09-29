@@ -161,6 +161,27 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 - **验证深度**：编译 + 一致性测试通过即交付（用户确认）；蓝牙 N/A、OLED N/A，
   硬件在环（烧录/升级/跳转/断电演练）未执行，见 dev/test_plan.md。
 
+### ADR-018 引脚板级抽象（2026-09-29）
+
+F411 移植的服务复用审计（display_oled 的 F103 端口头耦合、引脚散落）引出：**引脚事实
+不能再散落在 gpio.c 的映射表里**。定版：
+
+- `board_config.h` 为引脚事实**唯一出处**：逻辑 id（`BL_PIN_*`，core/services 引用）
+  + 物理声明（`*_PORT` 端口序号，0=GPIOA 1=GPIOB 2=GPIOC…；`*_NUM` 引脚号；
+  `BL_PIN_LED_ACTIVE_LOW` 极性）。声明保持纯常量——**不得** include 器件头
+  （core 也要 include board_config，防芯片头泄入 core）。
+- `gpio.c` 仅消费：映射表/端口表/ops 读写通路全部宏驱动；寄存器**初始化序列**属
+  芯片模型代码——F4（MODER/PUPDR 均匀位段）按 NUM 派生，F1（CRL/CRH 4bit nibble）
+  由本文件私有 `cr_cfg()` 按 NUM 派生，不再手写 per-pin 掩码。
+- 一致性三方闭环：`chips/<id>.json` 的 `pins` 段 ↔ board_config 声明由
+  `chips/test_chip.py` 强制（led/bt_state/bt_en/i2c_*；uart_*/uart2_* 属端口实现
+  记录，不做宏级校验）。
+- 边界（v1）：`i2c.c` 的位序初始化与 uart.c/uart2.c 的引脚复用配置未宏化（F1 软件
+  I2C 时序与引脚耦合深、UART 引脚选择与 AF 能力强相关）——物理事实已声明并测试，
+  消费宏化留待需要时做。
+- 效果：换板 = 改 board_config 引脚段（+chip.json pins）零改 C 代码；bin 微增
+  （F103 BL +76B / F411 BL +84B，初始化表达式宏化所致），行为等价。
+
 ### ADR-016 多通道 transport + OTA_QUERY（用户确认，2026-09-27）
 
 规划书《空口蓝牙串口及OTA》三目标落地：

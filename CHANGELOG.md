@@ -28,13 +28,23 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
   LICENSES.md；新增 `scripts/vendor_copy.py` 拷贝核验工具
 - **F411 最小 APP 示例**（`app/examples/f411ceu6_app/`）：呼吸灯 + 升级口响应器
 
+### Changed
+
+- **引脚提升为板级声明（ADR-018）**：`board_config.h` 成为引脚事实唯一出处
+  （逻辑 id + `*_PORT` 端口序号 + `*_NUM` 引脚号 + `BL_PIN_LED_ACTIVE_LOW` 极性），
+  gpio.c 仅消费（映射表/ops 通路宏驱动，F1 CRL/CRH 配置按 NUM 派生）；
+  `chips/test_chip.py` 新增 chip.json `pins` 段与声明的强制一致（led/bt_state/
+  bt_en/i2c_*；uart_* 属端口实现记录不校验）。bin 因初始化宏化微增（见 Verification）
+
 ### Verification
 
-- `chips/test_chip.py` 11/11 通过（f103c8t6 + f411ceu6 全芯片一致性）
-- F103 回归：AC5 全量重建 0 错 0 警，BL 15 324 B（SHA-256 `499de4bc…`）、APP 8 152 B
-  （SHA-256 `534eb656…`）——与 0.2.0 基线逐字节一致
-- F411 新建：AC5 全量重建 0 错 0 警，BL 12 452 B ≤ 32K（SHA-256 `600ca358…`）、
-  APP 6 272 B（SHA-256 `0e0a09ec…`）
+- `chips/test_chip.py` 12/12 通过（f103c8t6 + f411ceu6 全芯片一致性，含引脚段）
+- F103 回归：AC5 全量重建 0 错 0 警——引脚抽象**之前**与 0.2.0 基线逐字节一致
+  （BL 15 324 B `499de4bc…` / APP 8 152 B `534eb656…`）；引脚抽象**之后**行为等价微增：
+  BL 15 400 B（SHA-256 `31dc570f…`）、APP 8 228 B（SHA-256 `3d5301c4…`），限额内
+- F411 新建：AC5 全量重建 0 错 0 警，BL 12 536 B ≤ 32K（SHA-256 `ebde0e74…`）、
+  APP 6 356 B（SHA-256 `46c711e4…`）；上板以仓库脚本重刷同步并复验
+  （GET_INFO 正常、新 APP 升级跳转运行，参数区跨重烧 seq 连续）
 - **F411 硬件在环完成（2026-09-29）**：上板烧录（寄存器级，见 `scripts/pyocd_manual_flash.py`）
   → GET_INFO（flash=512KB/UID 正确）→ 升级（448K 擦除 4.21s，IWDG 8s 放宽实测无复位，
   VERIFY CRC32 一致）→ 跳转 APP 呼吸灯 → setmeta 回 BL 闭环（seq 单调）→ 擦除中复位注入

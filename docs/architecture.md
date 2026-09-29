@@ -136,6 +136,8 @@ typedef struct {
 
 约定：所有 ops 返回 `bool` 表示成败；`bl_flash_ops.write/erase_unit` 由 `bl_storage` 层先做地址合法性检查（[partition.md](partition.md) §2 矩阵），ops 内部再做二次防御检查（物理边界由 board_config 定界）。core 不假设擦除单元等大（ADR-015）。
 
+`bl_gpio_ops` 的 `pin_id` 为**板级逻辑引脚**（ADR-018）：逻辑 id → 物理引脚（端口序号/引脚号/极性）的映射数据唯一声明在 `board_config.h`，gpio.c 仅消费——换板改声明即可，chip.json `pins` 段与之强制一致（`chips/test_chip.py`）。
+
 除 ops 结构外，`bl_port.h` 另提供跳转序列与系统级辅助函数（供 `bl_boot` 九步跳转使用，见 §5）：
 
 ```c

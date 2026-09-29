@@ -58,7 +58,7 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 |---|---|
 | `bl_flash_ops` | `read` 支持任意地址任意长度；`write` 半字/字对齐、尾部不足自动补 0xFF；**擦除单元**（ADR-015）：`unit_count/unit_addr/unit_size` 暴露单元几何（F4 非均匀扇区按表返回），`erase_unit` 按单元号擦除；`is_range_valid` 做**物理边界防御**（升级路径绝不允许擦写 BL 区与参数区之外） |
 | `bl_uart_ops` | `read` 非阻塞（中断 + 环形缓冲），`write` 阻塞发完（响应帧不能截断）；波特率按 `bl_clock_get_hz()` 实测值计算，不要用编译期常量 |
-| `bl_gpio_ops` | `write(pin_id, level)`；"低电平点亮"的取反在 UI/APP 层完成，端口层保持语义直白 |
+| `bl_gpio_ops` | `write(pin_id, level)`；**引脚映射数据在 board_config.h 声明**（ADR-018：逻辑 id + `*_PORT` 端口序号 + `*_NUM` 引脚号），gpio.c 仅消费——换板改声明即可，chip.json `pins` 段与之强制一致；"低电平点亮"的取反在 UI/APP 层完成，端口层保持语义直白 |
 | `bl_wdg_ops` | `init(timeout_ms)` 一次；`set_timeout_ms` 运行时重配（ADR-015 升级期放宽，需先喂狗再改，返回 false 表示不支持/超硬件上限）；`refresh` 极简（仅 KR 写）。IWDG 一旦启动不可关——APP 侧只喂不配 |
 | `bl_clock_ops` | `init` 后 `sysclk_hz` 必须与硬件实际一致（§4）；`tick_ms` 供协议超时与 UI 节拍 |
 | `bl_i2c_ops` | 仅 BSP 需要；BL 本体不用 |
