@@ -3,11 +3,13 @@
 [简体中文](README.md) | English
 
 A compilable, testable and portable BootLoader (BL) framework for STM32:
-boot decision, APP image validation, dual-channel upgrade protocol (USART1 wired +
-Bluetooth HC-05), OTA status query, flash and parameter-area management, OLED/LED
-status display, IWDG watchdog and safe jump-to-APP.
+boot decision, APP image validation, upgrade protocol and OTA status query (wired
+USART1 is the mandatory channel, Bluetooth HC-05 an optional capability), flash and
+parameter-area management, status display (LED status by default, OLED optional),
+IWDG watchdog and safe jump-to-APP.
 Multi-chip porting is supported through the core/port layering and **Chip Support
-Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
+Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**; display/logging are
+**link-time optional plugins** (the only mandatory service is the wired UART, ADR-019).
 
 - **User manual (start here for usage)**: [docs/user_manual.md](docs/user_manual.md)
 - **Feedback & contributing**: [CONTRIBUTING.md](CONTRIBUTING.md) · Changelog: [CHANGELOG.en.md](CHANGELOG.en.md)
@@ -18,11 +20,17 @@ Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
   the only support package with full hardware validation so far: 14/14 acceptance items
   passed, host-tool upgrade E2E, power-loss recovery drills; artifact sizes and SHA-256
   are recorded in the [changelog](CHANGELOG.en.md)
-- **Bluetooth over-the-air upgrades (0.2.0)**: HC-05 (SPP) attached via UART2 as
-  transport channel 1, WIFI reserved at the API level; OTA status query command 0x10
-  (ADR-016); on-target Bluetooth validation is in progress
+- **Optional services and minimized example config (0.3.0, ADR-019)**: the only
+  mandatory service is the wired UART channel; display/logging are link-time optional
+  plugins (`core/bl_service_stub.c` provides weak defaults). The default BL example
+  config is minimal (LED status + serial logs, 12 180 B ≤ 16K); OLED/Bluetooth/I2C
+  remain optional capabilities (see [docs/porting_guide.md](docs/porting_guide.md) §3.1)
+- **Bluetooth over-the-air upgrades (0.2.0, optional capability)**: HC-05 (SPP) attached
+  via UART2 as transport channel 1, WIFI reserved at the API level; OTA status query
+  command 0x10 (ADR-016); on-target Bluetooth validation passed — not enabled in the
+  default config, see porting_guide §3.1
 - **STM32F411CEU6 minimal support package (ADR-017)**: UART upgrade + boot/jump only
-  (no OLED/Bluetooth); build, consistency tests and on-target HIL all pass (upgrade /
+  (no OLED/Bluetooth/I2C); build, consistency tests and on-target HIL all pass (upgrade /
   jump / round-trip / reset-injection verified, see changelog); F407ZGT6 is planned as
   the second f4-family reuse point
 - STM32G0 / H7 port directories are reserved (skeletons only); the full workflow for
@@ -36,7 +44,7 @@ Packages (CSP: `chips/*.json` + `port/<family>/<chip>/`)**.
 | Directory | Purpose |
 |---|---|
 | `core/` | State machines, protocol, boot policy, metadata, common logic (no HAL dependency) |
-| `services/` | Display (OLED+LED) and debug (USART1 log) services |
+| `services/` | Display (`display_led` LED status by default; `display_oled` optional) and debug (USART1 log) services — optional plugins (ADR-019) |
 | `chips/` | CSP chip manifests (build-side source of truth) + spec templates + consistency tests |
 | `port/` | Chip port layer (`stm32f1/f103c8t6` full-featured and `stm32f4/f411ceu6` minimal implemented; `stm32g0/h7` reserved) |
 | `bsp/` | Board-level device drivers (`oled_ssd1306`, etc.) |
