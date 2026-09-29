@@ -34,9 +34,9 @@ either side, run `python chips/test_chip.py` to enforce it (item-by-item table u
 
 Both packages ship a **minimal default BL example configuration** (LED status + serial log,
 ADR-019): Bluetooth and OLED are optional capabilities and are off by default (see
-"Configuration" below). The F103 14/14 acceptance run, artifact sizes and SHA-256 values
-were obtained with the example configuration that included OLED and Bluetooth; per-item
-results are in [CHANGELOG.md](CHANGELOG.md).
+"Configuration" below). The F103 14/14 acceptance run was performed with the example
+configuration that included OLED and Bluetooth; artifact sizes and SHA-256 values for each
+configuration (including the 0.3.0 minimal set) are in [CHANGELOG.en.md](CHANGELOG.en.md).
 
 ## Quick Start
 
@@ -80,10 +80,10 @@ CHIP=<id> bash scripts/build_keil.sh   # regenerate the artifacts and do a full 
 
 | Item | Where |
 |---|---|
-| Serial channel pins (the only mandatory service) | `BL_UART_TX_PORT`/`_NUM`, `BL_UART_RX_*` (USART1 PA9/PA10 by default) |
-| Oscillator and core clock | `BL_HSE_MHZ` (the F411 accepts an 8 or 25 MHz crystal); the PLL parameters are selected from that macro in `port/<family>/<chip>/clock.c` |
-| Partitions and erase units (BL / APP / parameter area) | `BL_FLASH_*` and `BL_ERASE_UNIT_TABLE`; mirror them into `chips/<id>.json` `partitions`/`erase_units` |
-| IWDG timeout and the relaxed upgrade value | The IWDG macros (2000 / 8000 ms on F103, etc.) |
+| Serial channel pins (the only mandatory service) | `BL_UART_TX_PORT`/`_NUM`, `BL_UART_RX_PORT`/`_NUM` (USART1 PA9/PA10 by default) |
+| Oscillator and core clock | F103: `BL_USE_HSE` (HSE 8 MHz ×9 = 72 MHz, fixed); F411: `BL_HSE_MHZ` (8 or 25 MHz). The PLL parameters live in `port/<family>/<chip>/clock.c` |
+| Partitions and erase units (BL / APP / parameter area) | `BL_FLASH_*` / `BL_APP_*` / `BL_PARAM_*`; erase units use the uniform group on F103 (`BL_ERASE_UNITS_UNIFORM` + `BL_ERASE_UNIT_BASE/_SIZE/_COUNT`) and the explicit table `BL_ERASE_UNIT_TABLE` on F411; mirror them into `chips/<id>.json` `partitions`/`erase_units` |
+| IWDG timeout and the relaxed upgrade value | `BL_IWDG_TIMEOUT_MS` / `BL_IWDG_UPGRADE_TIMEOUT_MS` (2000 / 2000 ms on F103; 2000 / 8000 ms on F411) |
 
 **Optional capabilities** (enable as needed; otherwise the weak defaults in
 `core/bl_service_stub.c` apply)
@@ -91,9 +91,9 @@ CHIP=<id> bash scripts/build_keil.sh   # regenerate the artifacts and do a full 
 | Capability | How to enable |
 |---|---|
 | LED status display | Link `services/display_led` (already part of the minimal configuration); pins `BL_PIN_LED*` |
-| Serial log | Link `services/debug_uart` (already part of the minimal configuration); level/off via `BL_LOG_LEVEL` / `BL_LOG_DISABLE` |
+| Serial log | Link `services/debug_uart` (already part of the minimal configuration); level/off via `BL_LOG_LEVEL_DEFAULT` / `BL_LOG_DISABLE` |
 | Bluetooth HC-05 channel (transport channel 1) | `BL_TRANSPORT_BT_EN=1` + the Bluetooth pins `BL_PIN_BT_STATE`/`_EN` (with `*_PORT`/`_NUM`) + add `uart2.c` back to `chips/<id>.json` `build.port_files_bl`; steps in [porting_guide §3.1](docs/porting_guide.md) |
-| OLED display (SSD1306, soft I2C) | Link `services/display_oled` + `bsp/oled_ssd1306`; pins `BL_PIN_I2C_SCL`/`_SDA` (with `*_PORT`/`_NUM`) |
+| OLED display (SSD1306, soft I2C) | Link `services/display_oled` + `bsp/oled_ssd1306`; pins `BL_PIN_I2C_SCL`/`_SDA` (with `*_PORT`/`_NUM`). **Mutually exclusive with the default `display_led`** (both define `bl_display` — pick one) |
 
 The pins of optional capabilities must be registered in `chips/<id>.json` `pins` as well
 (`test_chip.py` checks both sides for consistency).

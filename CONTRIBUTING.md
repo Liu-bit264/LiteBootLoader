@@ -31,7 +31,7 @@ Keil DFP 包版本、时钟方案、硬件是否在手。有板子的请求可�
 | `chips/` | CSP 芯片清单（构建侧事实源）+ spec 模板 + 一致性测试 |
 | `port/` | 芯片端口层（`stm32f1/f103c8t6` 端口能力最全、`stm32f4/f411ceu6` 最小包已实现；`stm32g0/h7` 预留） |
 | `bsp/` | 板级器件驱动（`oled_ssd1306` 等） |
-| `app/examples/` | APP 示例工程（链接到 `0x08004000`） |
+| `app/examples/` | APP 示例工程（F103 链到 `0x08004000`、F411 链到 `0x08010000`，链接地址由 `board_config.h` 的 `BL_APP_BASE` 给出） |
 | `linker/` | 链接脚本 / 分散加载文件（`*.sct` 为生成产物） |
 | `tools/` | VOFA+ 调试帧模板（uvprojx/ico 工程工具已迁至独立仓 [LiteTools](../LiteTools)） |
 | `docs/` | 架构 / 协议 / 分区 / 接口 / 用户手册 / 移植指南（`docs/dev/` 为开发与代理文档） |
@@ -60,7 +60,7 @@ Keil DFP 包版本、时钟方案、硬件是否在手。有板子的请求可�
 |---|---|---|
 | **LiteBootLoader**（本仓） | 固件 + 协议契约 | `docs/protocol.md` 是协议唯一规范；协议/分区/跳转行为变更先改文档并升版本 |
 | [LiteBootUpgrader](../LiteBootUpgrader) | 上位机 CLI + GUI（串口升级/跳转/自检） | 实现本仓 protocol.md 当前版本（VER 0x01）；本仓协议或行为变更后，LBU 需同步并通过 `test_host_protocol.py` 与硬件 E2E 回归 |
-| [LiteTools](../LiteTools) | Keil uvprojx / ICO 工具 + chipfill | 消费本仓 `chips/<id>.json` schema 与 `chips/templates/` spec 模板；schema 或模板变更需 LiteTools 单测 + 本仓 `chips/test_chip.py` 双向回归 |
+| [LiteTools](../LiteTools) | Keil uvprojx / ICO 工具 + chipfill | 消费本仓 `chips/<id>.json` schema 与 `chips/templates/` spec 模板；chipfill 的契约回归由本仓 `chips/test_chip.py` 承担（内嵌 chipfill 往返用例），LiteTools 侧 `test_uvprojx.py` 覆盖 parser / generator |
 
 三仓耦合关系图示：
 
