@@ -1,0 +1,130 @@
+{
+  "schema_version": "2.2",
+  "_note": "由 tools/uvprojx/chipfill.py 从 chips/<id>.json 渲染生成（ADR-015）；勿手改本文件与渲染产物，改芯片清单后重新生成。",
+  "targets": [
+    {
+      "name": "app",
+      "toolset": {
+        "number": "0x4",
+        "name": "ARM-ADS",
+        "uac6": false,
+        "pcc_used": "5060960::V5.06 update 7 (build 960)::.\\ARMCC"
+      },
+      "use_microlib": true,
+      "device": {
+        "name": "STM32F411CE",
+        "vendor": "STMicroelectronics",
+        "pack_id": "Keil.STM32F4xx_DFP.3.1.1",
+        "cpu": "IRAM(0x20000000,0x20000) IROM(0x08010000,0x70000) CPUTYPE(\"Cortex-M4\") CLOCK(25000000) ELITTLE",
+        "cpu_core": "Cortex-M4",
+        "debug_dll_args": "-pCM4",
+        "flash_driver": "UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F4xx_512 -FS08000000 -FL080000 -FP0($$Device:STM32F411CE$Flash\\STM32F4xx_512.FLM))",
+        "register_file": "$$Device:STM32F411CE$Device\\Include\\stm32f4xx.h",
+        "sfd_file": "$$Device:STM32F411CE$SVD\\STM32F411.svd"
+      },
+      "output": {
+        "directory": ".\\Objects\\",
+        "name": "app",
+        "create_executable": true,
+        "create_hex_file": false
+      },
+      "c_defines": [
+        "STM32F411xE"
+      ],
+      "c_include_paths": [
+        "..\\..\\core",
+        "..\\..\\port",
+        "..\\..\\port\\stm32f4\\f411ceu6",
+        "..\\..\\third_party\\CMSIS",
+        "..\\..\\app\\examples\\f411ceu6_app"
+      ],
+      "c_misc_controls": "-Ospace",
+      "scatter_file": "..\\..\\linker\\f411ceu6\\app.sct",
+      "groups": [
+        {
+          "name": "Startup",
+          "files": [
+            {
+              "name": "startup_stm32f411xe.s",
+              "type": 2,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\startup_stm32f411xe.s"
+            }
+          ]
+        },
+        {
+          "name": "App",
+          "files": [
+            {
+              "name": "main.c",
+              "type": 1,
+              "path": "..\\..\\app\\examples\\f411ceu6_app\\main.c"
+            },
+            {
+              "name": "app_request.c",
+              "type": 1,
+              "path": "..\\..\\app\\examples\\f411ceu6_app\\app_request.c"
+            }
+          ]
+        },
+        {
+          "name": "Core",
+          "files": [
+            {
+              "name": "bl_metadata.c",
+              "type": 1,
+              "path": "..\\..\\core\\bl_metadata.c"
+            },
+            {
+              "name": "bl_crc.c",
+              "type": 1,
+              "path": "..\\..\\core\\bl_crc.c"
+            }
+          ]
+        },
+        {
+          "name": "CMSIS",
+          "files": []
+        },
+        {
+          "name": "Port",
+          "files": [
+            {
+              "name": "clock.c",
+              "type": 1,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\clock.c"
+            },
+            {
+              "name": "systick.c",
+              "type": 1,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\systick.c"
+            },
+            {
+              "name": "uart.c",
+              "type": 1,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\uart.c"
+            },
+            {
+              "name": "gpio.c",
+              "type": 1,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\gpio.c"
+            },
+            {
+              "name": "wdg.c",
+              "type": 1,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\wdg.c"
+            },
+            {
+              "name": "flash.c",
+              "type": 1,
+              "path": "..\\..\\port\\stm32f4\\f411ceu6\\flash.c"
+            }
+          ]
+        },
+        {
+          "name": "BSP",
+          "files": []
+        }
+      ]
+    }
+  ]
+}

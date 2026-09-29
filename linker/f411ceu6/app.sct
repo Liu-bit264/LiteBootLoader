@@ -1,0 +1,11 @@
+; LiteBootLoader APP 示例散布加载文件（由 tools/uvprojx/chipfill.py 从 chips/f411ceu6.json 生成，勿手改；APP 链接基址见 partition.md §1，启动后须设 SCB->VTOR = APP_BASE）
+LR_IROM1 0x08010000 0x00070000  {
+  ER_IROM1 0x08010000 0x00070000  {
+    *.o (RESET, +First)
+    *(InRoot$$Sections)
+    .ANY (+RO)
+  }
+  RW_IRAM1 0x20000000 0x00020000  {
+    .ANY (+RW +ZI)
+  }
+}
