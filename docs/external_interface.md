@@ -23,8 +23,9 @@
 
 **F411CEU6（最小包，ADR-017）**：PA9/PA10 = USART1（115200 8N1，同上）、PC13 = LED
 （低电平点亮，开漏）、PC14 = BT_STATE 保留位（NC，未接 HC-05，读值无意义，仅为
-OTA_QUERY 字段语义保留）。无 USART2/OLED/BT 引脚；`BL_HSE_MHZ` 支持 8 或 25
-（100MHz/3WS，HSE 失败回退 HSI）。
+OTA_QUERY 字段语义保留；PC14/PC15 在核心板上接了 32.768 kHz RTC（LSE）晶振，不是空闲脚）。
+无 USART2/OLED/BT 引脚；`BL_HSE_MHZ=25`（核心板 25 MHz HSE → 100MHz/3WS，HSE 失败回退
+HSI 16MHz；8 MHz 分支仅供自换晶振的自制板，未验证）。
 
 ### 1.2 I2C / OLED
 

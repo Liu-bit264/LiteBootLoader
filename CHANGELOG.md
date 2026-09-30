@@ -6,6 +6,27 @@ English version: [CHANGELOG.en.md](CHANGELOG.en.md)
 
 ## [Unreleased]
 
+### Fixed
+
+- **F411 时钟事实修正**：核心板上是 25 MHz HSE + 一颗 **32.768 kHz RTC（LSE）晶振**，
+  **不是 8 MHz 晶体**——`chips/f411ceu6.json` 删掉误导性的 `clock.hse_mhz_alt: 8`
+  （改为记录 `rtc_crystal_khz: 32.768` 并加 `_note`），`board_config.h`（`BL_HSE_MHZ`
+  注释）、`clock.h`/`clock.c` 注释、README「晶振与主频」行、`docs/external_interface.md`、
+  `docs/user_manual.md`、`docs/dev/design.md` 同步。`clock.c` 的 8 MHz PLL 分支（M=4/N=100）
+  **保留**，但明确标注为「自换 8M 晶振的自制板」选项且本仓未做板级验证。
+- **PC14/PC15 引脚事实**：这两脚在核心板上接了 RTC 晶振，不是空闲 GPIO——
+  `chips/f411ceu6.json` 的 `bt_state_note`、`board_config.h` 的 `BL_PIN_BT_STATE_PORT`
+  注释与 `docs/dev/test_plan.md` 相应行同步（`bt_state` 仍为 NC 语义保留位，值不变）。
+
+### Notes
+
+- 本修正不涉及 core/协议与固件行为：不带版本号变更（CHANGELOG 走 `[Unreleased]`）。
+- 芯片清单删除 `hse_mhz_alt` 不影响构建链：chipfill/configgen 只读
+  `hse_mhz`/`target_hz`/`hsi_mhz`/`wait_states`，spec/sct 产物不含 clock 取值
+  （`chips/test_chip.py` 的清单↔board_config 一致性与产物往返校验仍全绿）。
+- F411 板级只验证过 25 MHz 路径（100MHz/3WS，见 `docs/dev/test_plan.md` §5）；
+  8 MHz 分支无对应硬件，仅保证编译期可选。
+
 ## [0.4.0] - 2026-09-30
 
 F411 可选签名验签（ADR-020，ADR-017 接入点落地）：ECDSA P-256 + SHA-256。协议增量

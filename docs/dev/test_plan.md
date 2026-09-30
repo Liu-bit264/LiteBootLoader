@@ -99,7 +99,7 @@
 | 升级中断恢复（复位注入） | ✅ 通过 | 擦除进行中经 SWD 注入复位 → LBU 幂等重发（`erase 超时重发 2/3`）→ 同轮完成；随后完整重升成功；BL/参数区无恙 |
 | 上电自跳转（有效 APP） | ✅ 通过 | 复位 → `wait 3000ms` 心跳 5 拍 → 自动跳转 → APP 横幅（ADR-004 路径实测） |
 | 100MHz/3WS 时钟 | ✅ 通过（间接） | 心跳 500ms 节拍精准（SysTick 按 SystemCoreClock=100M 分频）、115200 帧全程零 CRC 失败 |
-| 蓝牙 / OLED / OTA_QUERY 蓝牙字段 | ➖ 不适用 | 最小包无蓝牙/OLED；`BL_TRANSPORT_BT_EN=0`，PC14 为 NC 保留位 |
+| 蓝牙 / OLED / OTA_QUERY 蓝牙字段 | ➖ 不适用 | 最小包无蓝牙/OLED；`BL_TRANSPORT_BT_EN=0`，PC14 为 NC 保留位（PC14/PC15 在核心板上接 32.768 kHz RTC 晶振，非空闲脚） |
 | 真实拔电演练（人工） | ⬜ 待办 | LBU 断电钻具 `--chip` 参数化（PYOCD_CMD 写死 stm32f103c8）属跨仓欠账；本表复位注入为其等效验证 |
 
 **跨仓欠账（LBU）**：selftest/断电钻具的芯片参数化——`APP_SIZE=0xB800`、

@@ -8,6 +8,34 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- **F411 clock facts corrected**: the core board carries a 25 MHz HSE plus a
+  **32.768 kHz RTC (LSE) crystal** — **not an 8 MHz crystal**. `chips/f411ceu6.json`
+  drops the misleading `clock.hse_mhz_alt: 8` (now records `rtc_crystal_khz: 32.768`
+  with a `_note`), and `board_config.h` (`BL_HSE_MHZ` comment), `clock.h`/`clock.c`
+  comments, the README "crystal & clock" row, `docs/external_interface.md`,
+  `docs/user_manual.md` and `docs/dev/design.md` follow. The 8 MHz PLL branch in
+  `clock.c` (M=4/N=100) is **kept** but explicitly labelled as an option for
+  self-modified boards with an 8 M crystal, not board-verified in this repo.
+- **PC14/PC15 pin facts**: on the core board these two pins carry the RTC crystal, so
+  they are not free GPIOs — reflected in `chips/f411ceu6.json`'s `bt_state_note`, the
+  `BL_PIN_BT_STATE_PORT` comment in `board_config.h`, and the matching row in
+  `docs/dev/test_plan.md` (`bt_state` stays an NC semantic placeholder; its value is
+  unchanged).
+
+### Notes
+
+- No core/protocol or firmware-behavior change: no version bump (tracked under
+  `[Unreleased]`).
+- Dropping `hse_mhz_alt` from the chip manifest does not affect the build chain:
+  chipfill/configgen only read `hse_mhz`/`target_hz`/`hsi_mhz`/`wait_states`, and the
+  generated spec/sct carry no clock values (`chips/test_chip.py`'s manifest ↔
+  board_config consistency and artifact round-trip checks stay green).
+- Only the 25 MHz path has ever been board-tested on F411 (100MHz/3WS, see
+  `docs/dev/test_plan.md` §5); the 8 MHz branch has no matching hardware and is only
+  guaranteed to be selectable at compile time.
+
 ## [0.4.0] - 2026-09-30
 
 Optional signature verification for F411 (ADR-020, landing the ADR-017 hook point):
