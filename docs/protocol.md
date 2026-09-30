@@ -361,11 +361,12 @@ AA 55 01 10 01 00 00 4C C0 55 AA
 
 ## 9. 上位机工具与 VOFA+
 
-### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.3.0 含 tkinter GUI 基础/高级双模式）
+### 9.1 Python 升级工具（独立仓库 LiteBootUpgrader，v1.4.0 含 tkinter GUI 基础/高级双模式）
 
 ```bash
 # 依赖隔离运行（本机约定：Miniforge base 不装包，见 AGENTS.md §8）
 # 一键升级（从任意状态：对端是 BL 直接升；是 APP 则自动"请求回 BL"再升级）
+# 加 --key <pem> 启用签名校验（写块后改发 0x11 VERIFY_SIGNED，固件需 BL_SIGN_EN=1）
 uv run --python 3.12 --with pyserial ../LiteBootUpgrader/bl_upgrade.py \
     upgrade app.bin --port COM4
 # OTA 状态查询（0.2.0 起：版本/有效性/通道/蓝牙连接状态）
