@@ -13,19 +13,21 @@ static bool s_hse_ok = false;
 uint32_t SystemCoreClock = 16000000u;
 
 /* F411 PLL 参数（RM0383 §7.3：PLL 输入 1-2MHz 推荐 2MHz，VCO 输出 100-432MHz；
-   目标 100MHz、VCO 200MHz、P=2。USB 未用，Q 值无实质影响取最小可用值） */
+   目标 100MHz、VCO 200MHz、P=2。USB 未用，Q 值无实质影响取最小可用值）。
+   核心板板载 25MHz HSE（另一颗 32.768 kHz 是 RTC 晶振，与 HSE 无关）；
+   8MHz 分支仅供自换 8M 晶振的自制板，本仓未做板级验证。 */
 #if BL_HSE_MHZ == 8
-#define F411_PLL_M   4u    /* 8MHz/4  = 2MHz PLL 输入 */
+#define F411_PLL_M   4u    /* 8MHz/4  = 2MHz PLL 输入（自制板；未验证） */
 #define F411_PLL_N   100u  /* 2MHz*100 = 200MHz VCO */
 #define F411_PLL_P   2u
 #define F411_PLL_Q   4u
 #elif BL_HSE_MHZ == 25
-#define F411_PLL_M   25u   /* 25MHz/25 = 1MHz PLL 输入（1MHz 为允许下限） */
+#define F411_PLL_M   25u   /* 25MHz/25 = 1MHz PLL 输入（1MHz 为允许下限）——核心板标配 */
 #define F411_PLL_N   200u  /* 1MHz*200 = 200MHz VCO */
 #define F411_PLL_P   2u
 #define F411_PLL_Q   10u
 #else
-#error "BL_HSE_MHZ 仅支持 8 或 25（RM0383 PLL 输入 1-2MHz 约束下的整除组合）"
+#error "BL_HSE_MHZ 仅支持 25（核心板）或 8（自制板；未验证）——RM0383 PLL 输入 1-2MHz 约束下的整除组合"
 #endif
 
 /* SystemInit：由启动文件在散布初始化前调用。只操作寄存器，不写静态变量——

@@ -70,7 +70,7 @@ CHIP=<id> bash scripts/build_keil.sh   # 重新生成产物并全量构建
 | 项 | 改哪里 |
 |---|---|
 | 串口通道引脚（唯一强制服务） | `BL_UART_TX_PORT`/`_NUM`、`BL_UART_RX_PORT`/`_NUM`（默认 USART1 PA9/PA10） |
-| 晶振与主频 | F103：`BL_USE_HSE`（HSE 8 MHz ×9 = 72 MHz，频率固定）；F411：`BL_HSE_MHZ`（8 或 25 MHz）。PLL 参数在 `port/<家族>/<型号>/clock.c` |
+| 晶振与主频 | F103：`BL_USE_HSE`（HSE 8 MHz ×9 = 72 MHz，频率固定）；F411：核心板 HSE 25 MHz（`BL_HSE_MHZ=25`；板上另一颗 32.768 kHz 是 RTC 晶振，与 HSE 无关），8 MHz 分支仅供自换晶振的自制板且未做板级验证。PLL 参数在 `port/<家族>/<型号>/clock.c` |
 | 分区与擦除单元（BL / APP / 参数区） | `BL_FLASH_*` / `BL_APP_*` / `BL_PARAM_*`，擦除单元宏 F103 用均匀组（`BL_ERASE_UNITS_UNIFORM` + `BL_ERASE_UNIT_BASE/_SIZE/_COUNT`）、F411 用显式表 `BL_ERASE_UNIT_TABLE`；并同步 `chips/<id>.json` 的 `partitions`/`erase_units` |
 | IWDG 超时与升级期放宽值 | `BL_IWDG_TIMEOUT_MS` / `BL_IWDG_UPGRADE_TIMEOUT_MS`（F103 均 2000 ms；F411 2000 / 8000 ms） |
 

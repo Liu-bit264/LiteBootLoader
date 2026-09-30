@@ -39,9 +39,11 @@
                                           tools/sign_image.py --keygen 生成，不入库）；
                                           开启态编译必弹 #pragma message 警告 */
 #define BL_USE_HSE             1       /* 1=HSE->PLL 100MHz（默认）；0=HSI 16MHz 直驱（调试回退） */
-#define BL_HSE_MHZ             25u     /* 板载晶振频率：8 或 25 两种均支持（编译期选择 PLL 参数，
-                                          clock.c 内 #if 分支；8M: M=4/N=100，25M: M=25/N=200，
-                                          均 VCO 200MHz、P=2 -> 100MHz） */
+#define BL_HSE_MHZ             25u     /* 核心板板载 HSE = 25 MHz（F411 核心板标配 25M 晶振；板上
+                                          另一颗 32.768 kHz 晶体是 RTC/LSE 晶振，与 HSE 无关，不是
+                                          8M 备选）。clock.c 的 8 MHz 分支（M=4/N=100）留给自换 8M
+                                          晶振的自制板——非本支持包默认板、本仓未做板级验证；
+                                          25M: M=25/N=200；两者均 VCO 200MHz、P=2 -> 100MHz */
 #define BL_BOOT_WAIT_MS        3000u   /* 启动等待窗口（ADR-004） */
 #define BL_IWDG_TIMEOUT_MS     2000u   /* ADR-011 */
 #define BL_IWDG_UPGRADE_TIMEOUT_MS 8000u  /* 升级擦写期放宽（ADR-015）：128K 扇区擦除 ~875ms（最大可
@@ -71,7 +73,8 @@
 #define BL_PIN_BT_STATE        1u      /* 逻辑 id：HC-05 STATE 保留位——本包 NC：未接 HC-05，
                                            读值无意义，仅为 OTA_QUERY 字段语义保留（接蓝牙的支持包
                                            改声明为实际 STATE 引脚并配置输入下拉） */
-#define BL_PIN_BT_STATE_PORT   2u      /* PC14 */
+#define BL_PIN_BT_STATE_PORT   2u      /* PC14 —— 核心板上 PC14/PC15 接了 32.768 kHz RTC（LSE）
+                                          晶振，不是空闲引脚，勿当普通 GPIO 复用 */
 #define BL_PIN_BT_STATE_NUM    14u
 
 /* ---- F411 系统内存区（GET_INFO 用；RM0383/DS10697） ---- */
