@@ -4,6 +4,7 @@
 #include "bl_storage.h"
 #include "bl_metadata.h"
 #include "bl_boot.h"
+#include "bl_sign.h"
 #include "bl_display.h"
 #include "bl_debug.h"
 #include "bl_version.h"
@@ -203,6 +204,44 @@ static void handle_verify(uint8_t seq, const uint8_t *data, uint32_t len)
     bl_protocol_send((uint8_t)(BL_CMD_VERIFY_APP | 0x80u), seq, d, sizeof(d));
 }
 
+#if BL_SIGN_EN
+/* 签名验签（protocol.md §5.11，ADR-020）：DATA = size(4)+crc(4)+sig(64) = 72B。
+   顺序：CRC 校验 → 验签 → 通过才持久化 auth=1——验签失败不落任何盘 */
+static void handle_verify_signed(uint8_t seq, const uint8_t *data, uint32_t len)
+{
+    if (len != 72u) {
+        resp_status(BL_CMD_VERIFY_SIGNED, seq, BL_STATUS_RANGE_ERROR);
+        return;
+    }
+    uint32_t size = (uint32_t)data[0] | ((uint32_t)data[1] << 8) |
+                    ((uint32_t)data[2] << 16) | ((uint32_t)data[3] << 24);
+    uint32_t crc = (uint32_t)data[4] | ((uint32_t)data[5] << 8) |
+                   ((uint32_t)data[6] << 16) | ((uint32_t)data[7] << 24);
+    set_upgrade_ui();
+    uint32_t calc_crc = 0u, calc_size = 0u;
+    uint8_t sha[32];
+    bl_status_t st = bl_storage_check_app(size, crc, &calc_crc, &calc_size, sha);
+    if (st == BL_STATUS_OK) {
+        st = bl_sign_verify_digest(sha, data + 8u) ? BL_STATUS_OK
+                                                   : BL_STATUS_SIGN_ERROR;
+    }
+    bl_display.set_crc_ok(st == BL_STATUS_OK);
+    if (st == BL_STATUS_OK) {
+        s_app_valid = true;         /* 校验+验签通过即有效性确定 */
+        s_app_valid_dirty = false;
+        st = bl_storage_persist_app(size, crc, true);
+    }
+    uint8_t d[9];
+    d[0] = (uint8_t)st;
+    d[1] = (uint8_t)calc_crc; d[2] = (uint8_t)(calc_crc >> 8);
+    d[3] = (uint8_t)(calc_crc >> 16); d[4] = (uint8_t)(calc_crc >> 24);
+    d[5] = (uint8_t)calc_size; d[6] = (uint8_t)(calc_size >> 8);
+    d[7] = (uint8_t)(calc_size >> 16); d[8] = (uint8_t)(calc_size >> 24);
+    wdg_restore_normal();   /* ADR-015：VERIFY_SIGNED 完成即退出放宽窗口（无论结果） */
+    bl_protocol_send((uint8_t)(BL_CMD_VERIFY_SIGNED | 0x80u), seq, d, sizeof(d));
+}
+#endif
+
 static void handle_set_meta(uint8_t seq, const uint8_t *data, uint32_t len)
 {
     if (len < 2u) {
@@ -352,6 +391,9 @@ void bl_core_frame_received(uint8_t cmd, uint8_t seq, const uint8_t *data, uint3
     case BL_CMD_ERASE_APP:   handle_erase(seq, data, len); break;
     case BL_CMD_WRITE_CHUNK: handle_write(seq, data, len); break;
     case BL_CMD_VERIFY_APP:  handle_verify(seq, data, len); break;
+#if BL_SIGN_EN
+    case BL_CMD_VERIFY_SIGNED: handle_verify_signed(seq, data, len); break;
+#endif
     case BL_CMD_SET_META:    handle_set_meta(seq, data, len); break;
     case BL_CMD_GET_META:    handle_get_meta(seq, data, len); break;
     case BL_CMD_JUMP_APP:    handle_jump(seq, data, len); break;

@@ -161,6 +161,38 @@ IWDG 约 2 s（`BL_IWDG_TIMEOUT_MS` 默认 2000，集中配置），BL 启动即
 - **验证深度**：编译 + 一致性测试通过即交付（用户确认）；蓝牙 N/A、OLED N/A，
   硬件在环（烧录/升级/跳转/断电演练）未执行，见 dev/test_plan.md。
 
+### ADR-020 F411 可选签名验签：ECDSA P-256 + SHA-256（用户决策，2026-09-30）
+
+ADR-017 预留的验签接入点落地（用户确认的算法与边界，`feat/f411-signature`）：
+
+- **算法选型（用户三选一）**：ECDSA P-256（secp256r1）+ SHA-256，micro-ecc（kmackay，
+  公共领域）原样捆绑 `third_party/micro-ecc/`——纯 C89、无动态内存、verify-only 配置
+  （其余曲线关闭）；Ed25519 否决（AC5 下 64 位大数路径体积/性能吃亏）；HMAC-SHA256
+  否决（对称密钥防不住"任意主机"，只算完整性）。
+- **命令形态**：新增 `0x11 VERIFY_SIGNED`（protocol.md §5.11），签名 64B（r‖s 大端）
+  随命令**内联携带**、不落参数区——无状态、重发天然幂等，免去双副本大字段掉电写；
+  参数区仅落 1 字节 auth 标志（0x24，partition.md §4，旧固件双向兼容）。旧设想
+  （hash+签名存保留区）由轻量方案替代，0x25 起保留区留给多密钥/反回滚。
+- **公钥不入库（用户要求）**：公钥为独立本地文件 `port/<chip>/bl_sign_pubkey_local.h`
+  （gitignore），仓库只提交格式模板（`bl_sign_pubkey_local.template.h`）；`BL_SIGN_EN=1`
+  且文件缺失 → `#error`；**测试公钥同样不入库**，密钥对由 `tools/sign_image.py --keygen`
+  本地生成。
+- **可选项 + 开启必警告（用户要求）**：`BL_SIGN_EN` 默认 0（主线构建与 0.3.1 行为/尺寸
+  等价，签名源文件经 armlink 未引用段剥离零开销——以关闭态尺寸==基线实测）；置 1 编译时
+  `#pragma message("warning: ...")` 弹提示（AC5 无 `#warning`，是 1215 号错误；联网核实
+  ARM DUI0496）。启用签名变体的构建若计入 Warning 则退出码 1 属预期。
+- **启动零密码运算**：`bl_boot_app_valid` 仅查 auth 标志 + 实时 CRC；全部密码验证在
+  VERIFY 期（IWDG 8s 窗口内，P-256 验签 + SHA-256 读透合计 < 1 s）。
+- **F103 不启用**：BL 16K 预算不容验签代码，ADR-015 预告的按芯片裁剪兑现——F103 清单
+  不含签名源文件、`BL_SIGN_EN=0`，文档明示两芯片认证能力差异。
+- **威胁模型**：无钥主机无法使 BL 接受镜像；不防物理/调试口攻击与已签名镜像回滚
+  （反回滚为保留区后续项）。
+- **上位机边界（用户决定）**：本期 LBU 不动；签名辅助由 `tools/sign_image.py`（uv 隔离，
+  `--with cryptography`）承担。后续 LBU 迭代加入**密钥对生成器模块**（`--keygen`）与
+  `--key` 升级期签名集成。
+- **版本**：动 core/协议 → BL 0.3.1 → **0.4.0**（feat→MINOR）；协议 VER 0x01 不变
+  （增量命令，protocol.md §9.1 v1.4.0）。
+
 ### ADR-018 引脚板级抽象（2026-09-29）
 
 F411 移植的服务复用审计（display_oled 的 F103 端口头耦合、引脚散落）引出：**引脚事实

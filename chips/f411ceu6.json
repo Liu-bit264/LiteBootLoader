@@ -16,8 +16,16 @@
   },
   "build": {
     "c_defines": [
-      "STM32F411xE"
+      "STM32F411xE",
+      "uECC_PLATFORM=0",
+      "uECC_WORD_SIZE=4",
+      "uECC_SUPPORTS_secp160r1=0",
+      "uECC_SUPPORTS_secp192r1=0",
+      "uECC_SUPPORTS_secp224r1=0",
+      "uECC_SUPPORTS_secp256k1=0",
+      "uECC_SUPPORT_COMPRESSED_POINT=0"
     ],
+    "_note_c_defines": "uECC_* 定义见 third_party/micro-ecc/LICENSES.md：强制纯 C 路径（免 asm 捆绑）+ 仅保留 secp256r1（ADR-020）",
     "cmsis_dir": "third_party\\CMSIS",
     "cmsis_sources": [],
     "port_dir": "port\\stm32f4\\f411ceu6",
@@ -41,7 +49,8 @@
       "{{chip.build.proj_rel}}core",
       "{{chip.build.proj_rel}}port",
       "{{chip.build.proj_rel}}port\\stm32f4\\f411ceu6",
-      "{{chip.build.proj_rel}}third_party\\CMSIS"
+      "{{chip.build.proj_rel}}third_party\\CMSIS",
+      "{{chip.build.proj_rel}}third_party\\micro-ecc"
     ],
     "include_paths_app": [
       "{{chip.build.proj_rel}}core",
@@ -137,7 +146,25 @@
       }
     ],
     "bsp_files_bl": [],
-    "bsp_files_app": []
+    "bsp_files_app": [],
+    "sign_files_bl": [
+      {
+        "name": "uECC.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}third_party\\micro-ecc\\uECC.c"
+      },
+      {
+        "name": "bl_sha256.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}core\\bl_sha256.c"
+      },
+      {
+        "name": "bl_sign.c",
+        "type": 1,
+        "path": "{{chip.build.proj_rel}}core\\bl_sign.c"
+      }
+    ],
+    "_note_sign": "签名源文件始终登记（ADR-020）：BL_SIGN_EN=0 时经 armlink 未引用段剥离零开销；置 1 + 本地公钥头 bl_sign_pubkey_local.h（不入库）即启用"
   },
   "memory": {
     "flash_base": "0x08000000",

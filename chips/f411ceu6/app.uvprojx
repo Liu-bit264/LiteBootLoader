@@ -327,7 +327,7 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Ospace</MiscControls>
-              <Define>STM32F411xE</Define>
+              <Define>STM32F411xE,uECC_PLATFORM=0,uECC_WORD_SIZE=4,uECC_SUPPORTS_secp160r1=0,uECC_SUPPORTS_secp192r1=0,uECC_SUPPORTS_secp224r1=0,uECC_SUPPORTS_secp256k1=0,uECC_SUPPORT_COMPRESSED_POINT=0</Define>
               <Undefine />
               <IncludePath>..\..\core;..\..\port;..\..\port\stm32f4\f411ceu6;..\..\third_party\CMSIS;..\..\app\examples\f411ceu6_app</IncludePath>
             </VariousControls>

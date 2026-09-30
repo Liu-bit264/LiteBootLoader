@@ -8,6 +8,54 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
+Optional signature verification for F411 (ADR-020, landing the ADR-017 hook point):
+ECDSA P-256 + SHA-256. Additive protocol command `0x11 VERIFY_SIGNED`; VER 0x01
+unchanged.
+
+### Added
+
+- **Signature verification as an option (F411)**: `BL_SIGN_EN` build switch
+  (default 0; mainline behavior/size equivalent to 0.3.1 — signature sources are
+  stripped as unreferenced, measured +252 B on both chips for the auth plumbing
+  alone); enabled variant measures F411 BL 18 784 B ≤ 32 KiB (+5 788 B for the
+  crypto core), and the build **must emit an enable warning** (AC5 has no
+  `#pragma message`/`#warning` — implemented via an unreferenced static array
+  raising #177-D so the notice text lands in the build log).
+- **0x11 VERIFY_SIGNED** (protocol.md §5.11): DATA = size + crc32 + signature
+  (64B, big-endian r‖s); CRC + SHA-256 computed over a single read pass (watchdog
+  fed per chunk) → uECC verify → persist auth=1 only on success; failures persist
+  nothing. New status `SIGN_ERROR 0x06`. F103 does not support it (16K budget,
+  signature sources not in its build; 0x11 answers STATE_ERROR as unknown).
+- **Authentication flag**: parameter-region reserved byte 0x24 = auth
+  (partition.md §4, backward compatible both ways); `bl_boot_app_valid` requires
+  auth=1 when BL_SIGN_EN=1 — zero crypto at boot; images persisted via legacy
+  VERIFY cannot jump. `bl_storage_verify_app` split into check (no persist) +
+  persist stages.
+- **micro-ecc third-party library** (`third_party/micro-ecc/`, BSD-2-Clause,
+  upstream commit `541b3a7`): pure-C path (via `uECC_PLATFORM=0` compile define,
+  no asm bundle), secp256r1 only; source/hash/whitespace-normalization notes in
+  its LICENSES.md.
+- **`tools/sign_image.py`**: test keypair generation (`--keygen`) and 0x11 frame
+  assembly (`--sign`), run under uv isolation (`--with cryptography`); for
+  HIL/development — upgrade-time signing integration comes to LBU later
+  (together with a keypair-generator module).
+- **Docs**: ADR-020; protocol.md §5.11 + §9.1 v1.4.0; partition.md §4 auth-byte
+  backfill; architecture.md §10 verification chain; external_interface.md
+  command/status/capability rows; porting_guide §3.1 signing checklist;
+  user_manual signing section.
+
+### Security
+
+- **No key material ever enters git** (user requirement): the public key is a
+  deployment-local header `bl_sign_pubkey_local.h` (gitignored; missing file
+  fails the build with `#error`), the repo carries only the format template
+  `docs/dev/bl_sign_pubkey_local.template.h`; test public keys are likewise kept
+  out of git, keypairs generated locally. Threat model: a keyless host cannot
+  make the BL accept an image; physical/debug-port attacks and rollback are out
+  of scope.
+
 ## [0.3.1] - 2026-09-30
 
 Fixes from the 2026-09-29 audit (`docs/review/audit-2026-09-29.md`, local document):

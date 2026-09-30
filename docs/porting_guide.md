@@ -90,6 +90,23 @@ app/    示例应用（同样通过 ops 使用 port，不直接摸寄存器之�
 3. 重新生成工程；OLED 状态行的芯片名取自 `board_config.h` 的 `BL_CHIP_NAME`
    （新增 CSP 必须定义该宏）。
 
+**启用签名验签（ADR-020 可选能力，现仅 F411 支持）**：
+
+1. `board_config.h` 置 `BL_SIGN_EN=1`——芯片清单须已登记 `build.sign_files_bl`
+   （f411ceu6.json 默认登记；F103 因 BL 16K 预算**不支持**签名，认证能力差异须在
+   支持包文档明示）。
+2. 本地公钥头 `port/<chip>/bl_sign_pubkey_local.h` 必须就位（由
+   `uv run --python 3.12 --with cryptography tools/sign_image.py --keygen`
+   生成或按 `docs/dev/bl_sign_pubkey_local.template.h` 手填）——**任何形态不入库**
+   （.gitignore 已覆盖）；缺失时编译 `#error`。
+3. 全量重建：编译日志**必须出现**启用警告（`#177-D: bl_sign_enabled_notice ...`，
+   AC5 无 `#pragma message`/`#warning`，经未引用静态数组实现）——签名变体构建
+   退出码 1 属预期；开启态 F411 BL ≈ 18.8 KiB ≤ 32 KiB。
+4. 主机侧签名辅助：`tools/sign_image.py --sign <镜像>`（0x11 帧生成）；升级期签名
+   集成（`--key`）在 LiteBootUpgrader 后续迭代（密钥对生成器模块一并加入）。
+5. HIL 必测：正确签名可跳转 / 篡改 1 字节回 SIGN_ERROR 不持久化 / legacy VERIFY
+   镜像 auth=0 拒绝跳转。
+
 ## 4. 时钟与 SystemInit——两条进入路径
 
 `SystemInit` 有两种进入方式，**必须区分处理**（F103 实测教训：跳转进入时把 Flash 等待周期降到 0WS，72MHz 下取指损坏，APP 静默硬fault）：

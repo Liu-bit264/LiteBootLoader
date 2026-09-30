@@ -1,6 +1,6 @@
 # 通信协议规范（protocol）
 
-> 版本 0.2.0 · 2026-09-25 初版 · 2026-09-26/27 修订 · 状态：与实现同步
+> 版本 0.4.0 · 2026-09-25 初版 · 2026-09-26/27/30 修订 · 状态：与实现同步
 > 关联：[dev/design.md](dev/design.md)（ADR-001/002/003/007） · [partition.md](partition.md)（元数据与命令副作用） · [external_interface.md](external_interface.md)
 > 协议版本：`VER = 0x01`（独立于 BL 软件版本，演进规则见 [dev/versioning.md](dev/versioning.md) §4）
 
@@ -117,7 +117,8 @@ USART1（有线）与 UART2（蓝牙）共用同一个协议解析器实例。tr
 | 0x08 | JUMP_APP | 空 | 0x88 | status(1) |
 | 0x09 | RESET | 空 | 0x89 | status(1) |
 | 0x10 | OTA_QUERY | 空 | 0x90 | 22 B，见 §5.10 |
-| 0x11–0x1F | （预留）OTA 扩展 | — | — | 仅预留编号（ADR-016） |
+| 0x11 | VERIFY_SIGNED | app_size(4,LE) + app_crc32(4,LE) + signature(64B)，见 §5.11 | 0x91 | status(1) + calc_crc32(4,LE) + calc_size(4,LE) |
+| 0x12–0x1F | （预留）OTA 扩展 | — | — | 仅预留编号（ADR-016） |
 
 所有响应 DATA **首字节固定为状态码**；未知命令回 `CMD|0x80` + `STATE_ERROR`（SEQ 照常回显）。
 
@@ -129,6 +130,7 @@ USART1（有线）与 UART2（蓝牙）共用同一个协议解析器实例。tr
 | 0x03 | RANGE_ERROR | 地址范围/对齐/长度校验失败（partition.md §2） |
 | 0x04 | STATE_ERROR | 状态不允许（如 JUMP_APP 时 APP 无效） |
 | 0x05 | TIMEOUT | BL 侧操作超时（保留） |
+| 0x06 | SIGN_ERROR | 签名验签失败（VERIFY_SIGNED，0.4.0 起；ADR-020） |
 
 ### 5.1 PING（0x01）
 
@@ -227,7 +229,7 @@ BL 内部在执行首个擦/写命令（ERASE_APP，或 §5.4 WRITE_CHUNK 的写
 
 OTA 状态查询（只读幂等）：BL/APP 版本、APP 有效性、参数区摘要与链路状态一次读清，
 供上位机决定是否需要升级；升级本身复用 ERASE_APP / WRITE_CHUNK / VERIFY_APP / JUMP_APP
-（§5.3–§5.8，全幂等），0x11–0x1F 继续预留。
+（§5.3–§5.8，全幂等），0x12–0x1F 继续预留。
 
 响应 DATA（22 B）：
 
@@ -242,6 +244,29 @@ OTA 状态查询（只读幂等）：BL/APP 版本、APP 有效性、参数区�
 | 16 | 4 | 元数据 seq（LE32，出厂态 0） |
 | 20 | 1 | 通道号：0x00 = USART1 有线，0x01 = UART2 蓝牙（请求实际到达的通道） |
 | 21 | 1 | BT STATE 引脚电平：0x00 = HC-05 未连接，0x01 = SPP 已连接 |
+
+### 5.11 VERIFY_SIGNED（0x11，0.4.0 新增，ADR-020）
+
+`DATA = app_size(4,LE) + app_crc32(4,LE) + signature(64B) = 72B`。signature 为 **ECDSA P-256
+（secp256r1）对镜像 SHA-256 摘要**的签名，`r‖s` 各 32 B 定宽**大端**裸序拼接（标准 P1363
+格式，与主机侧 cryptography/openssl 原生整数输出一致）。仅启用签名验签的支持包实现
+（`BL_SIGN_EN=1`，现仅 F411 可选）；未启用的固件对 0x11 按未知命令回 `STATE_ERROR`。
+
+处理流程：
+
+1. `len != 72`，或 app_size 越界 / 未 4 字节对齐 / `< 8` → `RANGE_ERROR`（同 §5.5 规则）。
+2. 对 `[APP_BASE, APP_BASE+app_size)` 做同一读透，同时计算 CRC-32（块间喂狗）与 SHA-256；
+   CRC 不匹配 → `CRC_ERROR + calc_crc32 + calc_size`，不持久化。
+3. 用固件内嵌公钥验签（`bl_sign_pubkey_local.h`，部署侧私有文件不入库）：失败 →
+   `SIGN_ERROR`，不持久化。
+4. 通过 → 持久化 `app_size/app_crc32` 并置参数区 auth 标志 = 1（partition.md §4）。
+   幂等：已持久化相同内容且 auth=1 时跳过重写；legacy VERIFY_APP（§5.5）持久化的镜像
+   auth = 0，启用签名的固件拒绝跳转。
+5. 响应 DATA = `status(1) + calc_crc32(4,LE) + calc_size(4,LE)`（9 B），字段同 §5.5。
+
+安全语义（ADR-020 威胁模型）：无钥主机无法使 BL 接受新镜像（验签不过不持久化、auth=0
+不跳转）；**不防**物理/调试口攻击与已签名镜像的回滚（反回滚见 partition.md §4 保留区，
+不在本期）。
 
 ## 6. SEQ 语义、幂等性与超时
 

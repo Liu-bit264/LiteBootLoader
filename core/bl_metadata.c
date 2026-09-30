@@ -6,7 +6,7 @@
 /* 页内布局（partition.md §4，多字节小端）：0x00 magic / 0x04 seq / 0x08 app_size /
    0x0C app_crc32 / 0x10 flags / 0x14-0x19 版本 / 0x1A-0x1F 保留0 / 0x20 crc32(覆盖0x00-0x1F) */
 #define META_HDR_SIZE  0x20u
-#define META_IMG_SIZE  0x24u
+#define META_IMG_SIZE  0x25u   /* 0.4.0：0x24 = auth 标志（ADR-020），其余保持 0xFF */
 static const uint8_t k_magic[4] = { 0x42u, 0x4Cu, 0x50u, 0x31u }; /* "BLP1" */
 
 static bl_meta_t s_meta;
@@ -63,6 +63,7 @@ static bool eval_copy(uint32_t page_addr, bl_meta_t *out)
     out->app_ver_major = rd16(&img[0x14]);
     out->app_ver_minor = rd16(&img[0x16]);
     out->app_ver_patch = rd16(&img[0x18]);
+    out->app_auth = (img[0x24] == 0x01u) ? 1u : 0u;
     return true;
 }
 
@@ -125,6 +126,7 @@ bool bl_meta_load(bl_meta_t *out)
         s_meta.app_crc32 = 0u;
         s_meta.flags = 0u;
         s_meta.app_ver_major = s_meta.app_ver_minor = s_meta.app_ver_patch = 0u;
+        s_meta.app_auth = 0u;
     }
     s_meta.active_copy = s_active;
     s_loaded = true;
@@ -133,7 +135,8 @@ bool bl_meta_load(bl_meta_t *out)
 }
 
 static void build_image(uint8_t *img, uint32_t seq, uint32_t size, uint32_t crc,
-                        uint32_t flags, uint16_t ma, uint16_t mi, uint16_t pa)
+                        uint32_t flags, uint16_t ma, uint16_t mi, uint16_t pa,
+                        uint8_t auth)
 {
     for (uint32_t i = 0; i < META_IMG_SIZE; i++) {
         img[i] = 0xFFu;
@@ -153,11 +156,13 @@ static void build_image(uint8_t *img, uint32_t seq, uint32_t size, uint32_t crc,
         img[i] = 0x00u;
     }
     le32(&img[META_HDR_SIZE], bl_crc32_iso_hdlc(img, META_HDR_SIZE));
+    img[0x24] = auth;   /* 认证标志（ADR-020）：0xFF init → 非 0x01 值按未认证读回 */
 }
 
-/* 掉电安全写（partition.md §6.2）：擦目标副本所在单元 -> 写 0x24B -> 回读校验 */
+/* 掉电安全写（partition.md §6.2）：擦目标副本所在单元 -> 写 0x25B -> 回读校验 */
 static bool write_copy(uint8_t copy_idx, uint32_t seq, uint32_t size, uint32_t crc,
-                       uint32_t flags, uint16_t ma, uint16_t mi, uint16_t pa)
+                       uint32_t flags, uint16_t ma, uint16_t mi, uint16_t pa,
+                       uint8_t auth)
 {
     uint32_t copy_addr = BL_PARAM_BASE + (uint32_t)copy_idx * BL_PARAM_COPY_SIZE;
     uint32_t unit_idx;
@@ -169,7 +174,7 @@ static bool write_copy(uint8_t copy_idx, uint32_t seq, uint32_t size, uint32_t c
         !bl_flash.erase_unit(unit_idx)) {
         return false;
     }
-    build_image(img, seq, size, crc, flags, ma, mi, pa);
+    build_image(img, seq, size, crc, flags, ma, mi, pa, auth);
     bl_wdg.refresh();
     if (!bl_flash.write(copy_addr, img, META_IMG_SIZE)) {
         return false;
@@ -189,7 +194,7 @@ static bool write_copy(uint8_t copy_idx, uint32_t seq, uint32_t size, uint32_t c
 }
 
 static bool commit(uint32_t size, uint32_t crc, uint32_t flags,
-                   uint16_t ma, uint16_t mi, uint16_t pa)
+                   uint16_t ma, uint16_t mi, uint16_t pa, uint8_t auth)
 {
     uint32_t seq;
     if (s_active == 0xFFu) {
@@ -209,7 +214,7 @@ static bool commit(uint32_t size, uint32_t crc, uint32_t flags,
         seq = s_meta.seq + 1u;
     }
     uint8_t target = (s_active == 0u) ? 1u : 0u;   /* 交替写非最新页 */
-    return write_copy(target, seq, size, crc, flags, ma, mi, pa);
+    return write_copy(target, seq, size, crc, flags, ma, mi, pa, auth);
 }
 
 bool bl_meta_commit_app(uint32_t size, uint32_t crc32)
@@ -217,17 +222,36 @@ bool bl_meta_commit_app(uint32_t size, uint32_t crc32)
     if (!s_loaded) {
         return false;
     }
+    /* legacy VERIFY：内容（size/crc）与已存不同才走到写，auth 归零 */
     return commit(size, crc32, s_meta.flags & ~BL_META_FLAG_BL_REQUEST,
-                  s_meta.app_ver_major, s_meta.app_ver_minor, s_meta.app_ver_patch);
+                  s_meta.app_ver_major, s_meta.app_ver_minor, s_meta.app_ver_patch,
+                  0u);
+}
+
+bool bl_meta_commit_app_signed(uint32_t size, uint32_t crc32)
+{
+    if (!s_loaded) {
+        return false;
+    }
+    return commit(size, crc32, s_meta.flags & ~BL_META_FLAG_BL_REQUEST,
+                  s_meta.app_ver_major, s_meta.app_ver_minor, s_meta.app_ver_patch,
+                  1u);
 }
 
 bool bl_meta_matches_app(uint32_t size, uint32_t crc32)
 {
     /* 与 commit_app 将写入的内容逐项等价（size/crc 相同、flags 不含待消费
-       bl_request、版本字段本就沿用）才允许跳过重写 */
+       bl_request、版本字段本就沿用）才允许跳过重写；auth 不在判定内——
+       legacy 重验已签名镜像时跳过重写，auth 标志得以保留 */
     return s_loaded && s_active != 0xFFu &&
            s_meta.app_size == size && s_meta.app_crc32 == crc32 &&
            (s_meta.flags & BL_META_FLAG_BL_REQUEST) == 0u;
+}
+
+bool bl_meta_matches_app_signed(uint32_t size, uint32_t crc32)
+{
+    /* VERIFY_SIGNED 幂等：内容相同且 auth 已置位才跳过重写 */
+    return bl_meta_matches_app(size, crc32) && s_meta.app_auth == 1u;
 }
 
 bool bl_meta_set_bl_request(bool set)
@@ -237,8 +261,10 @@ bool bl_meta_set_bl_request(bool set)
     }
     uint32_t flags = set ? (s_meta.flags | BL_META_FLAG_BL_REQUEST)
                          : (s_meta.flags & ~BL_META_FLAG_BL_REQUEST);
+    /* 镜像内容不变，auth 标志继承 */
     return commit(s_meta.app_size, s_meta.app_crc32, flags,
-                  s_meta.app_ver_major, s_meta.app_ver_minor, s_meta.app_ver_patch);
+                  s_meta.app_ver_major, s_meta.app_ver_minor, s_meta.app_ver_patch,
+                  s_meta.app_auth);
 }
 
 bool bl_meta_set_app_version(uint16_t ma, uint16_t mi, uint16_t pa)
@@ -246,5 +272,7 @@ bool bl_meta_set_app_version(uint16_t ma, uint16_t mi, uint16_t pa)
     if (!s_loaded) {
         return false;
     }
-    return commit(s_meta.app_size, s_meta.app_crc32, s_meta.flags, ma, mi, pa);
+    /* 镜像内容不变，auth 标志继承 */
+    return commit(s_meta.app_size, s_meta.app_crc32, s_meta.flags, ma, mi, pa,
+                  s_meta.app_auth);
 }

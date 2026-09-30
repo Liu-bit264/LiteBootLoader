@@ -12,6 +12,7 @@ typedef enum {
     BL_STATUS_RANGE_ERROR = 0x03,
     BL_STATUS_STATE_ERROR = 0x04,
     BL_STATUS_TIMEOUT = 0x05,
+    BL_STATUS_SIGN_ERROR = 0x06,   /* 签名验签失败（0.4.0，ADR-020） */
 } bl_status_t;
 
 /* 命令编号（protocol.md §5.0） */
@@ -25,8 +26,11 @@ typedef enum {
 #define BL_CMD_JUMP_APP    0x08u
 #define BL_CMD_RESET       0x09u
 
-/* OTA 扩展（protocol.md §5.1，规划书目标 3）：0x10 已实现；0x11–0x1F 继续预留 */
+/* OTA 扩展（protocol.md §5.1，规划书目标 3）：0x10 已实现；0x12–0x1F 继续预留 */
 #define BL_CMD_OTA_QUERY   0x10u
+
+/* 签名验签（protocol.md §5.11，ADR-020）：仅 BL_SIGN_EN=1 的支持包实现 */
+#define BL_CMD_VERIFY_SIGNED 0x11u
 
 #define BL_PROTOCOL_VER    0x01u
 

@@ -1,6 +1,7 @@
 #include "bl_storage.h"
 #include "bl_metadata.h"
 #include "bl_crc.h"
+#include "bl_sha256.h"
 #include "bl_port.h"
 #include "board_config.h"
 #include <string.h>
@@ -173,8 +174,9 @@ bl_status_t bl_storage_write_chunk(uint32_t offset, const uint8_t *data, uint32_
     return BL_STATUS_OK;
 }
 
-bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
-                                  uint32_t *calc_crc, uint32_t *calc_size)
+bl_status_t bl_storage_check_app(uint32_t size, uint32_t expect_crc,
+                                 uint32_t *calc_crc, uint32_t *calc_size,
+                                 uint8_t *sha256_out)
 {
     if (!s_geom_ok) {
         return BL_STATUS_FLASH_ERROR;   /* 几何自检未通过（FAULT）：拒绝升级擦写 */
@@ -185,6 +187,13 @@ bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
     if (size < 8u || size > BL_APP_SIZE || (size % 4u) != 0u) {
         return BL_STATUS_RANGE_ERROR;
     }
+#if BL_SIGN_EN
+    /* SHA-256 同读透仅在启用验签的支持包编译（F103 不链 bl_sha256.c） */
+    bl_sha256_t sha;
+    if (sha256_out != 0) {
+        bl_sha256_init(&sha);
+    }
+#endif
     uint32_t crc = BL_CRC32_INIT;
     for (uint32_t done = 0; done < size; done += BL_VERIFY_CHUNK) {
         uint32_t n = size - done;
@@ -195,19 +204,51 @@ bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
             return BL_STATUS_FLASH_ERROR;
         }
         crc = bl_crc32_update(crc, s_chunk, n);
+#if BL_SIGN_EN
+        if (sha256_out != 0) {
+            bl_sha256_update(&sha, s_chunk, n);
+        }
+#endif
         bl_wdg.refresh();   /* 喂狗点：每 1 KiB 块之间 */
         *calc_size = done + n;
     }
     crc ^= 0xFFFFFFFFu;
     *calc_crc = crc;
     *calc_size = size;
+#if BL_SIGN_EN
+    if (sha256_out != 0) {
+        bl_sha256_final(&sha, sha256_out);
+    }
+#endif
     if (crc != expect_crc) {
         return BL_STATUS_CRC_ERROR;
     }
-    /* 持久化幂等（review 2026-09-27 P2）：元数据已记录相同内容且无待消费
-       bl_request 时跳过重写——VERIFY 超时重发不再产生额外参数区擦写 */
-    if (!bl_meta_matches_app(size, crc) && !bl_meta_commit_app(size, crc)) {
-        return BL_STATUS_FLASH_ERROR;
+    return BL_STATUS_OK;
+}
+
+bl_status_t bl_storage_persist_app(uint32_t size, uint32_t crc32, bool auth)
+{
+    /* 持久化幂等（review 2026-09-27 P2 + ADR-020）：元数据已记录相同内容
+       （legacy 路径）/ 相同内容且已认证（签名路径）且无待消费 bl_request 时
+       跳过重写——VERIFY/VERIFY_SIGNED 超时重发不再产生额外参数区擦写 */
+    bool skip = auth ? bl_meta_matches_app_signed(size, crc32)
+                     : bl_meta_matches_app(size, crc32);
+    if (!skip) {
+        bool ok = auth ? bl_meta_commit_app_signed(size, crc32)
+                       : bl_meta_commit_app(size, crc32);
+        if (!ok) {
+            return BL_STATUS_FLASH_ERROR;
+        }
     }
     return BL_STATUS_OK;
+}
+
+bl_status_t bl_storage_verify_app(uint32_t size, uint32_t expect_crc,
+                                  uint32_t *calc_crc, uint32_t *calc_size)
+{
+    bl_status_t st = bl_storage_check_app(size, expect_crc, calc_crc, calc_size, 0);
+    if (st != BL_STATUS_OK) {
+        return st;
+    }
+    return bl_storage_persist_app(size, expect_crc, false);
 }

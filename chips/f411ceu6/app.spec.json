@@ -29,7 +29,14 @@
         "create_hex_file": false
       },
       "c_defines": [
-        "STM32F411xE"
+        "STM32F411xE",
+        "uECC_PLATFORM=0",
+        "uECC_WORD_SIZE=4",
+        "uECC_SUPPORTS_secp160r1=0",
+        "uECC_SUPPORTS_secp192r1=0",
+        "uECC_SUPPORTS_secp224r1=0",
+        "uECC_SUPPORTS_secp256k1=0",
+        "uECC_SUPPORT_COMPRESSED_POINT=0"
       ],
       "c_include_paths": [
         "..\\..\\core",

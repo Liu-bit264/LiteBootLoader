@@ -71,6 +71,8 @@
         "path": "bsp\\oled_ssd1306\\ssd1306_font.c"
       }
     ],
+    "sign_files_bl": [],
+    "_note_sign": "F103 BL 16K 预算不容验签代码（ADR-020）：签名源文件不登记，BL_SIGN_EN 固定 0，认证能力差异见 porting_guide §3.1",
     "service_files": [
       {
         "name": "bl_display_led.c",

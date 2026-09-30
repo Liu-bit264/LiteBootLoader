@@ -15,11 +15,15 @@ typedef struct {
     uint16_t app_ver_minor;
     uint16_t app_ver_patch;
     uint8_t active_copy; /* 0=A(页62) 1=B(页63) 0xFF=无有效副本 */
+    uint8_t app_auth;    /* 副本 0x24 字节：1 = 镜像已通过签名验证（0.4.0，ADR-020；
+                            旧副本该处 0xFF → 0，fail-safe） */
 } bl_meta_t;
 
 bool bl_meta_load(bl_meta_t *out);                       /* §6.1 读取规则 */
-bool bl_meta_commit_app(uint32_t size, uint32_t crc32);  /* VERIFY 持久化 */
+bool bl_meta_commit_app(uint32_t size, uint32_t crc32);  /* legacy VERIFY 持久化（auth=0） */
+bool bl_meta_commit_app_signed(uint32_t size, uint32_t crc32); /* VERIFY_SIGNED 持久化（auth=1） */
 bool bl_meta_matches_app(uint32_t size, uint32_t crc32); /* 已持久化相同内容且无待消费 bl_request */
+bool bl_meta_matches_app_signed(uint32_t size, uint32_t crc32); /* 上者 + auth=1（幂等跳过判定） */
 bool bl_meta_set_bl_request(bool set);                   /* 置位/清除 */
 bool bl_meta_set_app_version(uint16_t ma, uint16_t mi, uint16_t pa);
 
