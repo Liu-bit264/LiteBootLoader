@@ -17,6 +17,10 @@ typedef struct {
     uint8_t active_copy; /* 0=A(页62) 1=B(页63) 0xFF=无有效副本 */
     uint8_t app_auth;    /* 副本 0x24 字节：1 = 镜像已通过签名验证（0.4.0，ADR-020；
                             旧副本该处 0xFF → 0，fail-safe） */
+    uint16_t dev_id;     /* 副本 0x25-0x26 字节：写这条记录的 BL 的芯片身份
+                            （board_config BL_CHIP_DEVID = DBGMCU DEV_ID[11:0]；
+                            0.5.0，ADR-021）。0xFFFF = 未记录（0.5.0 前的旧记录或出厂态）——
+                            与 auth 同理不参与有效性判定，旧固件读到它也只是忽略 */
 } bl_meta_t;
 
 bool bl_meta_load(bl_meta_t *out);                       /* §6.1 读取规则 */

@@ -56,6 +56,7 @@ AT 配置**数据模式到 115200（USB-TTL + `AT+UART=115200,0,0`，AT 模式�
 | 状态码 | OK 0x00 / CRC_ERROR 0x01 / FLASH_ERROR 0x02 / RANGE_ERROR 0x03 / STATE_ERROR 0x04 / TIMEOUT 0x05 / SIGN_ERROR 0x06（0.4.0，ADR-020） |
 | 预留 | 命令 0x12–0x1F 预留 OTA 扩展（0x10 OTA_QUERY、0x11 VERIFY_SIGNED 已实现） |
 | 签名验签（可选） | ECDSA P-256 + SHA-256（ADR-020）：`BL_SIGN_EN=1` 的支持包实现 0x11，公钥为部署侧本地头 `bl_sign_pubkey_local.h`（不入库）；现仅 F411 可选（F103 BL 16K 预算不启用）。详见 [protocol.md](protocol.md) §5.11 |
+| 芯片身份（0.5.0，ADR-021） | `BL_CHIP_DEVID`（DBGMCU `IDCODE.DEV_ID[11:0]`）随 **GET_INFO 尾 2 B**（响应 67 → 69 B）与 **GET_META 尾 2 B**（21 → 23 B）上报，并落参数区 `0x25-0x26`；识别顺序见 protocol.md §5.2.1，字段与兼容矩阵见 partition.md §4 |
 | 协议版本 | VER = 0x01 |
 
 ## 3. 软件抽象接口

@@ -81,7 +81,7 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
         resp_status(BL_CMD_GET_INFO, seq, BL_STATUS_RANGE_ERROR);
         return;
     }
-    uint8_t d[67];
+    uint8_t d[69];      /* 67 + 2：dev_id 追加在尾部（ADR-021，向后兼容的追加式扩展） */
     uint32_t k = 0;
     bl_meta_t m;
     bl_meta_load(&m);   /* 实时读取：VERIFY 持久化后 core 缓存副本已陈旧（Review F1） */
@@ -133,6 +133,10 @@ static void handle_get_info(uint8_t seq, const uint8_t *data, uint32_t len)
         d[k++] = (uint8_t)det[w]; d[k++] = (uint8_t)(det[w] >> 8);
         d[k++] = (uint8_t)(det[w] >> 16); d[k++] = (uint8_t)(det[w] >> 24);
     }
+    /* 芯片身份（ADR-021）：本 BL 构建目标的 DBGMCU DEV_ID[11:0]——不依赖参数区，出厂态
+       设备也能报；主机侧用它把「同容量同分区的两片芯片」精确对上芯片档案 */
+    d[k++] = (uint8_t)BL_CHIP_DEVID;
+    d[k++] = (uint8_t)((uint16_t)BL_CHIP_DEVID >> 8);
     bl_protocol_send((uint8_t)(BL_CMD_GET_INFO | 0x80u), seq, d, k);
 }
 
@@ -276,7 +280,7 @@ static void handle_get_meta(uint8_t seq, const uint8_t *data, uint32_t len)
     }
     bl_meta_t m;
     bl_meta_load(&m);
-    uint8_t d[21];
+    uint8_t d[23];      /* 21 + 2：dev_id 追加在尾部（ADR-021） */
     uint32_t k = 0;
     d[k++] = (uint8_t)BL_STATUS_OK;
     d[k++] = (uint8_t)m.seq; d[k++] = (uint8_t)(m.seq >> 8);
@@ -291,6 +295,11 @@ static void handle_get_meta(uint8_t seq, const uint8_t *data, uint32_t len)
     d[k++] = (uint8_t)m.app_crc32; d[k++] = (uint8_t)(m.app_crc32 >> 8);
     d[k++] = (uint8_t)(m.app_crc32 >> 16); d[k++] = (uint8_t)(m.app_crc32 >> 24);
     d[k++] = m.active_copy;
+    /* 参数区里记录的芯片身份（ADR-021）：0xFFFF = 未记录（出厂态或 0.5.0 前的旧记录）。
+       注意与 GET_INFO 的 dev_id 语义不同——那个是「本 BL 的构建目标」，这个是「记录里存的」，
+       两者不等说明记录由别的芯片构建写就（跨烧取证），或尚未自愈补写 */
+    d[k++] = (uint8_t)m.dev_id;
+    d[k++] = (uint8_t)(m.dev_id >> 8);
     bl_protocol_send((uint8_t)(BL_CMD_GET_META | 0x80u), seq, d, k);
 }
 

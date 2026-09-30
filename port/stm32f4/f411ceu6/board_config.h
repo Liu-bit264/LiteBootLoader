@@ -31,6 +31,12 @@
 /* ---- 板级标识（显示服务消费，服务层不携带芯片事实——审计 2026-09-29 P2-4） ---- */
 #define BL_CHIP_NAME           "F411CE"
 
+/* ---- 芯片身份（ADR-021）：DBGMCU IDCODE 的 DEV_ID[11:0]（RM0383 §38.6.1，F411 = 0x431）。
+   随 GET_INFO / GET_META 上报，并落参数区记录（0x25-0x26）——同 Flash 容量且同 APP 分区的
+   芯片在协议层既分不开容量指纹也分不开 VERIFY 探针，DEV_ID 是唯一的型号级标识。
+   与 chips/<id>.json 的 device.dev_id 一致性由 chips/test_chip.py 强制。 ---- */
+#define BL_CHIP_DEVID          0x0431u
+
 /* ---- 行为常量 ---- */
 #define BL_TRANSPORT_BT_EN     0       /* 本支持包未接蓝牙：通道 1 槽位保留（OTA_QUERY 通道号语义不变） */
 #define BL_SIGN_EN             0       /* 签名验签可选项（ADR-020）：默认关闭（主线构建与关闭态
