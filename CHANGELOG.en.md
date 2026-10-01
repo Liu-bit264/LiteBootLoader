@@ -36,6 +36,57 @@ All notable changes to this project are documented in this file. The format is b
   `docs/dev/test_plan.md` §5); the 8 MHz branch has no matching hardware and is only
   guaranteed to be selectable at compile time.
 
+## [0.5.0] - 2026-09-30
+
+Chip identity: the host tool can now identify the chip model unambiguously (ADR-021).
+Protocol `VER` stays 0x01 — these are **append-only** fields: no frame-format change, no
+new command.
+
+### Added
+
+- **Chip identity `BL_CHIP_DEVID`** (`board_config.h`, taken from the DBGMCU
+  `IDCODE.DEV_ID[11:0]`: F103 medium density 0x410 / F411 0x431): kept in sync with
+  `chips/<id>.json`'s `device.dev_id` by `chips/test_chip.py` (uniqueness is judged on
+  `(dev_id, flash size)` — the F4 value 0x413 covers F405/407/415/417 of every density).
+- **GET_INFO reports the chip identity** (protocol.md §5.2): the response grows 67 →
+  **69 B** with a trailing LE16. The value does not depend on the parameter area, so even a
+  factory-fresh device reports its model; §5.2.1 adds the identification order
+  (`dev_id` + flash size → capacity fingerprint → read-only VERIFY probe → report the
+  ambiguity).
+- **The parameter area records the chip identity** (partition.md §4): copy bytes
+  `0x25-0x26` hold the `BL_CHIP_DEVID` of the BL that wrote the record (LE16); the record
+  image grows `0x25` → `0x28`. GET_META reports it (21 → **23 B**, protocol.md §5.7,
+  `0xFFFF` = not recorded) for traceability — readable offline straight from the area.
+
+### Changed
+
+- `bl_meta_matches_app` now includes the chip identity in its equivalence test → a
+  **self-healing path**: a pre-0.5.0 record gets the identity stamped along with the next
+  VERIFY persistence, with no extra write cycle.
+- Version: `core/bl_version.h` 0.4.0 → **0.5.0**; `docs/dev/versioning.md` synchronised
+  (including its long-stale "current version" line).
+
+### Notes
+
+- **Compatibility**: old firmware reads only the first `0x25` bytes of a new record and its
+  validity test ignores `0x25-0x28`, so its behaviour is unchanged; new firmware reading an
+  old record sees `0xFF` there and treats it as "not recorded"; old hosts keep reading the
+  67/21 B responses, new hosts parse by actual LEN (a short response simply carries no
+  identity).
+- **Sizes and artifacts (measured, AC5 -Ospace, 0 Error 0 Warning)**: F103 BL 12 588 →
+  **12 756 B** (+168, limit 16 KiB, `ac82e600…`), F103 APP 8 364 → 8 396 B (+32,
+  `23411221…`); F411 BL 12 996 → **13 168 B** (+172, limit 32 KiB, `706c44a9…`), F411 APP
+  6 480 → 6 512 B (+32, `896ee6e3…`).
+- Validation status: `chips/test_chip.py` **13/13** (new dev_id consistency case); full
+  rebuilds of both chips with 0 errors 0 warnings; **verified on an actual STM32F103C8T6** —
+  the selftest passes **15/15** (its `META persistence seq=1060` step goes through the new
+  commit path), GET_INFO comes back **69 B** with `0x0410` in its tail and GET_META **23 B**
+  with the same value; the **compatibility matrix and self-healing were exercised in
+  sequence**: flash the 0.4.0 BL and write a legacy record (GET_META 21 B, no identity) →
+  flash 0.5.0, read that record as `0xFFFF` (not recorded — no false identity) → one VERIFY
+  persistence stamps it as `0x0410`. **No F411 board run** (no board available); its
+  coverage is host-side tests plus the build.
+
 ## [0.4.0] - 2026-09-30
 
 Optional signature verification for F411 (ADR-020, landing the ADR-017 hook point):

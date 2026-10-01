@@ -27,6 +27,12 @@
 /* ---- 板级标识（显示服务消费，服务层不携带芯片事实——审计 2026-09-29 P2-4） ---- */
 #define BL_CHIP_NAME           "F103C8"
 
+/* ---- 芯片身份（ADR-021）：DBGMCU IDCODE 的 DEV_ID[11:0]（RM0008 §31.6.1，中容量 0x410）。
+   随 GET_INFO / GET_META 上报，并落参数区记录（0x25-0x26）——同 Flash 容量且同 APP 分区的
+   芯片在协议层既分不开容量指纹也分不开 VERIFY 探针，DEV_ID 是唯一的型号级标识。
+   与 chips/<id>.json 的 device.dev_id 一致性由 chips/test_chip.py 强制。 ---- */
+#define BL_CHIP_DEVID          0x0410u
+
 /* ---- 行为常量 ---- */
 #define BL_TRANSPORT_BT_EN     0       /* 0=蓝牙通道不进默认示例配置（ADR-019：BL 示例最小化，
                                           uart2.c 不在 chips/f103c8t6.json 构建清单）。启用方式见

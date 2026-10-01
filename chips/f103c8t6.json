@@ -5,6 +5,7 @@
   "device": {
     "name": "STM32F103C8",
     "vendor": "STMicroelectronics",
+    "dev_id": "0x0410",
     "pack_id": "Keil.STM32F1xx_DFP.2.4.1",
     "cputype": "Cortex-M3",
     "cpu_clock": "CLOCK(8000000)",

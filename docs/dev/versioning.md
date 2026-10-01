@@ -1,21 +1,21 @@
 # 版本与提交规范（versioning）
 
-> 版本 0.3.0 · 2026-09-25 初版 · 2026-09-29 修订 · 状态：与实现同步
+> 版本 0.5.0 · 2026-09-25 初版 · 2026-09-30 修订 · 状态：与实现同步
 > 上位规则：[../../AGENTS.md](../../AGENTS.md) §10（SemVer 2.0.0 + Conventional Commits 1.0.0），本文为其操作细则。
 
 ## 1. 语义化版本（SemVer 2.0.0）
 
 - 格式 `MAJOR.MINOR.PATCH`，Git tag `vX.Y.Z`。
 - `fix` → PATCH；`feat` → MINOR；`BREAKING CHANGE`（提交脚注或 `!`）→ MAJOR。
-- **当前版本 `0.3.0`**（0.1.0 基础链路 / 0.2.0 蓝牙空口 / 0.3.0 服务可选挂载，见 [CHANGELOG](../../CHANGELOG.md)）。`0.x` 阶段允许 MINOR 内包含破坏性调整；`1.0.0` 于首次硬件在环验收通过后打标。
+- **当前版本 `0.5.0`**（0.1.0 基础链路 / 0.2.0 蓝牙空口 / 0.3.0 服务可选挂载 / 0.4.0 可选签名验签 / 0.5.0 芯片身份上报与参数区记录，见 [CHANGELOG](../../CHANGELOG.md)）。`0.x` 阶段允许 MINOR 内包含破坏性调整；`1.0.0` 于首次硬件在环验收通过后打标。
 
 ## 2. BL 固件版本（`core/bl_version.h`）
 
 ```c
 #define BL_VERSION_MAJOR 0
-#define BL_VERSION_MINOR 3
+#define BL_VERSION_MINOR 5
 #define BL_VERSION_PATCH 0
-#define BL_VERSION_STRING "0.3.0"
+#define BL_VERSION_STRING "0.5.0"
 ```
 
 规则：

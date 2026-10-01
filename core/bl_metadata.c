@@ -6,7 +6,8 @@
 /* 页内布局（partition.md §4，多字节小端）：0x00 magic / 0x04 seq / 0x08 app_size /
    0x0C app_crc32 / 0x10 flags / 0x14-0x19 版本 / 0x1A-0x1F 保留0 / 0x20 crc32(覆盖0x00-0x1F) */
 #define META_HDR_SIZE  0x20u
-#define META_IMG_SIZE  0x25u   /* 0.4.0：0x24 = auth 标志（ADR-020），其余保持 0xFF */
+#define META_IMG_SIZE  0x28u   /* 0x24 = auth（0.4.0，ADR-020）/ 0x25-0x26 = dev_id（0.5.0，
+                                  ADR-021）/ 0x27 保留 0xFF；取 4 字节对齐（半字编程尾补可控） */
 static const uint8_t k_magic[4] = { 0x42u, 0x4Cu, 0x50u, 0x31u }; /* "BLP1" */
 
 static bl_meta_t s_meta;
@@ -64,6 +65,8 @@ static bool eval_copy(uint32_t page_addr, bl_meta_t *out)
     out->app_ver_minor = rd16(&img[0x16]);
     out->app_ver_patch = rd16(&img[0x18]);
     out->app_auth = (img[0x24] == 0x01u) ? 1u : 0u;
+    /* 0.5.0 前的旧记录该处为 0xFF（未写过）→ 0xFFFF = 未记录，不当作芯片身份 */
+    out->dev_id = rd16(&img[0x25]);
     return true;
 }
 
@@ -127,6 +130,7 @@ bool bl_meta_load(bl_meta_t *out)
         s_meta.flags = 0u;
         s_meta.app_ver_major = s_meta.app_ver_minor = s_meta.app_ver_patch = 0u;
         s_meta.app_auth = 0u;
+        s_meta.dev_id = 0xFFFFu;   /* 未记录 */
     }
     s_meta.active_copy = s_active;
     s_loaded = true;
@@ -157,9 +161,10 @@ static void build_image(uint8_t *img, uint32_t seq, uint32_t size, uint32_t crc,
     }
     le32(&img[META_HDR_SIZE], bl_crc32_iso_hdlc(img, META_HDR_SIZE));
     img[0x24] = auth;   /* 认证标志（ADR-020）：0xFF init → 非 0x01 值按未认证读回 */
+    le16(&img[0x25], (uint16_t)BL_CHIP_DEVID);   /* 芯片身份（ADR-021）；0x27 保持 0xFF */
 }
 
-/* 掉电安全写（partition.md §6.2）：擦目标副本所在单元 -> 写 0x25B -> 回读校验 */
+/* 掉电安全写（partition.md §6.2）：擦目标副本所在单元 -> 写 0x28B -> 回读校验 */
 static bool write_copy(uint8_t copy_idx, uint32_t seq, uint32_t size, uint32_t crc,
                        uint32_t flags, uint16_t ma, uint16_t mi, uint16_t pa,
                        uint8_t auth)
@@ -241,11 +246,14 @@ bool bl_meta_commit_app_signed(uint32_t size, uint32_t crc32)
 bool bl_meta_matches_app(uint32_t size, uint32_t crc32)
 {
     /* 与 commit_app 将写入的内容逐项等价（size/crc 相同、flags 不含待消费
-       bl_request、版本字段本就沿用）才允许跳过重写；auth 不在判定内——
-       legacy 重验已签名镜像时跳过重写，auth 标志得以保留 */
+       bl_request、版本字段本就沿用、芯片身份已写过）才允许跳过重写；
+       auth 不在判定内——legacy 重验已签名镜像时跳过重写，auth 标志得以保留。
+       dev_id 在判定内（ADR-021）是自愈路径：0.5.0 前的旧记录该处为 0xFFFF，
+       下一次 VERIFY 会顺带把芯片身份补写进去，无需额外写周期。 */
     return s_loaded && s_active != 0xFFu &&
            s_meta.app_size == size && s_meta.app_crc32 == crc32 &&
-           (s_meta.flags & BL_META_FLAG_BL_REQUEST) == 0u;
+           (s_meta.flags & BL_META_FLAG_BL_REQUEST) == 0u &&
+           s_meta.dev_id == (uint16_t)BL_CHIP_DEVID;
 }
 
 bool bl_meta_matches_app_signed(uint32_t size, uint32_t crc32)

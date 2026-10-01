@@ -348,6 +348,25 @@ class BoardConfigConsistencyTest(unittest.TestCase):
                 self.assertIn(f"IROM(0x{rb:08X},0x{rs:X})", derived["cpu_bootloader"])
                 self.assertIn(f"IROM(0x{ab:08X},0x{asz:X})", derived["cpu_app"])
 
+    def test_dev_id(self):
+        """芯片身份（ADR-021）：chip.json 的 device.dev_id == board_config 的 BL_CHIP_DEVID。
+
+        该宏同时用于 GET_INFO / GET_META 上报与参数区记录（0x25-0x26），两侧不一致会让
+        主机侧把设备对到错误的芯片档案上。DEV_ID 只到型号系列粒度（F4 的 0x413 覆盖
+        F405/407/415/417 各容量），所以唯一性按 (dev_id, Flash 容量) 判定。"""
+        seen = {}
+        for chip, _ in self.data.values():
+            with self.subTest(chip=chip["id"]):
+                dev = chip.get("device") or {}
+                raw = dev.get("dev_id")
+                self.assertIsNotNone(raw, "device.dev_id 缺失（ADR-021）")
+                want = int(str(raw), 16)
+                self.assertEqual(want & ~0xFFF, 0, f"dev_id 超出 DEV_ID[11:0]：{raw}")
+                self.assertEqual(self.val(chip["id"], "BL_CHIP_DEVID"), want)
+                key = (want, self.hval(chip["memory"]["flash_size"]))
+                self.assertNotIn(key, seen,
+                                 f"(dev_id, Flash 容量) 与 {seen.get(key)} 撞车：{raw}")
+
     def test_copy_units_independent(self):
         """双副本必须各落在独立的擦除单元内（掉电安全语义的前提，ADR-005/015）。"""
         for chip, _ in self.data.values():
